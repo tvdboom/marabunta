@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use bevy::window::WindowMode;
 use bevy::winit::WinitWindows;
 use bevy_kira_audio::prelude::*;
+use bevy_renet::netcode::{NetcodeClientPlugin, NetcodeServerPlugin};
+use bevy_renet::{RenetClientPlugin, RenetServerPlugin};
 use winit::window::Icon;
 
 pub const TITLE: &str = "Marabunta";
@@ -39,6 +41,8 @@ fn main() {
                 ..default()
             }),
     )
+    // Networking: systems are disabled until server/client resource is added
+    .add_plugins((RenetServerPlugin, NetcodeServerPlugin, RenetClientPlugin, NetcodeClientPlugin))
     .add_plugins((AudioPlugin, GamePlugin));
 
     #[cfg(target_os = "windows")]

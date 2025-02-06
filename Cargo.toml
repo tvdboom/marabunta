@@ -38,5 +38,8 @@ bevy = { version = "0.15.1", default-features = false, features = [
     "x11",
 ]}
 bevy_kira_audio = "0.22.0"
+bevy_renet = "1.0.0"
 image = "0.25.5"
 winit = "0.30.8"
+regex = "1.11.1"
+bincode = "2.0.0-rc.3"

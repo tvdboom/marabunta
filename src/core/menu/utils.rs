@@ -1,3 +1,4 @@
+use crate::core::assets::WorldAssets;
 use crate::core::menu::constants::*;
 use bevy::prelude::*;
 
@@ -8,7 +9,7 @@ pub fn despawn_menu<T: Component>(component: Query<Entity, With<T>>, mut command
     }
 }
 
-pub fn create_root_node() -> Node {
+pub fn add_root_node() -> Node {
     Node {
         width: Val::Percent(100.),
         height: Val::Percent(100.),
@@ -22,14 +23,14 @@ pub fn create_root_node() -> Node {
     }
 }
 
-pub fn create_button_node() -> (Node, BackgroundColor) {
+pub fn add_button_node() -> (Node, BackgroundColor) {
     (
         Node {
-            display: Display::Block,
+            display: Display::Flex,
             width: Val::Px(350.),
             height: Val::Px(80.),
-            justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             margin: UiRect::all(Val::Px(15.)),
             padding: UiRect::all(Val::Px(15.)),
             ..default()
@@ -38,11 +39,11 @@ pub fn create_button_node() -> (Node, BackgroundColor) {
     )
 }
 
-pub fn create_button_text(text: String, asset_server: &Res<AssetServer>) -> (Text, TextFont) {
+pub fn add_button_text(text: impl Into<String>, assets: &Local<WorldAssets>) -> (Text, TextFont) {
     (
         Text::new(text),
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: assets.font("FiraSans-Bold"),
             font_size: 40.,
             ..default()
         },
