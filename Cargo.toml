@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.15.1", default-features = false, features = [
+bevy = { version = "0.15.2", default-features = false, features = [
     "animation",
     "bevy_asset",
     "bevy_color",
@@ -40,6 +40,5 @@ bevy = { version = "0.15.1", default-features = false, features = [
 bevy_kira_audio = "0.22.0"
 bevy_renet = "1.0.0"
 image = "0.25.5"
-winit = "0.30.8"
+winit = "0.30.9"
 regex = "1.11.1"
-bincode = "2.0.0-rc.3"

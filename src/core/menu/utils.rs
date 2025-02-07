@@ -1,45 +1,45 @@
 use crate::core::assets::WorldAssets;
-use crate::core::menu::constants::*;
 use bevy::prelude::*;
+use std::fmt::Debug;
 
-/// Generic system that takes a component as a parameter, and despawns all entities with that component
+/// Change the background color of an entity
+pub fn recolor<E: Debug + Clone + Reflect>(
+    color: Color,
+) -> impl Fn(Trigger<E>, Query<&mut BackgroundColor>) {
+    move |ev, mut bgcolor_q| {
+        if let Ok(mut bgcolor) = bgcolor_q.get_mut(ev.entity()) {
+            bgcolor.0 = color;
+        };
+    }
+}
+
+/// Generic system that despawns all entities with a specific component
 pub fn despawn_menu<T: Component>(component: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &component {
         commands.entity(entity).despawn_recursive();
     }
 }
 
-pub fn add_root_node() -> Node {
-    Node {
-        width: Val::Percent(100.),
-        height: Val::Percent(100.),
-        position_type: PositionType::Absolute,
-        flex_direction: FlexDirection::Column,
-        align_content: AlignContent::Center,
-        align_items: AlignItems::Center,
-        align_self: AlignSelf::Center,
-        justify_content: JustifyContent::Center,
-        ..default()
-    }
-}
-
-pub fn add_button_node() -> (Node, BackgroundColor) {
+/// Add a root UI node that covers the whole screen
+pub fn add_root_node() -> (Node, PickingBehavior) {
     (
         Node {
-            display: Display::Flex,
-            width: Val::Px(350.),
-            height: Val::Px(80.),
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
+            align_content: AlignContent::Center,
             align_items: AlignItems::Center,
+            align_self: AlignSelf::Center,
             justify_content: JustifyContent::Center,
-            margin: UiRect::all(Val::Px(15.)),
-            padding: UiRect::all(Val::Px(15.)),
             ..default()
         },
-        BackgroundColor(NORMAL_BUTTON.into()),
+        PickingBehavior::IGNORE, // Ignore picking to not block others
     )
 }
 
-pub fn add_button_text(text: impl Into<String>, assets: &Local<WorldAssets>) -> (Text, TextFont) {
+/// Add a standard text component
+pub fn add_text(text: impl Into<String>, assets: &Local<WorldAssets>) -> (Text, TextFont) {
     (
         Text::new(text),
         TextFont {

@@ -1,24 +1,87 @@
 use crate::core::assets::WorldAssets;
 use crate::core::menu::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
-use crate::core::menu::utils::{add_button_node, add_button_text, add_root_node};
-use crate::core::states::{GameState};
+use crate::core::menu::utils::{add_root_node, add_text, recolor};
+use crate::core::network::{new_renet_client, new_renet_server};
+use crate::core::states::GameState;
 use crate::utils::NameFromEnum;
+use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
 use bevy_renet::renet::{RenetClient, RenetServer};
-use crate::core::network::{new_renet_client, new_renet_server};
-use crate::TITLE;
+use std::fmt::Debug;
 
 #[derive(Component)]
 pub struct MenuComponent;
 
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug)]
 pub enum MenuBtn {
     HostGame,
     FindGame,
     Play,
     BackToMenu,
     Quit,
+}
+
+fn on_click_menu_button(
+    click: Trigger<Pointer<Click>>,
+    btn_q: Query<&MenuBtn>,
+    mut commands: Commands,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    match btn_q.get(click.entity()).unwrap() {
+        MenuBtn::HostGame => {
+            let (server, transport) = new_renet_server();
+            commands.insert_resource(server);
+            commands.insert_resource(transport);
+
+            next_game_state.set(GameState::Lobby);
+        }
+        MenuBtn::FindGame => {
+            let (server, transport) = new_renet_client();
+            commands.insert_resource(server);
+            commands.insert_resource(transport);
+
+            next_game_state.set(GameState::Lobby);
+        }
+        MenuBtn::Play => {
+            next_game_state.set(GameState::Game);
+        }
+        MenuBtn::BackToMenu => {
+            commands.remove_resource::<RenetServer>();
+            commands.remove_resource::<NetcodeServerTransport>();
+            commands.remove_resource::<RenetClient>();
+            commands.remove_resource::<NetcodeClientTransport>();
+
+            next_game_state.set(GameState::Menu)
+        }
+        MenuBtn::Quit => std::process::exit(0),
+    }
+}
+
+fn spawn_menu_button(parent: &mut ChildBuilder, btn: MenuBtn, assets: &Local<WorldAssets>) {
+    parent
+        .spawn((
+            Node {
+                display: Display::Flex,
+                width: Val::Px(350.),
+                height: Val::Px(80.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                margin: UiRect::all(Val::Px(15.)),
+                padding: UiRect::all(Val::Px(15.)),
+                ..default()
+            },
+            BackgroundColor(NORMAL_BUTTON.into()),
+            btn.clone(),
+        ))
+        .observe(recolor::<Pointer<Over>>(HOVERED_BUTTON))
+        .observe(recolor::<Pointer<Out>>(NORMAL_BUTTON))
+        .observe(recolor::<Pointer<Down>>(PRESSED_BUTTON))
+        .observe(recolor::<Pointer<Up>>(HOVERED_BUTTON))
+        .observe(on_click_menu_button)
+        .with_children(|parent| {
+            parent.spawn(add_text(btn.as_string(), assets));
+        });
 }
 
 pub fn setup_menu(
@@ -51,49 +114,32 @@ pub fn setup_menu(
 
             match game_state.get() {
                 GameState::Menu => {
-                    parent
-                        .spawn((add_button_node(), Button, MenuBtn::HostGame))
-                        .with_children(|parent| {
-                            parent.spawn(add_button_text(MenuBtn::HostGame.as_string(), &assets));
-                        });
-
-                    parent
-                        .spawn((add_button_node(), Button, MenuBtn::FindGame))
-                        .with_children(|parent| {
-                            parent.spawn(add_button_text(MenuBtn::FindGame.as_string(), &assets));
-                        });
+                    spawn_menu_button(parent, MenuBtn::HostGame, &assets);
+                    spawn_menu_button(parent, MenuBtn::FindGame, &assets);
 
                     #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        parent
-                            .spawn((add_button_node(), Button, MenuBtn::Quit))
-                            .with_children(|parent| {
-                                parent.spawn(add_button_text(MenuBtn::Quit.as_string(), &assets));
-                            });
-                    }
-                },
+                    spawn_menu_button(parent, MenuBtn::Quit, &assets);
+                }
                 GameState::Lobby => {
                     if server.is_some() {
                         let n_players = server.unwrap().clients_id().len();
-                        parent.spawn(add_button_text(format!("There are {n_players} players in the lobby..."), &assets));
+                        parent.spawn(add_text(
+                            format!("There are {n_players} players in the lobby..."),
+                            &assets,
+                        ));
 
                         if n_players > 0 {
-                            parent
-                                .spawn((add_button_node(), Button, MenuBtn::Play))
-                                .with_children(|parent| {
-                                    parent.spawn(add_button_text(MenuBtn::Play.as_string(), &assets));
-                                });
+                            spawn_menu_button(parent, MenuBtn::Play, &assets);
                         }
                     } else {
-                        parent.spawn(add_button_text("Waiting for the host to start the game...", &assets));
+                        parent.spawn(add_text(
+                            "Waiting for the host to start the game...",
+                            &assets,
+                        ));
                     }
 
-                    parent
-                        .spawn((add_button_node(), Button, MenuBtn::BackToMenu))
-                        .with_children(|parent| {
-                            parent.spawn(add_button_text(MenuBtn::BackToMenu.as_string(), &assets));
-                        });
-                },
+                    spawn_menu_button(parent, MenuBtn::BackToMenu, &assets);
+                }
                 _ => (),
             }
 
@@ -115,58 +161,4 @@ pub fn setup_menu(
                     ));
                 });
         });
-}
-
-pub fn btn_interact(
-    mut interaction_q: Query<
-        (&Interaction, &mut BackgroundColor),
-        (Changed<Interaction>, With<MenuBtn>),
-    >,
-) {
-    for (interaction, mut background_color) in &mut interaction_q {
-        *background_color = match *interaction {
-            Interaction::None => NORMAL_BUTTON.into(),
-            Interaction::Hovered => HOVERED_BUTTON.into(),
-            Interaction::Pressed => PRESSED_BUTTON.into(),
-        }
-    }
-}
-
-pub fn btn_listener(
-    mut commands: Commands,
-    interaction_q: Query<(&Interaction, &MenuBtn), Changed<Interaction>>,
-    mut next_game_state: ResMut<NextState<GameState>>,
-) {
-    for (interaction, button) in &interaction_q {
-        if *interaction == Interaction::Pressed {
-            match button {
-                MenuBtn::HostGame => {
-                    let (server, transport) = new_renet_server();
-                    commands.insert_resource(server);
-                    commands.insert_resource(transport);
-
-                    next_game_state.set(GameState::Lobby);
-                },
-                MenuBtn::FindGame => {
-                    let (server, transport) = new_renet_client();
-                    commands.insert_resource(server);
-                    commands.insert_resource(transport);
-
-                    next_game_state.set(GameState::Lobby);
-                },
-                MenuBtn::Play => {
-                    next_game_state.set(GameState::Game);
-                },
-                MenuBtn::BackToMenu => {
-                    commands.remove_resource::<RenetServer>();
-                    commands.remove_resource::<NetcodeServerTransport>();
-                    commands.remove_resource::<RenetClient>();
-                    commands.remove_resource::<NetcodeClientTransport>();
-
-                    next_game_state.set(GameState::Menu)
-                },
-                MenuBtn::Quit => std::process::exit(0),
-            }
-        }
-    }
 }

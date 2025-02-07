@@ -1,20 +1,17 @@
-use crate::core::states::{GameState, MusicState, PauseState};
+use crate::core::audio::ToggleMusicEv;
+use crate::core::states::{GameState, PauseState};
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
 
 pub fn keys_listener(
     keyboard: Res<ButtonInput<KeyCode>>,
-    music_state: Res<State<MusicState>>,
     game_state: Res<State<GameState>>,
     pause_state: Res<State<PauseState>>,
-    mut next_music_state: ResMut<NextState<MusicState>>,
+    mut toggle_music_ev: EventWriter<ToggleMusicEv>,
     mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyM) {
-        match music_state.get() {
-            MusicState::Playing => next_music_state.set(MusicState::Stopped),
-            MusicState::Stopped => next_music_state.set(MusicState::Playing),
-        }
+        toggle_music_ev.send(ToggleMusicEv);
     }
 
     if *game_state.get() == GameState::Game {

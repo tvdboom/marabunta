@@ -1,5 +1,5 @@
-use std::fmt::Debug;
 use regex::Regex;
+use std::fmt::Debug;
 
 /// Trait to get the text of an enum variant
 pub trait NameFromEnum {
