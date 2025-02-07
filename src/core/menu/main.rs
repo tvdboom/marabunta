@@ -22,6 +22,9 @@ pub enum MenuBtn {
     Quit,
 }
 
+#[derive(Component)]
+pub struct NPlayersCmp;
+
 fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
     btn_q: Query<&MenuBtn>,
@@ -122,15 +125,15 @@ pub fn setup_menu(
                 }
                 GameState::Lobby => {
                     if server.is_some() {
-                        let n_players = server.unwrap().clients_id().len();
-                        parent.spawn(add_text(
-                            format!("There are {n_players} players in the lobby..."),
-                            &assets,
-                        ));
+                        let n_players = server.unwrap().clients_id().len() + 1;
 
-                        if n_players > 0 {
-                            spawn_menu_button(parent, MenuBtn::Play, &assets);
-                        }
+                        parent.spawn((
+                            add_text(
+                                format!("There are {n_players} players in the lobby..."),
+                                &assets,
+                            ),
+                            NPlayersCmp,
+                        ));
                     } else {
                         parent.spawn(add_text(
                             "Waiting for the host to start the game...",

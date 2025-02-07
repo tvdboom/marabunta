@@ -1,11 +1,14 @@
-use crate::core::states::GameState;
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::{ConnectionConfig, RenetClient, RenetServer, ServerEvent};
 use std::net::UdpSocket;
 use std::time::SystemTime;
+use crate::core::menu::main::NPlayersCmp;
 
 const PROTOCOL_ID: u64 = 7;
+
+#[derive(Event)]
+pub struct NPlayersEv;
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
     let server_addr = "127.0.0.1:5000".parse().unwrap();
@@ -48,22 +51,30 @@ pub fn new_renet_server() -> (RenetServer, NetcodeServerTransport) {
 }
 
 pub fn server_update(
-    mut server_events: EventReader<ServerEvent>,
-    game_state: Res<State<GameState>>,
-    mut next_game_state: ResMut<NextState<GameState>>,
+    mut server_ev: EventReader<ServerEvent>,
+    mut n_players_ev: EventWriter<NPlayersEv>,
 ) {
-    for event in server_events.read() {
+    for event in server_ev.read() {
+        n_players_ev.send(NPlayersEv);
         match event {
             ServerEvent::ClientConnected { client_id } => {
-                println!("Player {} connected.", client_id);
-
-                if *game_state.get() == GameState::Lobby {
-                    next_game_state.set(GameState::Lobby);
-                }
+                println!("Player {client_id} connected.");
             }
             ServerEvent::ClientDisconnected { client_id, reason } => {
-                println!("Player {} disconnected: {}", client_id, reason);
+                println!("Player {client_id} disconnected: {reason}");
             }
+        }
+    }
+}
+
+pub fn network_events(
+    server: Res<RenetServer>,
+    mut n_players_ev: EventReader<NPlayersEv>,
+    mut n_players_q: Query<&mut Text, With<NPlayersCmp>>,
+) {
+    for _ in n_players_ev.read() {
+        if let Ok(mut text) = n_players_q.get_single_mut() {
+            text.0 = format!("There are {} players in the lobby...", server.clients_id().len() + 1)
         }
     }
 }

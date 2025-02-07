@@ -8,7 +8,7 @@ mod systems;
 use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
 use crate::core::menu::main::{setup_menu, MenuComponent};
 use crate::core::menu::utils::despawn_menu;
-use crate::core::network::server_update;
+use crate::core::network::{network_events, server_update, NPlayersEv};
 use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::systems::keys_listener;
 use bevy::prelude::*;
@@ -29,7 +29,7 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(MusicState::Stopped), stop_music)
             .add_systems(Update, toggle_music)
             //Networking
-            .add_systems(Update, server_update.run_if(resource_exists::<RenetServer>))
+            .add_systems(Update, (server_update, network_events).run_if(resource_exists::<RenetServer>))
             // Menu
             .add_systems(OnEnter(GameState::Menu), setup_menu)
             .add_systems(OnExit(GameState::Menu), despawn_menu::<MenuComponent>)
@@ -41,7 +41,8 @@ impl Plugin for GamePlugin {
             .init_state::<PauseState>()
             .init_state::<MusicState>()
             //Events
-            .add_event::<ToggleMusicEv>();
+            .add_event::<ToggleMusicEv>()
+            .add_event::<NPlayersEv>();
     }
 }
 
