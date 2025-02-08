@@ -5,6 +5,7 @@ pub enum GameState {
     #[default]
     Menu,
     Lobby,
+    ConnectedLobby,
     Game,
 }
 

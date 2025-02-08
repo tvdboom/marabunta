@@ -1,17 +1,16 @@
 use crate::core::assets::WorldAssets;
 use crate::core::menu::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::core::menu::utils::{add_root_node, add_text, recolor};
-use crate::core::network::{new_renet_client, new_renet_server};
+use crate::core::network::{new_renet_client, new_renet_server, Player, ServerMessage};
 use crate::core::states::GameState;
 use crate::utils::NameFromEnum;
 use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
-use bevy_renet::renet::{RenetClient, RenetServer};
-use std::fmt::Debug;
+use bevy_renet::renet::{DefaultChannel, RenetClient, RenetServer};
 
 #[derive(Component)]
-pub struct MenuComponent;
+pub struct MenuCmp;
 
 #[derive(Component, Clone, Debug)]
 pub enum MenuBtn {
@@ -27,12 +26,20 @@ pub struct NPlayersCmp;
 
 fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
-    btn_q: Query<&MenuBtn>,
     mut commands: Commands,
+    btn_q: Query<&MenuBtn>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    server: Option<ResMut<RenetServer>>,
+    mut client: Option<ResMut<RenetClient>>,
 ) {
     match btn_q.get(click.entity()).unwrap() {
         MenuBtn::HostGame => {
+            // Remove client resources if they exist
+            if client.is_some() {
+                commands.remove_resource::<RenetClient>();
+                commands.remove_resource::<NetcodeClientTransport>();
+            }
+
             let (server, transport) = new_renet_server();
             commands.insert_resource(server);
             commands.insert_resource(transport);
@@ -47,13 +54,24 @@ fn on_click_menu_button(
             next_game_state.set(GameState::Lobby);
         }
         MenuBtn::Play => {
+            let mut server = server.unwrap();
+
+            // Send the start game signal to all clients with their player number
+            for (i, client) in server.clients_id().iter().enumerate() {
+                let message = bincode::serialize(&ServerMessage::StartGame(i as u8 + 1)).unwrap();
+                server.send_message(*client, DefaultChannel::ReliableOrdered, message);
+            }
+
+            commands.insert_resource(Player(0)); // Host is always player 0
             next_game_state.set(GameState::Game);
         }
         MenuBtn::BackToMenu => {
-            commands.remove_resource::<RenetServer>();
-            commands.remove_resource::<NetcodeServerTransport>();
-            commands.remove_resource::<RenetClient>();
-            commands.remove_resource::<NetcodeClientTransport>();
+            if let Some(client) = client.as_mut() {
+                client.disconnect();
+            } else {
+                commands.remove_resource::<RenetServer>();
+                commands.remove_resource::<NetcodeServerTransport>();
+            }
 
             next_game_state.set(GameState::Menu)
         }
@@ -94,7 +112,7 @@ pub fn setup_menu(
     assets: Local<WorldAssets>,
 ) {
     commands
-        .spawn((add_root_node(), MenuComponent))
+        .spawn((add_root_node(), MenuCmp))
         .with_children(|parent| {
             parent
                 .spawn(Node {
@@ -123,17 +141,25 @@ pub fn setup_menu(
                     #[cfg(not(target_arch = "wasm32"))]
                     spawn_menu_button(parent, MenuBtn::Quit, &assets);
                 }
-                GameState::Lobby => {
-                    if server.is_some() {
-                        let n_players = server.unwrap().clients_id().len() + 1;
+                GameState::Lobby | GameState::ConnectedLobby => {
+                    if let Some(server) = server {
+                        let n_players = server.clients_id().len() + 1;
 
                         parent.spawn((
                             add_text(
-                                format!("There are {n_players} players in the lobby..."),
+                                if n_players == 1 {
+                                    "Waiting for other players to join...".to_string()
+                                } else {
+                                    format!("There are {} players in the lobby...", n_players)
+                                },
                                 &assets,
                             ),
                             NPlayersCmp,
                         ));
+
+                        if n_players > 1 {
+                            spawn_menu_button(parent, MenuBtn::Play, &assets);
+                        }
                     } else {
                         parent.spawn(add_text(
                             "Waiting for the host to start the game...",

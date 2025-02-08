@@ -14,7 +14,7 @@ pub fn recolor<E: Debug + Clone + Reflect>(
 }
 
 /// Generic system that despawns all entities with a specific component
-pub fn despawn_menu<T: Component>(component: Query<Entity, With<T>>, mut commands: Commands) {
+pub fn despawn_cmp<T: Component>(mut commands: Commands, component: Query<Entity, With<T>>) {
     for entity in &component {
         commands.entity(entity).despawn_recursive();
     }
