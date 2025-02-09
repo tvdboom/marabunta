@@ -6,7 +6,7 @@ pub struct Map {
 }
 
 impl Map {
-    pub const SIZE: UVec2 = UVec2::new(100, 100);
+    pub const SIZE: UVec2 = UVec2::new(50, 50);
 
     pub fn new() -> Self {
         // 73 is the index of the full soil tile

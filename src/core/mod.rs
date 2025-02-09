@@ -1,13 +1,14 @@
 mod assets;
 mod audio;
+mod camera;
 mod map;
 mod menu;
 mod network;
 mod states;
 mod systems;
-mod camera;
 
 use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
+use crate::core::camera::{resize_camera, setup_camera, zoom_on_scroll};
 use crate::core::map::systems::draw_start_map;
 use crate::core::menu::main::{setup_menu, MenuCmp};
 use crate::core::menu::utils::despawn;
@@ -16,7 +17,6 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::systems::keys_listener;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
-use crate::core::camera::{setup_camera, zoom_on_scroll, resize_camera};
 
 pub struct GamePlugin;
 
