@@ -3,9 +3,9 @@ use crate::core::states::GameState;
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::{ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent};
+use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 
 const PROTOCOL_ID: u64 = 7;
 

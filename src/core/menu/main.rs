@@ -127,7 +127,7 @@ pub fn setup_menu(
                         Text::new(TITLE),
                         TextFont {
                             font: assets.font("FiraMono-Medium"),
-                            font_size: 80.,
+                            font_size: 100.,
                             ..default()
                         },
                     ));

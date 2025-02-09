@@ -1,13 +1,15 @@
 mod assets;
 mod audio;
+mod map;
 mod menu;
 mod network;
 mod states;
 mod systems;
 
 use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
+use crate::core::map::systems::draw_start_map;
 use crate::core::menu::main::{setup_menu, MenuCmp};
-use crate::core::menu::utils::despawn_cmp;
+use crate::core::menu::utils::despawn;
 use crate::core::network::{client_receive_message, server_events, server_update, NPlayersEv};
 use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::systems::keys_listener;
@@ -42,11 +44,14 @@ impl Plugin for GamePlugin {
                     (server_update, server_events).run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
                 ),
-            );
+            )
+            // Map
+            .add_systems(Startup, draw_start_map);
 
+        // Menu
         for state in [GameState::Menu, GameState::Lobby, GameState::ConnectedLobby] {
-            app.add_systems(OnEnter(state.clone()), setup_menu)
-                .add_systems(OnExit(state.clone()), despawn_cmp::<MenuCmp>);
+            app.add_systems(OnEnter(state), setup_menu)
+                .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
     }
 }
