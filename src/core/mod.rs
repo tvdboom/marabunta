@@ -5,6 +5,7 @@ mod menu;
 mod network;
 mod states;
 mod systems;
+mod camera;
 
 use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
 use crate::core::map::systems::draw_start_map;
@@ -15,6 +16,7 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::systems::keys_listener;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use crate::core::camera::{setup_camera, zoom_on_scroll};
 
 pub struct GamePlugin;
 
@@ -30,6 +32,7 @@ impl Plugin for GamePlugin {
             .add_event::<NPlayersEv>()
             // Camera
             .add_systems(Startup, setup_camera)
+            .add_systems(Update, zoom_on_scroll)
             // Keyboard
             .add_systems(Update, keys_listener)
             // Audio
@@ -54,8 +57,4 @@ impl Plugin for GamePlugin {
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
     }
-}
-
-fn setup_camera(mut commands: Commands) {
-    commands.spawn((Camera2d, IsDefaultUiCamera));
 }
