@@ -16,7 +16,7 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::systems::keys_listener;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
-use crate::core::camera::{setup_camera, zoom_on_scroll};
+use crate::core::camera::{setup_camera, zoom_on_scroll, resize_camera};
 
 pub struct GamePlugin;
 
@@ -32,7 +32,7 @@ impl Plugin for GamePlugin {
             .add_event::<NPlayersEv>()
             // Camera
             .add_systems(Startup, setup_camera)
-            .add_systems(Update, zoom_on_scroll)
+            .add_systems(Update, (resize_camera, zoom_on_scroll))
             // Keyboard
             .add_systems(Update, keys_listener)
             // Audio
