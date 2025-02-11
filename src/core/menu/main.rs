@@ -1,13 +1,17 @@
 use crate::core::assets::WorldAssets;
 use crate::core::menu::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::core::menu::utils::{add_root_node, add_text, recolor};
-use crate::core::network::{new_renet_client, new_renet_server, Player, ServerMessage};
+use crate::core::network::{new_renet_client, new_renet_server, NPlayersEv, ServerMessage};
+use crate::core::player::Player;
 use crate::core::states::GameState;
 use crate::utils::NameFromEnum;
 use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
 use bevy_renet::renet::{DefaultChannel, RenetClient, RenetServer};
+
+#[derive(Resource)]
+pub struct NPlayers(u8);
 
 #[derive(Component)]
 pub struct MenuCmp;
@@ -22,7 +26,7 @@ pub enum MenuBtn {
 }
 
 #[derive(Component)]
-pub struct NPlayersCmp;
+pub struct LobbyTextCmp;
 
 fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
@@ -58,11 +62,11 @@ fn on_click_menu_button(
 
             // Send the start game signal to all clients with their player number
             for (i, client) in server.clients_id().iter().enumerate() {
-                let message = bincode::serialize(&ServerMessage::StartGame(i as u8 + 1)).unwrap();
+                let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
                 server.send_message(*client, DefaultChannel::ReliableOrdered, message);
             }
 
-            commands.insert_resource(Player(0)); // Host is always player 0
+            commands.insert_resource(Player::new(0)); // Host is always player 0
             next_game_state.set(GameState::Game);
         }
         MenuBtn::BackToMenu => {
@@ -109,6 +113,7 @@ pub fn setup_menu(
     mut commands: Commands,
     game_state: Res<State<GameState>>,
     server: Option<Res<RenetServer>>,
+    client: Option<Res<RenetClient>>,
     assets: Local<WorldAssets>,
 ) {
     commands
@@ -154,16 +159,23 @@ pub fn setup_menu(
                                 },
                                 &assets,
                             ),
-                            NPlayersCmp,
+                            LobbyTextCmp,
                         ));
 
                         if n_players > 1 {
                             spawn_menu_button(parent, MenuBtn::Play, &assets);
                         }
-                    } else {
-                        parent.spawn(add_text(
-                            "Waiting for the host to start the game...",
-                            &assets,
+                    } else if let Some(client) = client {
+                        parent.spawn((
+                            add_text(
+                                if client.is_connected() {
+                                    "Waiting for the host to start the game..."
+                                } else {
+                                    "Searching for a game..."
+                                },
+                                &assets,
+                            ),
+                            LobbyTextCmp,
                         ));
                     }
 
@@ -190,4 +202,27 @@ pub fn setup_menu(
                     ));
                 });
         });
+}
+
+pub fn update_lobby(
+    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+    mut server: ResMut<RenetServer>,
+    mut client: Option<Res<RenetClient>>,
+) {
+        for ev in n_players_ev.read() {
+            let message = bincode::serialize(&ServerMessage::NPlayers(ev.0)).unwrap();
+            server.broadcast_message(DefaultChannel::ReliableOrdered, message);
+
+            if let Ok(mut text) = n_players_q.get_single_mut() {
+                if ev.0 > 1 {
+                    text.0 = format!("There are {} players in the lobby...", ev.0);
+                    next_game_state.set(GameState::ConnectedLobby);
+                } else {
+                    text.0 = "Waiting for other players to join...".to_string();
+                    next_game_state.set(GameState::Lobby);
+                }
+            }
+        }
+    }
 }

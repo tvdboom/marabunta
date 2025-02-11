@@ -1,4 +1,5 @@
-use crate::core::menu::main::NPlayersCmp;
+use crate::core::menu::main::{LobbyTextCmp, NPlayers};
+use crate::core::player::Player;
 use crate::core::states::GameState;
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
@@ -9,15 +10,10 @@ use std::time::SystemTime;
 
 const PROTOCOL_ID: u64 = 7;
 
-#[derive(Resource)]
-pub struct Player(pub u8);
-
-#[derive(Event)]
-pub struct NPlayersEv(u8);
-
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
-    StartGame(u8),
+    NPlayers(usize),
+    StartGame(usize),
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
@@ -61,12 +57,13 @@ pub fn new_renet_server() -> (RenetServer, NetcodeServerTransport) {
 }
 
 pub fn server_update(
-    server: Res<RenetServer>,
+    mut server: ResMut<RenetServer>,
     mut server_ev: EventReader<ServerEvent>,
-    mut n_players_ev: EventWriter<NPlayersEv>,
 ) {
     for event in server_ev.read() {
-        n_players_ev.send(NPlayersEv(server.clients_id().len() as u8 + 1));
+        let message = bincode::serialize(&ServerMessage::NPlayers(server.clients_id().len())).unwrap();
+        server.broadcast_message(DefaultChannel::ReliableOrdered, message);
+
         match event {
             ServerEvent::ClientConnected { client_id } => {
                 println!("Player {client_id} connected.");
@@ -79,11 +76,14 @@ pub fn server_update(
 }
 
 pub fn server_events(
-    mut n_players_ev: EventReader<NPlayersEv>,
-    mut n_players_q: Query<&mut Text, With<NPlayersCmp>>,
+    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    mut server: ResMut<RenetServer>,
 ) {
     for ev in n_players_ev.read() {
+        let message = bincode::serialize(&ServerMessage::NPlayers(ev.0)).unwrap();
+        server.broadcast_message(DefaultChannel::ReliableOrdered, message);
+
         if let Ok(mut text) = n_players_q.get_single_mut() {
             if ev.0 > 1 {
                 text.0 = format!("There are {} players in the lobby...", ev.0);
@@ -98,13 +98,19 @@ pub fn server_events(
 
 pub fn client_receive_message(
     mut commands: Commands,
+    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut client: ResMut<RenetClient>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         match bincode::deserialize(&message).unwrap() {
+            ServerMessage::NPlayers(i) => {
+                if let Ok(mut text) = n_players_q.get_single_mut() {
+                    text.0 = format!("There are {i} players in the lobby.\nWaiting for the host to start the game...");
+                }
+            }
             ServerMessage::StartGame(i) => {
-                commands.insert_resource(Player(i));
+                commands.insert_resource(Player::new(i));
                 next_game_state.set(GameState::Game);
             }
         }

@@ -2936,6 +2936,7 @@ dependencies = [
  "bevy_renet",
  "bincode",
  "image",
+ "rand",
  "regex",
  "serde",
  "winit",

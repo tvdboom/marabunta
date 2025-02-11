@@ -1,51 +1,44 @@
 use crate::core::map::map::Map;
-use crate::core::map::tile::Tile;
-use bevy::input::mouse::MouseWheel;
-use bevy::{prelude::*, window::WindowResized};
+use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::prelude::*;
+use bevy::window::SystemCursorIcon;
+use bevy::winit::cursor::CursorIcon;
 
 pub const MIN_ZOOM: f32 = 0.3;
 pub const MAX_ZOOM: f32 = 1.;
 pub const ZOOM_FACTOR: f32 = 1.1;
+pub const LERP_FACTOR: f32 = 0.05;
 
 #[derive(Component)]
-pub struct MainCamera {
-    last_width: f32,
-    last_height: f32,
-}
+pub struct MainCamera;
 
-pub fn setup_camera(mut commands: Commands, window: Query<&Window>) {
-    let window = window.get_single().unwrap();
+fn clamp_to_rect(pos: Vec2, view_size: Vec2, bounds: Rect) -> Vec2 {
+    let min_x = bounds.min.x + view_size.x * 0.5;
+    let min_y = bounds.min.y + view_size.y * 0.5;
+    let max_x = bounds.max.x - view_size.x * 0.5;
+    let max_y = bounds.max.y - view_size.y * 0.5;
 
-    commands.spawn((
-        Camera2d,
-        IsDefaultUiCamera,
-        MainCamera {
-            last_width: window.width(),
-            last_height: window.height(),
-        },
-    ));
-}
-
-pub fn resize_camera(
-    mut camera_q: Query<(&mut OrthographicProjection, &mut MainCamera)>,
-    mut resize_reader: EventReader<WindowResized>,
-) {
-    for ev in resize_reader.read() {
-        let (mut projection, mut camera) = camera_q.single_mut();
-
-        if ev.width != camera.last_width || ev.height != camera.last_height {
-            let scale_factor_x = ev.width / camera.last_width;
-            let scale_factor_y = ev.height / camera.last_height;
-            let scale_factor = (scale_factor_x + scale_factor_y) / 2.0;
-
-            projection.scale *= scale_factor;
-            camera.last_width = ev.width;
-            camera.last_height = ev.height;
-        }
+    if min_x > max_x || min_y > max_y {
+        Vec2::new(
+            (bounds.min.x + bounds.max.x) * 0.5,
+            (bounds.min.y + bounds.max.y) * 0.5,
+        )
+    } else {
+        Vec2::new(pos.x.clamp(min_x, max_x), pos.y.clamp(min_y, max_y))
     }
 }
 
-pub fn zoom_on_scroll(
+pub fn setup_camera(mut commands: Commands) {
+    commands.spawn((
+        Camera2d,
+        IsDefaultUiCamera,
+        Msaa::Off, // Solves white lines on map issue (partially)
+        MainCamera,
+    ));
+}
+
+pub fn move_camera(
+    mut commands: Commands,
     mut camera_q: Query<
         (
             &Camera,
@@ -56,10 +49,12 @@ pub fn zoom_on_scroll(
         With<MainCamera>,
     >,
     mut scroll_ev: EventReader<MouseWheel>,
-    windows: Query<&Window>,
+    mut motion_ev: EventReader<MouseMotion>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    window_s: Single<(Entity, &Window)>,
 ) {
-    let window = windows.single();
     let (camera, global_t, mut camera_t, mut projection) = camera_q.single_mut();
+    let (window_e, window) = window_s.into_inner();
 
     for ev in scroll_ev.read() {
         // Get cursor position in window space
@@ -74,25 +69,47 @@ pub fn zoom_on_scroll(
 
                 let new_scale = (projection.scale * scale_change).clamp(MIN_ZOOM, MAX_ZOOM);
 
-                // Adjust camera position to keep focus on cursor
-                let shift =
-                    (world_pos - camera_t.translation.truncate()) * (1. - new_scale / projection.scale);
+                // Adjust camera position to keep focus on the cursor
+                let shift = (world_pos - camera_t.translation.truncate())
+                    * (1. - new_scale / projection.scale);
                 camera_t.translation += shift.extend(0.);
 
                 projection.scale = new_scale;
-
-                // Clamp camera position to stay inside the map
-                // let map_size = Vec2::new(Map::SIZE.x as f32, Map::SIZE.y as f32) * Tile::SIZE;
-                // let half_viewport_size =
-                //     (Vec2::new(window.width(), window.height()) * camera_t.scale.truncate()) * 0.5;
-                // let min_bound = half_viewport_size - map_size * 0.5;
-                // let max_bound = map_size * 0.5 - half_viewport_size;
-                //
-                // camera_t.translation.x = camera_t.translation.x.clamp(min_bound.x, max_bound.x);
-                // camera_t.translation.y = camera_t.translation.y.clamp(min_bound.y, max_bound.y);
             }
         }
     }
 
-    // clamp_camera(&mut transform, projection.scale, window);
+    if mouse.pressed(MouseButton::Left) {
+        commands
+            .entity(window_e)
+            .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grab));
+        for ev in motion_ev.read() {
+            commands
+                .entity(window_e)
+                .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grabbing));
+            if ev.delta.x.is_nan() || ev.delta.y.is_nan() {
+                continue;
+            }
+            camera_t.translation.x -= ev.delta.x * projection.scale;
+            camera_t.translation.y += ev.delta.y * projection.scale;
+        }
+    } else {
+        commands
+            .entity(window_e)
+            .insert(Into::<CursorIcon>::into(SystemCursorIcon::Default));
+    }
+
+    // Clamp camera position within bounds
+    let mut position = camera_t.translation.truncate();
+
+    // Compute the camera's current view size based on projection
+    let view_size = projection.area.max - projection.area.min;
+
+    let target_pos = clamp_to_rect(position, view_size, Map::MAX_VIEW_MAP);
+    position = position.lerp(target_pos, LERP_FACTOR);
+
+    // Hard clamp to prevent escaping the map
+    position = clamp_to_rect(position, view_size, Map::MAX_VIEW);
+
+    camera_t.translation = position.extend(camera_t.translation.z);
 }
