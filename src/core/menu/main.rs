@@ -1,7 +1,7 @@
 use crate::core::assets::WorldAssets;
 use crate::core::menu::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::core::menu::utils::{add_root_node, add_text, recolor};
-use crate::core::network::{new_renet_client, new_renet_server, NPlayersEv, ServerMessage};
+use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::player::Player;
 use crate::core::states::GameState;
 use crate::utils::NameFromEnum;
@@ -9,9 +9,6 @@ use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
 use bevy_renet::renet::{DefaultChannel, RenetClient, RenetServer};
-
-#[derive(Resource)]
-pub struct NPlayers(u8);
 
 #[derive(Component)]
 pub struct MenuCmp;
@@ -72,7 +69,8 @@ fn on_click_menu_button(
         MenuBtn::BackToMenu => {
             if let Some(client) = client.as_mut() {
                 client.disconnect();
-            } else {
+            } else if let Some(mut server) = server {
+                server.disconnect_all();
                 commands.remove_resource::<RenetServer>();
                 commands.remove_resource::<NetcodeServerTransport>();
             }
@@ -113,7 +111,6 @@ pub fn setup_menu(
     mut commands: Commands,
     game_state: Res<State<GameState>>,
     server: Option<Res<RenetServer>>,
-    client: Option<Res<RenetClient>>,
     assets: Local<WorldAssets>,
 ) {
     commands
@@ -165,18 +162,8 @@ pub fn setup_menu(
                         if n_players > 1 {
                             spawn_menu_button(parent, MenuBtn::Play, &assets);
                         }
-                    } else if let Some(client) = client {
-                        parent.spawn((
-                            add_text(
-                                if client.is_connected() {
-                                    "Waiting for the host to start the game..."
-                                } else {
-                                    "Searching for a game..."
-                                },
-                                &assets,
-                            ),
-                            LobbyTextCmp,
-                        ));
+                    } else {
+                        parent.spawn((add_text("Searching for a game...", &assets), LobbyTextCmp));
                     }
 
                     spawn_menu_button(parent, MenuBtn::BackToMenu, &assets);
@@ -202,27 +189,4 @@ pub fn setup_menu(
                     ));
                 });
         });
-}
-
-pub fn update_lobby(
-    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
-    mut next_game_state: ResMut<NextState<GameState>>,
-    mut server: ResMut<RenetServer>,
-    mut client: Option<Res<RenetClient>>,
-) {
-        for ev in n_players_ev.read() {
-            let message = bincode::serialize(&ServerMessage::NPlayers(ev.0)).unwrap();
-            server.broadcast_message(DefaultChannel::ReliableOrdered, message);
-
-            if let Ok(mut text) = n_players_q.get_single_mut() {
-                if ev.0 > 1 {
-                    text.0 = format!("There are {} players in the lobby...", ev.0);
-                    next_game_state.set(GameState::ConnectedLobby);
-                } else {
-                    text.0 = "Waiting for other players to join...".to_string();
-                    next_game_state.set(GameState::Lobby);
-                }
-            }
-        }
-    }
 }

@@ -1,10 +1,10 @@
-use crate::core::map::map::Map;
+use crate::core::map::components::Map;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
 
-pub const MIN_ZOOM: f32 = 0.3;
+pub const MIN_ZOOM: f32 = 0.2;
 pub const MAX_ZOOM: f32 = 1.;
 pub const ZOOM_FACTOR: f32 = 1.1;
 pub const LERP_FACTOR: f32 = 0.05;
@@ -105,11 +105,11 @@ pub fn move_camera(
     // Compute the camera's current view size based on projection
     let view_size = projection.area.max - projection.area.min;
 
-    let target_pos = clamp_to_rect(position, view_size, Map::MAX_VIEW_MAP);
+    let target_pos = clamp_to_rect(position, view_size, Map::MAP_VIEW);
     position = position.lerp(target_pos, LERP_FACTOR);
 
     // Hard clamp to prevent escaping the map
-    position = clamp_to_rect(position, view_size, Map::MAX_VIEW);
+    position = clamp_to_rect(position, view_size, Map::WORLD_VIEW);
 
     camera_t.translation = position.extend(camera_t.translation.z);
 }

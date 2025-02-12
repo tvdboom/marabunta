@@ -9,40 +9,50 @@ pub struct TextureInfo {
     pub layout: Handle<TextureAtlasLayout>,
 }
 
+#[derive(Clone)]
+pub struct AtlasInfo {
+    pub image: Handle<Image>,
+    pub texture: TextureAtlas,
+    pub last_index: usize,
+}
+
 pub struct WorldAssets {
     pub audio: HashMap<&'static str, Handle<AudioSource>>,
     pub fonts: HashMap<&'static str, Handle<Font>>,
     pub images: HashMap<&'static str, Handle<Image>>,
     pub textures: HashMap<&'static str, TextureInfo>,
+    pub atlas: HashMap<&'static str, AtlasInfo>,
 }
 
 impl WorldAssets {
-    pub fn image(&self, name: &str) -> Handle<Image> {
-        self.images
-            .get(name)
-            .expect(&format!("No asset for image {name}"))
-            .clone_weak()
-    }
-
-    pub fn texture(&self, name: &str) -> TextureInfo {
-        self.textures
-            .get(name)
-            .expect(&format!("No asset for texture {name}"))
-            .clone()
+    fn get_asset<'a, T: Clone>(
+        &self,
+        map: &'a HashMap<&str, T>,
+        name: &str,
+        asset_type: &str,
+    ) -> &'a T {
+        map.get(name)
+            .expect(&format!("No asset for {asset_type} {name}"))
     }
 
     pub fn audio(&self, name: &str) -> Handle<AudioSource> {
-        self.audio
-            .get(name)
-            .expect(&format!("No asset for audio {name}"))
-            .clone_weak()
+        self.get_asset(&self.audio, name, "audio").clone_weak()
     }
 
     pub fn font(&self, name: &str) -> Handle<Font> {
-        self.fonts
-            .get(name)
-            .expect(&format!("No asset for font {name}"))
-            .clone_weak()
+        self.get_asset(&self.fonts, name, "font").clone_weak()
+    }
+
+    pub fn image(&self, name: &str) -> Handle<Image> {
+        self.get_asset(&self.images, name, "image").clone_weak()
+    }
+
+    pub fn texture(&self, name: &str) -> TextureInfo {
+        self.get_asset(&self.textures, name, "texture").clone()
+    }
+
+    pub fn atlas(&self, name: &str) -> AtlasInfo {
+        self.get_asset(&self.atlas, name, "atlas").clone()
     }
 }
 
@@ -97,6 +107,11 @@ impl FromWorld for WorldAssets {
             ("stone16", assets.load("images/map/stone_16.png")),
             ("stone17", assets.load("images/map/stone_17.png")),
             ("stone18", assets.load("images/map/stone_18.png")),
+            // Ants
+            (
+                "black_queen_move",
+                assets.load("images/ants/black_queen_move.png"),
+            ),
         ]);
 
         let mut texture = world
@@ -113,11 +128,27 @@ impl FromWorld for WorldAssets {
             },
         )]);
 
+        let black_queen_move =
+            TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
+
+        let atlas = HashMap::from([(
+            "black_queen_move",
+            AtlasInfo {
+                image: images["black_queen_move"].clone_weak(),
+                texture: TextureAtlas {
+                    layout: texture.add(black_queen_move),
+                    index: 0,
+                },
+                last_index: 7,
+            },
+        )]);
+
         Self {
             audio,
             fonts,
             images,
             textures,
+            atlas,
         }
     }
 }

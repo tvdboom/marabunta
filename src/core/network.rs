@@ -1,4 +1,4 @@
-use crate::core::menu::main::{LobbyTextCmp, NPlayers};
+use crate::core::menu::main::LobbyTextCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
 use bevy::prelude::*;
@@ -57,36 +57,21 @@ pub fn new_renet_server() -> (RenetServer, NetcodeServerTransport) {
 }
 
 pub fn server_update(
+    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut server: ResMut<RenetServer>,
     mut server_ev: EventReader<ServerEvent>,
-) {
-    for event in server_ev.read() {
-        let message = bincode::serialize(&ServerMessage::NPlayers(server.clients_id().len())).unwrap();
-        server.broadcast_message(DefaultChannel::ReliableOrdered, message);
-
-        match event {
-            ServerEvent::ClientConnected { client_id } => {
-                println!("Player {client_id} connected.");
-            }
-            ServerEvent::ClientDisconnected { client_id, reason } => {
-                println!("Player {client_id} disconnected: {reason}");
-            }
-        }
-    }
-}
-
-pub fn server_events(
-    mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    mut server: ResMut<RenetServer>,
 ) {
-    for ev in n_players_ev.read() {
-        let message = bincode::serialize(&ServerMessage::NPlayers(ev.0)).unwrap();
+    for _ in server_ev.read() {
+        let n_players = server.clients_id().len() + 1;
+
+        // Update the number of players in the lobby
+        let message = bincode::serialize(&ServerMessage::NPlayers(n_players)).unwrap();
         server.broadcast_message(DefaultChannel::ReliableOrdered, message);
 
         if let Ok(mut text) = n_players_q.get_single_mut() {
-            if ev.0 > 1 {
-                text.0 = format!("There are {} players in the lobby...", ev.0);
+            if n_players > 1 {
+                text.0 = format!("There are {n_players} players in the lobby...");
                 next_game_state.set(GameState::ConnectedLobby);
             } else {
                 text.0 = "Waiting for other players to join...".to_string();
