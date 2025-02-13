@@ -1,6 +1,6 @@
 use crate::core::ants::components::{AnimationCmp, Ant, AntCmp};
 use crate::core::assets::WorldAssets;
-use crate::core::map::components::{Loc, Map};
+use crate::core::map::components::Map;
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use rand::{rng, Rng};
@@ -63,15 +63,7 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
             // Spawn queen at hole
             if tile.texture_index == 64 {
                 let atlas = assets.atlas("black_queen_move");
-                let ant = AntCmp::new(
-                    Ant::BlackQueen,
-                    Loc {
-                        x: x - Map::OFFSET.x as usize,
-                        y: y - Map::OFFSET.y as usize,
-                        bit: 5,
-                    },
-                );
-
+                let ant = AntCmp::new(Ant::BlackQueen);
                 commands.spawn((
                     Sprite {
                         image: atlas.image,
@@ -79,7 +71,7 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
                         ..default()
                     },
                     Transform {
-                        translation: Map::get_coord(&ant.loc).extend(2.),
+                        translation: Map::get_world_coord(x, y).extend(3.),
                         scale: Vec3::splat(ant.scale),
                         ..default()
                     },

@@ -10,7 +10,7 @@ mod player;
 mod resources;
 mod states;
 
-use crate::core::ants::systems::animate_ants;
+use crate::core::ants::systems::{animate_ants, move_ants};
 use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
 use crate::core::camera::{move_camera, setup_camera};
 use crate::core::input::keys_listener;
@@ -67,6 +67,6 @@ impl Plugin for GamePlugin {
             (despawn::<MapCmp>, draw_start_map).chain(),
         )
         // Ants
-        .add_systems(Update, animate_ants);
+        .add_systems(Update, (animate_ants, move_ants));
     }
 }

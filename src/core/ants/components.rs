@@ -30,21 +30,19 @@ pub struct AnimationCmp {
 #[derive(Component)]
 pub struct AntCmp {
     pub health: f32,
+    pub speed: f32,
     pub scale: f32,
-    pub rotation: f32,
-    pub loc: Loc,
     pub action: Action,
     pub movement: Movement,
 }
 
 impl AntCmp {
-    pub fn new(kind: Ant, loc: Loc) -> Self {
+    pub fn new(kind: Ant) -> Self {
         match kind {
             Ant::BlackQueen => Self {
                 health: 100.,
+                speed: 10.,
                 scale: 0.05,
-                rotation: 0.,
-                loc,
                 action: Action::Move,
                 movement: Movement::Wander(None),
             },

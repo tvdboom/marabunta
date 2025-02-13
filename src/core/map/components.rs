@@ -4,7 +4,7 @@ use pathfinding::prelude::astar;
 use rand;
 use rand::prelude::IndexedRandom;
 
-#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Loc {
     pub x: usize,
     pub y: usize,
@@ -101,11 +101,9 @@ impl Map {
         let step = 1. / (Tile::SIDE as f32 + 1.); // Steps within a tile (=0.2)
         Vec2::new(
             Self::MAP_VIEW.min.x
-                + Tile::SIZE
-                    * (loc.x as f32 + (step + step * (loc.bit as usize % Tile::SIDE) as f32)),
+                + Tile::SIZE * (loc.x as f32 + (step + step * (loc.bit % Tile::SIDE) as f32)),
             Self::MAP_VIEW.max.y
-                - Tile::SIZE
-                    * (loc.y as f32 + (step + step * (loc.bit as usize / Tile::SIDE) as f32)),
+                - Tile::SIZE * (loc.y as f32 + (step + step * (loc.bit / Tile::SIDE) as f32)),
         )
     }
 
@@ -114,6 +112,21 @@ impl Map {
             Self::WORLD_VIEW.min.x + Tile::SIZE * (x as f32 + 0.5),
             Self::WORLD_VIEW.max.y - Tile::SIZE * (y as f32 + 0.5),
         )
+    }
+
+    pub fn get_loc(coord: &Vec3) -> Loc {
+        let x = ((coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE) as usize;
+        let y = ((Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE) as usize;
+
+        let step = 1. / (Tile::SIDE as f32 + 1.); // Steps within a tile (=0.2)
+        let bit_x = ((coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE - x as f32) / step;
+        let bit_y = ((Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE - y as f32) / step;
+
+        Loc {
+            x,
+            y,
+            bit: (bit_y as u8 * Tile::SIDE as u8 + bit_x as u8) % 16,
+        }
     }
 
     pub fn random_walkable(&self) -> Option<Loc> {
@@ -134,51 +147,59 @@ impl Map {
 
     pub fn get_neighbors(&self, loc: Loc) -> Vec<Loc> {
         let mut neighbors = vec![];
-        let (x, y, bit) = (loc.x, loc.y, loc.bit);
 
-        // Bit positions in a 4x4 tile
-        let bit_x = bit % 4;
-        let bit_y = bit / 4;
-
-        // Possible moves within the same tile
-        let moves = [(-1, 0), (1, 0), (0, -1), (0, 1)];
-
-        for (dx, dy) in moves {
-            let nx = bit_x as i8 + dx;
-            let ny = bit_y as i8 + dy;
-
-            if nx >= 0 && nx < 4 && ny >= 0 && ny < 4 {
-                let new_bit = (ny * 4 + nx) as u8;
-                if self.tiles[y][x].bitmap() & (1 << new_bit) != 0 {
-                    neighbors.push(Loc { x, y, bit: new_bit });
-                }
-            }
-        }
-
-        // Moving between tiles (left, right, up, down)
-        let tile_moves = [
-            (-1, 0, 3, bit_y), // Left tile, bit on right edge
-            (1, 0, 0, bit_y),  // Right tile, bit on left edge
-            (0, -1, bit_x, 3), // Down tile, bit on top edge
-            (0, 1, bit_x, 0),  // Up tile, bit on bottom edge
+        let moves = [
+            (-1, 0),
+            (1, 0),
+            (0, -1),
+            (0, 1),
+            (-1, -1),
+            (-1, 1),
+            (1, -1),
+            (1, 1),
         ];
 
-        for (dx, dy, new_bit_x, new_bit_y) in tile_moves {
-            let nx = x as isize + dx;
-            let ny = y as isize + dy;
+        for (dx, dy) in moves {
+            let (mut x, mut y, mut bit) = (loc.x, loc.y, loc.bit);
 
-            if nx >= 0
-                && ny >= 0
-                && (ny as usize) < self.tiles.len()
-                && (nx as usize) < self.tiles[0].len()
+            // Bit positions on the tile
+            let mut nx = (loc.bit % Tile::SIDE) as i8 + dx;
+            let mut ny = (loc.bit / Tile::SIDE) as i8 + dy;
+
+            // Check if the new bit is inside the map
+            if !((nx < 0 && x == 0)
+                || (nx >= Tile::SIDE as i8 && x as u32 == Self::MAP_SIZE.x - 1)
+                || (ny < 0 && y == 0)
+                || (ny >= Tile::SIDE as i8 && y as u32 == Self::MAP_SIZE.y - 1))
             {
-                let new_bit = (new_bit_y * 4 + new_bit_x) as u8;
-                if self.tiles[ny as usize][nx as usize].bitmap() & (1 << new_bit) != 0 {
-                    neighbors.push(Loc {
-                        x: nx as usize,
-                        y: ny as usize,
-                        bit: new_bit,
-                    });
+                (x, bit) = if nx < 0 {
+                    (x - 1, loc.bit + Tile::SIDE - 1) // Move one tile left
+                } else if nx >= Tile::SIDE as i8 {
+                    (x + 1, loc.bit - Tile::SIDE + 1) // Move one tile right
+                } else {
+                    (x, (ny * 4 + nx) as u8)
+                };
+
+                (y, bit) = if ny < 0 {
+                    (y - 1, loc.bit + Tile::SIDE * (Tile::SIDE - 1)) // Move one tile up
+                } else if ny >= Tile::SIDE as i8 {
+                    (y + 1, loc.bit - Tile::SIDE * (Tile::SIDE - 1)) // Move one tile down
+                } else {
+                    (y, (ny * 4 + nx) as u8)
+                };
+
+                // Check if the bit is walkable
+                println!(
+                    "x: {}, y: {}, bit: {}, texture {}, {:016b} - {:016b}",
+                    x,
+                    y,
+                    bit,
+                    self.tiles[y][x].texture_index,
+                    self.tiles[y][x].bitmap(),
+                    self.tiles[y][x].bitmap() & (1 << bit)
+                );
+                if self.tiles[y][x].bitmap() & (1 << bit) != 0 {
+                    neighbors.push(Loc { x, y, bit });
                 }
             }
         }
