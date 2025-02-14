@@ -2,7 +2,6 @@ mod ants;
 mod assets;
 mod audio;
 mod camera;
-mod input;
 mod map;
 mod menu;
 mod network;
@@ -11,10 +10,11 @@ mod resources;
 mod states;
 
 use crate::core::ants::systems::{animate_ants, move_ants};
-use crate::core::audio::{play_music, setup_music_btn, stop_music, toggle_music, ToggleMusicEv};
-use crate::core::camera::{move_camera, setup_camera};
-use crate::core::input::keys_listener;
-use crate::core::map::systems::{draw_start_map, MapCmp};
+use crate::core::audio::{
+    play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
+};
+use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
+use crate::core::map::systems::{draw_start_map, toggle_pause_keyboard, MapCmp};
 use crate::core::menu::main::{setup_menu, MenuCmp};
 use crate::core::menu::utils::despawn;
 use crate::core::network::{client_receive_message, server_update};
@@ -38,14 +38,12 @@ impl Plugin for GamePlugin {
             .init_resource::<GameSettings>()
             // Camera
             .add_systems(Startup, (setup_camera, draw_start_map).chain())
-            .add_systems(Update, move_camera)
-            // Keyboard
-            .add_systems(Update, keys_listener)
+            .add_systems(Update, (move_camera, move_camera_keyboard))
             // Audio
             .add_systems(Startup, setup_music_btn)
             .add_systems(OnEnter(MusicState::Playing), play_music)
             .add_systems(OnEnter(MusicState::Stopped), stop_music)
-            .add_systems(Update, toggle_music)
+            .add_systems(Update, (toggle_music, toggle_music_keyboard))
             //Networking
             .add_systems(
                 Update,
@@ -66,6 +64,8 @@ impl Plugin for GamePlugin {
             OnEnter(GameState::Game),
             (despawn::<MapCmp>, draw_start_map).chain(),
         )
+        // Game
+        .add_systems(Update, toggle_pause_keyboard)
         // Ants
         .add_systems(Update, (animate_ants, move_ants));
     }

@@ -113,3 +113,24 @@ pub fn move_camera(
 
     camera_t.translation = position.extend(camera_t.translation.z);
 }
+
+pub fn move_camera_keyboard(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
+) {
+    let (mut camera_t, projection) = camera_q.single_mut();
+
+    let transform = 10. * projection.scale;
+    if keyboard.pressed(KeyCode::KeyA) {
+        camera_t.translation.x -= transform;
+    }
+    if keyboard.pressed(KeyCode::KeyD) {
+        camera_t.translation.x += transform;
+    }
+    if keyboard.pressed(KeyCode::KeyW) {
+        camera_t.translation.y += transform;
+    }
+    if keyboard.pressed(KeyCode::KeyS) {
+        camera_t.translation.y -= transform;
+    }
+}

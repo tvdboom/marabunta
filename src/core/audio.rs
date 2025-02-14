@@ -74,3 +74,12 @@ pub fn toggle_music(
         }
     }
 }
+
+pub fn toggle_music_keyboard(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut toggle_music_ev: EventWriter<ToggleMusicEv>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyM) {
+        toggle_music_ev.send(ToggleMusicEv);
+    }
+}

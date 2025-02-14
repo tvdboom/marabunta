@@ -12,7 +12,7 @@ pub enum Action {
 impl Action {
     pub fn get_interval(&self) -> f32 {
         match self {
-            Action::Move => 0.1,
+            Action::Move => 0.2,
         }
     }
 }

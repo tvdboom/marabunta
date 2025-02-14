@@ -125,7 +125,7 @@ impl Map {
         Loc {
             x,
             y,
-            bit: (bit_y as u8 * Tile::SIDE as u8 + bit_x as u8) % 16,
+            bit: (bit_y as u8 * Tile::SIDE + bit_x as u8) % 16,
         }
     }
 
@@ -161,46 +161,29 @@ impl Map {
 
         for (dx, dy) in moves {
             let (mut x, mut y, mut bit) = (loc.x, loc.y, loc.bit);
-
             // Bit positions on the tile
-            let mut nx = (loc.bit % Tile::SIDE) as i8 + dx;
-            let mut ny = (loc.bit / Tile::SIDE) as i8 + dy;
+            let nx = (bit % Tile::SIDE) as i8 + dx;
+            let ny = (bit / Tile::SIDE) as i8 + dy;
 
-            // Check if the new bit is inside the map
-            if !((nx < 0 && x == 0)
-                || (nx >= Tile::SIDE as i8 && x as u32 == Self::MAP_SIZE.x - 1)
-                || (ny < 0 && y == 0)
-                || (ny >= Tile::SIDE as i8 && y as u32 == Self::MAP_SIZE.y - 1))
-            {
-                (x, bit) = if nx < 0 {
-                    (x - 1, loc.bit + Tile::SIDE - 1) // Move one tile left
-                } else if nx >= Tile::SIDE as i8 {
-                    (x + 1, loc.bit - Tile::SIDE + 1) // Move one tile right
-                } else {
-                    (x, (ny * 4 + nx) as u8)
-                };
+            (x, bit) = if nx < 0 {
+                (x - 1, bit + (Tile::SIDE - 1)) // Move one tile left
+            } else if nx >= Tile::SIDE as i8 {
+                (x + 1, bit - (Tile::SIDE - 1)) // Move one tile right
+            } else {
+                (x, (bit as i8 + dx) as u8)
+            };
 
-                (y, bit) = if ny < 0 {
-                    (y - 1, loc.bit + Tile::SIDE * (Tile::SIDE - 1)) // Move one tile up
-                } else if ny >= Tile::SIDE as i8 {
-                    (y + 1, loc.bit - Tile::SIDE * (Tile::SIDE - 1)) // Move one tile down
-                } else {
-                    (y, (ny * 4 + nx) as u8)
-                };
+            (y, bit) = if ny < 0 {
+                (y - 1, bit + Tile::SIDE * (Tile::SIDE - 1)) // Move one tile up
+            } else if ny >= Tile::SIDE as i8 {
+                (y + 1, bit - Tile::SIDE * (Tile::SIDE - 1)) // Move one tile down
+            } else {
+                (y, (bit as i8 + 4 * dy) as u8)
+            };
 
-                // Check if the bit is walkable
-                println!(
-                    "x: {}, y: {}, bit: {}, texture {}, {:016b} - {:016b}",
-                    x,
-                    y,
-                    bit,
-                    self.tiles[y][x].texture_index,
-                    self.tiles[y][x].bitmap(),
-                    self.tiles[y][x].bitmap() & (1 << bit)
-                );
-                if self.tiles[y][x].bitmap() & (1 << bit) != 0 {
-                    neighbors.push(Loc { x, y, bit });
-                }
+            // Check if the bit is walkable
+            if self.tiles[y][x].bitmap() & (1 << bit) != 0 {
+                neighbors.push(Loc { x, y, bit });
             }
         }
 
