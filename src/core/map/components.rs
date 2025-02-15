@@ -203,7 +203,7 @@ impl Map {
     }
 
     pub fn is_walkable(&self, loc: &Loc) -> bool {
-        self.tiles[loc.y][loc.x].bitmap() & (1 << loc.bit) == 1
+        self.tiles[loc.y][loc.x].bitmap() & (1 << loc.bit) != 0
     }
 
     pub fn shortest_path(&self, start: Loc, goal: Loc) -> Option<Vec<Loc>> {

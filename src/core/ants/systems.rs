@@ -75,8 +75,6 @@ pub fn move_ants(
                         let next_pos =
                             ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
 
-                        println!("{:?}", Map::get_loc(&next_pos));
-                        println!("{}", map.is_walkable(&Map::get_loc(&next_pos)));
                         if map.is_walkable(&Map::get_loc(&next_pos)) {
                             ant_t.translation = next_pos;
                         }
