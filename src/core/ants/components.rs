@@ -1,6 +1,7 @@
 use crate::core::map::components::Loc;
 use bevy::prelude::*;
 
+#[derive(Debug)]
 pub enum Ant {
     BlackAnt,
     BlackQueen,

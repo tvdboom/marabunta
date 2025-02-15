@@ -1,4 +1,5 @@
-use crate::core::ants::components::{AnimationCmp, Ant, AntCmp};
+use crate::core::ants::components::Ant;
+use crate::core::ants::systems::spawn_ant;
 use crate::core::assets::WorldAssets;
 use crate::core::map::components::Map;
 use crate::core::map::tile::Tile;
@@ -63,25 +64,12 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
 
             // Spawn queen at hole
             if tile.texture_index == 64 {
-                let atlas = assets.atlas("black_queen_move");
-                let ant = AntCmp::new(Ant::BlackQueen);
-                commands.spawn((
-                    Sprite {
-                        image: atlas.image,
-                        texture_atlas: Some(atlas.texture),
-                        ..default()
-                    },
-                    Transform {
-                        translation: Map::get_world_coord(x, y).extend(3.),
-                        scale: Vec3::splat(ant.scale),
-                        ..default()
-                    },
-                    AnimationCmp {
-                        timer: Timer::from_seconds(ant.action.get_interval(), TimerMode::Repeating),
-                        last_index: atlas.last_index,
-                    },
-                    ant,
-                ));
+                spawn_ant(
+                    &mut commands,
+                    Ant::BlackQueen,
+                    Map::get_world_coord(x, y),
+                    &assets,
+                );
             }
         }
     }

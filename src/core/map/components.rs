@@ -118,7 +118,7 @@ impl Map {
         for (y, row) in self.tiles.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
                 if tile.texture_index == texture_index {
-                    return Self::get_coord(&Loc{ x, y, bit: 5});
+                    return Self::get_coord(&Loc { x, y, bit: 5 });
                 }
             }
         }
@@ -194,12 +194,16 @@ impl Map {
             };
 
             // Check if the bit is walkable
-            if self.tiles[y][x].bitmap() & (1 << bit) != 0 {
+            if self.is_walkable(&Loc { x, y, bit }) {
                 neighbors.push(Loc { x, y, bit });
             }
         }
 
         neighbors
+    }
+
+    pub fn is_walkable(&self, loc: &Loc) -> bool {
+        self.tiles[loc.y][loc.x].bitmap() & (1 << loc.bit) == 1
     }
 
     pub fn shortest_path(&self, start: Loc, goal: Loc) -> Option<Vec<Loc>> {

@@ -9,13 +9,14 @@ mod player;
 mod resources;
 mod states;
 
-use crate::core::ants::systems::{animate_ants, move_ants, spawn_ants};
+use crate::core::ants::systems::{animate_ants, move_ants};
 use crate::core::audio::{
     play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
 };
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
 use crate::core::map::systems::{draw_start_map, toggle_pause_keyboard, MapCmp};
-use crate::core::menu::main::{setup_menu, MenuCmp};
+use crate::core::menu::buttons::MenuCmp;
+use crate::core::menu::systems::{setup_menu, spawn_menu_ants};
 use crate::core::menu::utils::despawn;
 use crate::core::network::{client_receive_message, server_update};
 use crate::core::resources::GameSettings;
@@ -74,7 +75,7 @@ impl Plugin for GamePlugin {
             (
                 animate_ants,
                 move_ants,
-                spawn_ants.run_if(on_timer(Duration::from_secs(1))),
+                spawn_menu_ants.run_if(on_timer(Duration::from_millis(100))),
             ),
         );
     }

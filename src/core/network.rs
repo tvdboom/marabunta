@@ -1,4 +1,4 @@
-use crate::core::menu::main::LobbyTextCmp;
+use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
 use bevy::prelude::*;

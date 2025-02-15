@@ -5,20 +5,27 @@ use std::time::Duration;
 /// Trait to get the text of an enum variant
 pub trait NameFromEnum {
     fn as_string(&self) -> String;
+    fn to_snake(&self) -> String;
 }
 
 impl<T: Debug> NameFromEnum for T {
     fn as_string(&self) -> String {
-        let text = format!("{:?}", self);
-
         let re = Regex::new(r"([a-z])([A-Z])").unwrap();
-        let spaced = re.replace_all(&text, "$1 $2");
-        let mut result = spaced.to_lowercase().to_string();
+
+        let text = format!("{:?}", self);
+        let mut result = re.replace_all(&text, "$1 $2").to_lowercase();
 
         // Capitalize only the first letter
         result.replace_range(0..1, &result[0..1].to_uppercase());
 
         result
+    }
+
+    fn to_snake(&self) -> String {
+        let re = Regex::new(r"([a-z])([A-Z])").unwrap();
+
+        let text = format!("{:?}", self);
+        re.replace_all(&text, "${1}_${2}").to_lowercase()
     }
 }
 
