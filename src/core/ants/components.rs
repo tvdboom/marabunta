@@ -2,23 +2,20 @@ use crate::core::map::components::Loc;
 use bevy::prelude::*;
 
 pub enum Ant {
+    BlackAnt,
     BlackQueen,
 }
 
 pub enum Action {
-    Move,
+    Wander(Option<Vec<Loc>>),
 }
 
 impl Action {
     pub fn get_interval(&self) -> f32 {
         match self {
-            Action::Move => 0.2,
+            Action::Wander(_) => 0.2,
         }
     }
-}
-
-pub enum Movement {
-    Wander(Option<Vec<Loc>>),
 }
 
 #[derive(Component)]
@@ -33,18 +30,22 @@ pub struct AntCmp {
     pub speed: f32,
     pub scale: f32,
     pub action: Action,
-    pub movement: Movement,
 }
 
 impl AntCmp {
     pub fn new(kind: Ant) -> Self {
         match kind {
+            Ant::BlackAnt => Self {
+                health: 10.,
+                speed: 20.,
+                scale: 0.03,
+                action: Action::Wander(None),
+            },
             Ant::BlackQueen => Self {
-                health: 100.,
+                health: 1000.,
                 speed: 10.,
                 scale: 0.05,
-                action: Action::Move,
-                movement: Movement::Wander(None),
+                action: Action::Wander(None),
             },
         }
     }

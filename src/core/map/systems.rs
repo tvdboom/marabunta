@@ -73,7 +73,6 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
                     },
                     Transform {
                         translation: Map::get_world_coord(x, y).extend(3.),
-                        // rotation: Quat::from_rotation_z(-PI * 0.5),
                         scale: Vec3::splat(ant.scale),
                         ..default()
                     },

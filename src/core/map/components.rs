@@ -1,6 +1,6 @@
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
-use pathfinding::prelude::astar;
+use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
 
@@ -114,6 +114,18 @@ impl Map {
         )
     }
 
+    pub fn get_tile_coord(&self, texture_index: usize) -> Vec2 {
+        for (y, row) in self.tiles.iter().enumerate() {
+            for (x, tile) in row.iter().enumerate() {
+                if tile.texture_index == texture_index {
+                    return Self::get_world_coord(x, y);
+                }
+            }
+        }
+
+        panic!("Tile not found: {}", texture_index);
+    }
+
     pub fn get_loc(coord: &Vec3) -> Loc {
         let x = ((coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE) as usize;
         let y = ((Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE) as usize;
@@ -191,18 +203,10 @@ impl Map {
     }
 
     pub fn shortest_path(&self, start: Loc, goal: Loc) -> Option<Vec<Loc>> {
-        astar(
+        bfs(
             &start,
-            |loc| {
-                let neighbors: Vec<_> = self.get_neighbors(*loc).iter().copied().collect();
-                neighbors.into_iter().map(|loc| (loc, 1))
-            },
-            |loc| {
-                ((loc.x as isize - goal.x as isize).abs()
-                    + (loc.y as isize - goal.y as isize).abs()) as usize
-            },
+            |loc| self.get_neighbors(*loc),
             |loc| *loc == goal,
         )
-        .map(|(path, _)| path)
     }
 }
