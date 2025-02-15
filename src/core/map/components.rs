@@ -118,7 +118,7 @@ impl Map {
         for (y, row) in self.tiles.iter().enumerate() {
             for (x, tile) in row.iter().enumerate() {
                 if tile.texture_index == texture_index {
-                    return Self::get_world_coord(x, y);
+                    return Self::get_coord(&Loc{ x, y, bit: 5});
                 }
             }
         }
@@ -203,10 +203,6 @@ impl Map {
     }
 
     pub fn shortest_path(&self, start: Loc, goal: Loc) -> Option<Vec<Loc>> {
-        bfs(
-            &start,
-            |loc| self.get_neighbors(*loc),
-            |loc| *loc == goal,
-        )
+        bfs(&start, |loc| self.get_neighbors(*loc), |loc| *loc == goal)
     }
 }

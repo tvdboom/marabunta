@@ -1,10 +1,10 @@
-use std::f32::consts::PI;
 use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp};
+use crate::core::assets::WorldAssets;
 use crate::core::map::components::Map;
 use crate::core::resources::GameSettings;
 use crate::utils::scale_duration;
 use bevy::prelude::*;
-use crate::core::assets::WorldAssets;
+use std::f32::consts::PI;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &mut AnimationCmp), With<AntCmp>>,
@@ -24,11 +24,7 @@ pub fn animate_ants(
     }
 }
 
-pub fn spawn_ants(
-    mut commands: Commands,
-    map: Res<Map>,
-    assets: Local<WorldAssets>,
-) {
+pub fn spawn_ants(mut commands: Commands, map: Res<Map>, assets: Local<WorldAssets>) {
     let atlas = assets.atlas("black_ant_move");
     let ant = AntCmp::new(Ant::BlackAnt);
     commands.spawn((
@@ -63,7 +59,6 @@ pub fn move_ants(
             Action::Wander(ref mut path) => {
                 if let Some(path) = path {
                     if let Some(next_loc) = path.first() {
-                        println!("Next loc: {:?}", next_loc);
                         let next_t = Map::get_coord(next_loc).extend(ant_t.translation.z);
 
                         let d = -ant_t.translation + next_t;

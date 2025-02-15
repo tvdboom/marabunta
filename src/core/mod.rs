@@ -9,7 +9,6 @@ mod player;
 mod resources;
 mod states;
 
-use std::time::Duration;
 use crate::core::ants::systems::{animate_ants, move_ants, spawn_ants};
 use crate::core::audio::{
     play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
@@ -24,6 +23,7 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use std::time::Duration;
 
 pub struct GamePlugin;
 
@@ -69,6 +69,13 @@ impl Plugin for GamePlugin {
         // Game
         .add_systems(Update, toggle_pause_keyboard)
         // Ants
-        .add_systems(Update, (animate_ants, move_ants, spawn_ants.run_if(on_timer(Duration::from_secs(1)))));
+        .add_systems(
+            Update,
+            (
+                animate_ants,
+                move_ants,
+                spawn_ants.run_if(on_timer(Duration::from_secs(1))),
+            ),
+        );
     }
 }

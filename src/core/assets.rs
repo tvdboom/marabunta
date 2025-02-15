@@ -109,6 +109,10 @@ impl FromWorld for WorldAssets {
             ("stone18", assets.load("images/map/stone_18.png")),
             // Ants
             (
+                "black_ant_move",
+                assets.load("images/ants/black_ant_move.png"),
+            ),
+            (
                 "black_queen_move",
                 assets.load("images/ants/black_queen_move.png"),
             ),
@@ -128,20 +132,34 @@ impl FromWorld for WorldAssets {
             },
         )]);
 
+        let black_ant_move = TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
         let black_queen_move =
             TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
 
-        let atlas = HashMap::from([(
-            "black_queen_move",
-            AtlasInfo {
-                image: images["black_queen_move"].clone_weak(),
-                texture: TextureAtlas {
-                    layout: texture.add(black_queen_move),
-                    index: 0,
+        let atlas = HashMap::from([
+            (
+                "black_ant_move",
+                AtlasInfo {
+                    image: images["black_ant_move"].clone_weak(),
+                    texture: TextureAtlas {
+                        layout: texture.add(black_ant_move),
+                        index: 0,
+                    },
+                    last_index: 7,
                 },
-                last_index: 7,
-            },
-        )]);
+            ),
+            (
+                "black_queen_move",
+                AtlasInfo {
+                    image: images["black_queen_move"].clone_weak(),
+                    texture: TextureAtlas {
+                        layout: texture.add(black_queen_move),
+                        index: 0,
+                    },
+                    last_index: 7,
+                },
+            ),
+        ]);
 
         Self {
             audio,
