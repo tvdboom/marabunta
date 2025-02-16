@@ -127,17 +127,19 @@ impl Map {
     }
 
     pub fn get_loc(coord: &Vec3) -> Loc {
-        let x = ((coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE) as usize;
-        let y = ((Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE) as usize;
+        let pos_x = (coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE;
+        let pos_y = (Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE;
 
-        let step = 1. / (Tile::SIDE as f32 + 1.); // Steps within a tile (=0.2)
-        let bit_x = ((coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE - x as f32) / step;
-        let bit_y = ((Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE - y as f32) / step;
+        let x = pos_x as usize;
+        let y = pos_y as usize;
+
+        let bit_x = (Tile::SIDE as f32 * (pos_x - x as f32)) as u8;
+        let bit_y = (Tile::SIDE as f32 * (pos_y - y as f32)) as u8;
 
         Loc {
             x,
             y,
-            bit: (bit_y as u8 * Tile::SIDE + bit_x as u8) % 16,
+            bit: bit_y * Tile::SIDE + bit_x,
         }
     }
 

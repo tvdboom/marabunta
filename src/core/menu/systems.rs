@@ -10,8 +10,14 @@ use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
 use rand::Rng;
 
-pub fn spawn_menu_ants(mut commands: Commands, map: Res<Map>, assets: Local<WorldAssets>) {
-    if rand::rng().random::<f32>() < 0.1 {
+pub fn spawn_menu_ants(
+    mut commands: Commands,
+    map: Res<Map>,
+    mut counter: Local<u8>,
+    assets: Local<WorldAssets>,
+) {
+    if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
+        *counter += 1;
         spawn_ant(
             &mut commands,
             Ant::BlackAnt,

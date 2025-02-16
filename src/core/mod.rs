@@ -9,7 +9,7 @@ mod player;
 mod resources;
 mod states;
 
-use crate::core::ants::systems::{animate_ants, move_ants};
+use crate::core::ants::systems::{animate_ants, resolve_action_ants};
 use crate::core::audio::{
     play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
 };
@@ -74,9 +74,10 @@ impl Plugin for GamePlugin {
             Update,
             (
                 animate_ants,
-                move_ants,
+                resolve_action_ants,
                 spawn_menu_ants.run_if(on_timer(Duration::from_millis(100))),
-            ),
+            )
+                .run_if(in_state(PauseState::Running)),
         );
     }
 }

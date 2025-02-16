@@ -8,13 +8,18 @@ pub enum Ant {
 }
 
 pub enum Action {
-    Wander(Option<Vec<Loc>>),
+    /// Location to wander to
+    Wander(Option<Loc>),
+
+    /// Location to dig
+    Dig(Option<Loc>),
 }
 
 impl Action {
     pub fn get_interval(&self) -> f32 {
         match self {
             Action::Wander(_) => 0.2,
+            Action::Dig(_) => 0.2,
         }
     }
 }

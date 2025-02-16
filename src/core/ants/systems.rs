@@ -1,7 +1,6 @@
 use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp};
 use crate::core::assets::WorldAssets;
-use crate::core::map::components::Map;
-use crate::core::map::tile::Tile;
+use crate::core::map::components::{Loc, Map};
 use crate::core::resources::GameSettings;
 use crate::utils::{scale_duration, NameFromEnum};
 use bevy::prelude::*;
@@ -43,13 +42,17 @@ pub fn animate_ants(
 
         if animation.timer.just_finished() {
             if let Some(atlas) = &mut sprite.texture_atlas {
-                atlas.index = atlas.index % animation.last_index + 1;
+                atlas.index = if atlas.index == animation.last_index {
+                    0
+                } else {
+                    atlas.index + 1
+                };
             }
         }
     }
 }
 
-pub fn move_ants(
+pub fn resolve_action_ants(
     mut ant_q: Query<(&mut AntCmp, &mut Transform)>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
@@ -59,36 +62,47 @@ pub fn move_ants(
         let speed = ant.speed * game_settings.speed * time.delta_secs();
 
         match ant.action {
-            Action::Wander(ref mut path) => {
-                if let Some(path) = path {
-                    if let Some(next_loc) = path.first() {
-                        let next_t = Map::get_coord(next_loc).extend(ant_t.translation.z);
-
-                        let d = -ant_t.translation + next_t;
-
-                        // Rotate towards the next location
-                        ant_t.rotation = ant_t.rotation.rotate_towards(
-                            Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                            3. * game_settings.speed * time.delta_secs(),
-                        );
-
-                        let forward = (ant_t.rotation * Vec3::Y).normalize() * speed;
-                        ant_t.translation += forward;
-
-                        // If reached the next location, remove it from the path
-                        if ant_t.translation.distance(next_t) < Tile::SIZE * 0.2 {
-                            path.remove(0);
-                        }
-                    } else {
-                        // Reached the destination
-                        ant.action = Action::Wander(None);
+            Action::Wander(ref mut loc) => {
+                match loc {
+                    Some(l) if *l != Map::get_loc(&ant_t.translation) => {
+                        walk(&mut ant_t, l, &speed, &map, &game_settings, &time);
                     }
-                } else {
-                    // Determine new location to wander to
-                    let loc = map.random_walkable().expect("No walkable tiles.");
-                    *path = Some(map.shortest_path(Map::get_loc(&ant_t.translation), loc));
+                    _ => {
+                        // Determine new location to wander to
+                        *loc = Some(map.random_walkable().expect("No walkable tiles."));
+                    }
                 }
             }
+            Action::Dig(_) => {}
+        }
+    }
+}
+
+pub fn walk(
+    ant_t: &mut Transform,
+    loc: &Loc,
+    speed: &f32,
+    map: &Map,
+    game_settings: &Res<GameSettings>,
+    time: &Res<Time>,
+) {
+    let path = map.shortest_path(Map::get_loc(&ant_t.translation), *loc);
+    if let Some(next_loc) = path.first() {
+        let next_t = Map::get_coord(next_loc).extend(ant_t.translation.z);
+
+        let d = -ant_t.translation + next_t;
+
+        // Rotate towards the next location
+        ant_t.rotation = ant_t.rotation.rotate_towards(
+            Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+            3. * game_settings.speed * time.delta_secs(),
+        );
+
+        let next_pos =
+            ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
+
+        if map.is_walkable(&Map::get_loc(&next_pos)) {
+            ant_t.translation = next_pos;
         }
     }
 }
