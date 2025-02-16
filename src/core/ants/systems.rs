@@ -6,6 +6,7 @@ use crate::utils::{scale_duration, NameFromEnum};
 use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
+use crate::core::map::tile::Tile;
 
 pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
     let atlas = assets.atlas(&format!("{}_move", kind.to_snake()));
@@ -64,7 +65,7 @@ pub fn resolve_action_ants(
         match ant.action {
             Action::Wander(ref mut loc) => {
                 match loc {
-                    Some(l) if *l != Map::get_loc(&ant_t.translation) => {
+                    Some(l) => {
                         walk(&mut ant_t, l, &speed, &map, &game_settings, &time);
                     }
                     _ => {
@@ -95,7 +96,7 @@ pub fn walk(
         // Rotate towards the next location
         ant_t.rotation = ant_t.rotation.rotate_towards(
             Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-            3. * game_settings.speed * time.delta_secs(),
+            game_settings.speed * time.delta_secs(),
         );
 
         let next_pos =
@@ -103,6 +104,12 @@ pub fn walk(
 
         if map.is_walkable(&Map::get_loc(&next_pos)) {
             ant_t.translation = next_pos;
+        } else {
+            // Rotate faster towards the next location
+            ant_t.rotation = ant_t.rotation.rotate_towards(
+                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+                2. * game_settings.speed * time.delta_secs(),
+            );
         }
     }
 }
