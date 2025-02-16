@@ -31,6 +31,7 @@ pub struct AntCmp {
     pub speed: f32,
     pub scale: f32,
     pub action: Action,
+    pub z_score: f32, // 0.0 - 0.9 above base ant z-score
 }
 
 impl AntCmp {
@@ -41,12 +42,14 @@ impl AntCmp {
                 speed: 20.,
                 scale: 0.03,
                 action: Action::Wander(None),
+                z_score: 0.1,
             },
             Ant::BlackQueen => Self {
                 health: 1000.,
                 speed: 10.,
                 scale: 0.05,
                 action: Action::Wander(None),
+                z_score: 0.9,
             },
         }
     }

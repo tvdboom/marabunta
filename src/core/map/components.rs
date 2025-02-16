@@ -145,10 +145,11 @@ impl Map {
         let mut walkable_positions = vec![];
 
         for (y, row) in self.tiles.iter().enumerate() {
-            for (x, tile) in row.iter().enumerate() {
+            for (x, _) in row.iter().enumerate() {
                 for bit in 0..16 {
-                    if (tile.bitmap() & (1 << bit)) != 0 {
-                        walkable_positions.push(Loc { x, y, bit });
+                    let loc = Loc { x, y, bit };
+                    if self.is_walkable(&loc) {
+                        walkable_positions.push(loc);
                     }
                 }
             }
@@ -193,7 +194,6 @@ impl Map {
                 (y, (bit as i8 + 4 * dy) as u8)
             };
 
-            // Check if the bit is walkable
             if self.is_walkable(&Loc { x, y, bit }) {
                 neighbors.push(Loc { x, y, bit });
             }
@@ -203,10 +203,10 @@ impl Map {
     }
 
     pub fn is_walkable(&self, loc: &Loc) -> bool {
-        self.tiles[loc.y][loc.x].bitmap() & (1 << loc.bit) != 0
+        self.tiles[loc.y][loc.x].bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1) != 0
     }
 
-    pub fn shortest_path(&self, start: Loc, goal: Loc) -> Option<Vec<Loc>> {
-        bfs(&start, |loc| self.get_neighbors(*loc), |loc| *loc == goal)
+    pub fn shortest_path(&self, start: Loc, goal: Loc) -> Vec<Loc> {
+        bfs(&start, |loc| self.get_neighbors(*loc), |loc| *loc == goal).expect("No path found.")
     }
 }

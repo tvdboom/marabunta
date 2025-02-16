@@ -1,6 +1,7 @@
 use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::map::components::Map;
+use crate::core::map::tile::Tile;
 use crate::core::resources::GameSettings;
 use crate::utils::{scale_duration, NameFromEnum};
 use bevy::prelude::*;
@@ -17,7 +18,7 @@ pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<W
             ..default()
         },
         Transform {
-            translation: pos.extend(3.),
+            translation: pos.extend(3. + ant.z_score),
             rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
             scale: Vec3::splat(ant.scale),
             ..default()
@@ -68,19 +69,14 @@ pub fn move_ants(
                         // Rotate towards the next location
                         ant_t.rotation = ant_t.rotation.rotate_towards(
                             Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                            2. * game_settings.speed * time.delta_secs(),
+                            3. * game_settings.speed * time.delta_secs(),
                         );
 
-                        // Check if next position is walkable, else only turn
-                        let next_pos =
-                            ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
-
-                        if map.is_walkable(&Map::get_loc(&next_pos)) {
-                            ant_t.translation = next_pos;
-                        }
+                        let forward = (ant_t.rotation * Vec3::Y).normalize() * speed;
+                        ant_t.translation += forward;
 
                         // If reached the next location, remove it from the path
-                        if ant_t.translation.distance(next_t) < 8. {
+                        if ant_t.translation.distance(next_t) < Tile::SIZE * 0.2 {
                             path.remove(0);
                         }
                     } else {
@@ -90,7 +86,7 @@ pub fn move_ants(
                 } else {
                     // Determine new location to wander to
                     let loc = map.random_walkable().expect("No walkable tiles.");
-                    *path = map.shortest_path(Map::get_loc(&ant_t.translation), loc);
+                    *path = Some(map.shortest_path(Map::get_loc(&ant_t.translation), loc));
                 }
             }
         }
