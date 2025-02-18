@@ -102,6 +102,6 @@ pub fn spawn_menu_button(parent: &mut ChildBuilder, btn: MenuBtn, assets: &Local
         .observe(recolor::<Pointer<Up>>(HOVERED_BUTTON))
         .observe(on_click_menu_button)
         .with_children(|parent| {
-            parent.spawn(add_text(btn.as_string(), assets));
+            parent.spawn(add_text(btn.to_title(), assets));
         });
 }

@@ -1,16 +1,24 @@
-use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp};
+use crate::core::ants::components::{Action, Animation, AnimationCmp, Ant, AntCmp};
+use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
-use crate::core::map::components::{Loc, Map};
+use crate::core::map::components::Map;
+use crate::core::map::systems::MapCmp;
 use crate::core::resources::GameSettings;
 use crate::utils::{scale_duration, NameFromEnum};
 use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
-use crate::core::map::tile::Tile;
+
+#[derive(Event)]
+pub struct ChangeAnimation {
+    pub entity: Entity,
+    pub animation: Animation,
+}
 
 pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
-    let atlas = assets.atlas(&format!("{}_move", kind.to_snake()));
     let ant = AntCmp::new(kind);
+
+    let atlas = assets.atlas(&format!("{}_move", ant.name.to_snake()));
     commands.spawn((
         Sprite {
             image: atlas.image,
@@ -24,10 +32,11 @@ pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<W
             ..default()
         },
         AnimationCmp {
-            timer: Timer::from_seconds(ant.action.get_interval(), TimerMode::Repeating),
+            timer: Timer::from_seconds(0.2, TimerMode::Repeating),
             last_index: atlas.last_index,
         },
         ant,
+        MapCmp,
     ));
 }
 
@@ -54,62 +63,64 @@ pub fn animate_ants(
 }
 
 pub fn resolve_action_ants(
-    mut ant_q: Query<(&mut AntCmp, &mut Transform)>,
+    mut ant_q: Query<(Entity, &mut AntCmp, &mut Transform)>,
+    mut action_ev: EventWriter<ChangeAnimation>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
     time: Res<Time>,
 ) {
-    for (mut ant, mut ant_t) in ant_q.iter_mut() {
-        let speed = ant.speed * game_settings.speed * time.delta_secs();
-
+    for (ant_e, mut ant, mut ant_t) in ant_q.iter_mut() {
         match ant.action {
-            Action::Wander(ref mut loc) => {
-                match loc {
-                    Some(l) => {
-                        walk(&mut ant_t, l, &speed, &map, &game_settings, &time);
+            Action::Idle => {
+            }
+            Action::Walk(ref mut loc) => {
+                if let Some(l) = loc {
+                    if walk(&ant, &mut ant_t, l, &map, &game_settings, &time) {
+                        *loc = None; // Reached the target
                     }
-                    _ => {
-                        // Determine new location to wander to
-                        *loc = Some(map.random_walkable().expect("No walkable tiles."));
-                    }
+                } else {
+                    // Determine new location to wander to
+                    *loc = Some(map.random_walk_loc().expect("No location to walk."));
                 }
             }
-            Action::Dig(_) => {}
+            Action::Dig => {
+                if let Some(l) = loc {
+                    if walk(&ant, &mut ant_t, l, &map, &game_settings, &time)
+                        && ant.animation != Animation::Dig
+                    {
+                        // Start digging
+                        println!("Digging at {:?}", l);
+                        action_ev.send(ChangeAnimation {
+                            entity: ant_e,
+                            animation: Animation::Dig,
+                        });
+                    }
+                } else {
+                    // Determine new location to dig
+                    *loc = Some(map.random_dig_loc().expect("No location to dig."));
+                }
+            }
         }
     }
 }
 
-pub fn walk(
-    ant_t: &mut Transform,
-    loc: &Loc,
-    speed: &f32,
-    map: &Map,
-    game_settings: &Res<GameSettings>,
-    time: &Res<Time>,
+pub fn change_ant_animation(
+    mut action_ev: EventReader<ChangeAnimation>,
+    mut ant_q: Query<(&mut Sprite, &mut AnimationCmp, &mut AntCmp)>,
+    assets: Local<WorldAssets>,
 ) {
-    let path = map.shortest_path(Map::get_loc(&ant_t.translation), *loc);
-    if let Some(next_loc) = path.first() {
-        let next_t = Map::get_coord(next_loc).extend(ant_t.translation.z);
+    for ev in action_ev.read() {
+        let (mut ant_s, mut animation, mut ant) = ant_q.get_mut(ev.entity).unwrap();
 
-        let d = -ant_t.translation + next_t;
+        ant.animation = ev.animation.clone();
 
-        // Rotate towards the next location
-        ant_t.rotation = ant_t.rotation.rotate_towards(
-            Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-            game_settings.speed * time.delta_secs(),
-        );
-
-        let next_pos =
-            ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
-
-        if map.is_walkable(&Map::get_loc(&next_pos)) {
-            ant_t.translation = next_pos;
-        } else {
-            // Rotate faster towards the next location
-            ant_t.rotation = ant_t.rotation.rotate_towards(
-                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                2. * game_settings.speed * time.delta_secs(),
-            );
-        }
+        let atlas = assets.atlas(&format!(
+            "{}_{}",
+            ant.name.to_snake(),
+            ev.animation.to_name()
+        ));
+        ant_s.image = atlas.image;
+        ant_s.texture_atlas = Some(atlas.texture);
+        animation.last_index = atlas.last_index;
     }
 }

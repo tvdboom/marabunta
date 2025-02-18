@@ -1,3 +1,4 @@
+/// Rotate a bitmap by `rotation` degrees
 pub fn rotate_bitmap(bitmap: u16, rotation: i32) -> u16 {
     match rotation {
         0 => bitmap,

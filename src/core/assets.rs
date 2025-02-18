@@ -113,6 +113,10 @@ impl FromWorld for WorldAssets {
                 assets.load("images/ants/black_ant_bite.png"),
             ),
             (
+                "black_ant_dig",
+                assets.load("images/ants/black_ant_dig.png"),
+            ),
+            (
                 "black_ant_move",
                 assets.load("images/ants/black_ant_move.png"),
             ),
@@ -136,8 +140,13 @@ impl FromWorld for WorldAssets {
             },
         )]);
 
-        let black_ant = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 8, 1, None, None);
-        let black_queen = TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
+        let black_ant_bite = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 8, 1, None, None);
+        let black_ant_dig = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 20, 1, None, None);
+        let black_ant_idle = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 20, 1, None, None);
+        let black_ant_walk = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 8, 1, None, None);
+
+        let black_queen_walk =
+            TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
 
         let atlas = HashMap::from([
             (
@@ -145,29 +154,51 @@ impl FromWorld for WorldAssets {
                 AtlasInfo {
                     image: images["black_ant_bite"].clone_weak(),
                     texture: TextureAtlas {
-                        layout: texture.add(black_ant.clone()),
+                        layout: texture.add(black_ant_bite),
                         index: 0,
                     },
                     last_index: 7,
                 },
             ),
             (
-                "black_ant_move",
+                "black_ant_dig",
                 AtlasInfo {
-                    image: images["black_ant_move"].clone_weak(),
+                    image: images["black_ant_dig"].clone_weak(),
                     texture: TextureAtlas {
-                        layout: texture.add(black_ant.clone()),
+                        layout: texture.add(black_ant_dig),
+                        index: 0,
+                    },
+                    last_index: 19,
+                },
+            ),
+            (
+                "black_ant_idle",
+                AtlasInfo {
+                    image: images["black_ant_idle"].clone_weak(),
+                    texture: TextureAtlas {
+                        layout: texture.add(black_ant_idle),
+                        index: 0,
+                    },
+                    last_index: 19,
+                },
+            ),
+            (
+                "black_ant_walk",
+                AtlasInfo {
+                    image: images["black_ant_walk"].clone_weak(),
+                    texture: TextureAtlas {
+                        layout: texture.add(black_ant_walk),
                         index: 0,
                     },
                     last_index: 7,
                 },
             ),
             (
-                "black_queen_move",
+                "black_queen_walk",
                 AtlasInfo {
-                    image: images["black_queen_move"].clone_weak(),
+                    image: images["black_queen_walk"].clone_weak(),
                     texture: TextureAtlas {
-                        layout: texture.add(black_queen.clone()),
+                        layout: texture.add(black_queen_walk),
                         index: 0,
                     },
                     last_index: 7,

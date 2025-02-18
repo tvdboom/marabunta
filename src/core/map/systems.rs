@@ -63,14 +63,14 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
             }
 
             // Spawn queen at hole
-            if tile.texture_index == 64 {
-                spawn_ant(
-                    &mut commands,
-                    Ant::BlackQueen,
-                    Map::get_world_coord(x, y),
-                    &assets,
-                );
-            }
+            // if tile.texture_index == 64 {
+            //     spawn_ant(
+            //         &mut commands,
+            //         Ant::BlackQueen,
+            //         Map::get_world_coord(x, y),
+            //         &assets,
+            //     );
+            // }
         }
     }
 
@@ -83,12 +83,12 @@ pub fn toggle_pause_keyboard(
     pause_state: Res<State<PauseState>>,
     mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
-    if *game_state.get() == GameState::Game {
-        if keyboard.just_pressed(KeyCode::Space) {
-            match pause_state.get() {
-                PauseState::Running => next_pause_state.set(PauseState::Paused),
-                PauseState::Paused => next_pause_state.set(PauseState::Running),
-            }
+    // if *game_state.get() == GameState::Game {
+    if keyboard.just_pressed(KeyCode::Space) {
+        match pause_state.get() {
+            PauseState::Running => next_pause_state.set(PauseState::Paused),
+            PauseState::Paused => next_pause_state.set(PauseState::Running),
         }
     }
+    // }
 }

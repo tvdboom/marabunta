@@ -11,6 +11,15 @@ pub struct Loc {
     pub bit: u8, // 0-15, representing a position in the tile's 4x4 bit grid
 }
 
+impl Loc {
+    pub fn is_map_edge(&self) -> bool {
+        (self.x == 0 && [0, 4, 8, 12].contains(&self.bit))
+            || (self.x == Map::MAP_SIZE.x as usize - 1 && [3, 7, 11, 15].contains(&self.bit))
+            || (self.y == 0 && [0, 1, 2, 3].contains(&self.bit))
+            || (self.y == Map::MAP_SIZE.y as usize - 1 && [12, 13, 14, 15].contains(&self.bit))
+    }
+}
+
 #[derive(Resource)]
 pub struct Map {
     pub tiles: Vec<Vec<Tile>>,
@@ -143,21 +152,40 @@ impl Map {
         }
     }
 
-    pub fn random_walkable(&self) -> Option<Loc> {
-        let mut walkable_positions = vec![];
+    pub fn random_walk_loc(&self) -> Option<Loc> {
+        let mut locations = vec![];
 
         for (y, row) in self.tiles.iter().enumerate() {
             for (x, _) in row.iter().enumerate() {
                 for bit in 0..16 {
                     let loc = Loc { x, y, bit };
                     if self.is_walkable(&loc) {
-                        walkable_positions.push(loc);
+                        locations.push(loc);
                     }
                 }
             }
         }
 
-        walkable_positions.choose(&mut rand::rng()).copied()
+        locations.choose(&mut rand::rng()).copied()
+    }
+
+    pub fn random_dig_loc(&self) -> Option<Loc> {
+        let mut locations = vec![];
+
+        for (y, row) in self.tiles.iter().enumerate() {
+            for (x, _) in row.iter().enumerate() {
+                for bit in 0..16 {
+                    let loc = Loc { x, y, bit };
+
+                    // Dig at non-walkable locations with at least one walkable neighbor
+                    if self.is_walkable(&loc) && self.get_neighbors(loc).len() < 8 {
+                        locations.push(loc);
+                    }
+                }
+            }
+        }
+
+        locations.choose(&mut rand::rng()).copied()
     }
 
     pub fn get_neighbors(&self, loc: Loc) -> Vec<Loc> {
@@ -196,8 +224,9 @@ impl Map {
                 (y, (bit as i8 + 4 * dy) as u8)
             };
 
-            if self.is_walkable(&Loc { x, y, bit }) {
-                neighbors.push(Loc { x, y, bit });
+            let loc = Loc { x, y, bit };
+            if self.is_walkable(&loc) {
+                neighbors.push(loc);
             }
         }
 
