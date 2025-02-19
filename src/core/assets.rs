@@ -110,6 +110,9 @@ impl FromWorld for WorldAssets {
             ("stone16", assets.load("images/map/stone_16.png")),
             ("stone17", assets.load("images/map/stone_17.png")),
             ("stone18", assets.load("images/map/stone_18.png")),
+            ("egg", assets.load("images/map/egg.png")),
+            ("larva1", assets.load("images/map/larva_01.png")),
+            ("larva2", assets.load("images/map/larva_02.png")),
         ]);
 
         for ant in Ant::iter() {
@@ -141,7 +144,7 @@ impl FromWorld for WorldAssets {
                 let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
                     .as_str();
                 let layout =
-                    TextureAtlasLayout::from_grid(ant.size(), action.columns(), 1, None, None);
+                    TextureAtlasLayout::from_grid(ant.size(), action.frames(), 1, None, None);
                 atlas.insert(
                     name,
                     AtlasInfo {
@@ -150,7 +153,7 @@ impl FromWorld for WorldAssets {
                             layout: texture.add(layout),
                             index: 0,
                         },
-                        last_index: action.columns() as usize - 1,
+                        last_index: action.frames() as usize - 1,
                     },
                 );
             }

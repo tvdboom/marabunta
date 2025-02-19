@@ -4,6 +4,7 @@ use crate::core::states::PauseState;
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
+use crate::core::constants::MAX_Z_SCORE;
 
 #[derive(Component)]
 pub struct PauseCmp;
@@ -31,7 +32,7 @@ pub fn spawn_pause_banner(mut commands: Commands, assets: Local<WorldAssets>) {
                     font_size: 55.,
                     ..default()
                 },
-                Transform::from_xyz(0., 0., 10.),
+                Transform::from_xyz(0., 0., MAX_Z_SCORE),
             ));
         });
 }

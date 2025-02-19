@@ -1,7 +1,5 @@
-use crate::core::ants::components::Ant;
-use crate::core::ants::systems::spawn_ant;
+use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::assets::WorldAssets;
-use crate::core::map::components::Map;
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::utils::{add_root_node, add_text};
 use crate::core::states::GameState;
@@ -9,19 +7,15 @@ use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
 use rand::Rng;
+use crate::core::player::Player;
 
 pub fn spawn_menu_ants(
-    mut commands: Commands,
-    map: Res<Map>,
+    mut player: ResMut<Player>,
     mut counter: Local<u8>,
-    assets: Local<WorldAssets>,
 ) {
     if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
         *counter += 1;
-        commands.spawn((
-            spawn_ant(Ant::BlackAnt, map.get_tile_coord(64), &assets),
-            MenuCmp,
-        ));
+        player.queue.push(AntCmp::new(Ant::BlackAnt));
     }
 }
 

@@ -1,47 +1,17 @@
-use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp};
-use crate::core::ants::utils::walk;
+use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp, Egg};
+use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
 use crate::core::map::components::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
+use crate::core::player::Player;
 use crate::core::resources::GameSettings;
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
-use rand::Rng;
-use std::f32::consts::PI;
 use std::mem::discriminant;
-
-pub fn spawn_ant(
-    kind: Ant,
-    pos: Vec2,
-    assets: &Local<WorldAssets>,
-) -> (Sprite, Transform, AnimationCmp, AntCmp, MapCmp) {
-    let ant = AntCmp::new(kind);
-
-    let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
-
-    (
-        Sprite {
-            image: atlas.image,
-            texture_atlas: Some(atlas.texture),
-            ..default()
-        },
-        Transform {
-            translation: pos.extend(3. + ant.z_score),
-            rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
-            scale: Vec3::splat(ant.scale),
-            ..default()
-        },
-        AnimationCmp {
-            timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
-            last_index: atlas.last_index,
-            action: ant.action.clone(),
-        },
-        ant,
-        MapCmp,
-    )
-}
+use crate::core::constants::{EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
+use crate::core::states::PauseState;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -108,45 +78,112 @@ pub fn tile_dig(
     }
 }
 
+pub fn hatch_eggs(
+    mut commands: Commands,
+    mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
+    game_settings: Res<GameSettings>,
+    assets: Local<WorldAssets>,
+    time: Res<Time>,
+) {
+    for (egg_e, mut egg, egg_t) in egg_q.iter_mut() {
+        egg.timer.tick(scale_duration(time.delta(), game_settings.speed));
+
+        if egg.timer.just_finished() {
+            commands.spawn(spawn_ant(egg.ant.clone(), egg_t.translation.truncate(), &assets));
+            commands.entity(egg_e).despawn();
+        }
+    }
+}
+
 pub fn resolve_action_ants(
+    mut commands: Commands,
     mut ant_q: Query<(&mut AntCmp, &mut Transform)>,
+    mut player: ResMut<Player>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
+    assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
     for (mut ant, mut ant_t) in ant_q.iter_mut() {
         match ant.action {
-            Action::Idle => {
-                match ant.kind {
-                    Ant::BlackAnt => {
-                        // Determine new location to dig
-                        ant.action =
-                            Action::Walk(map.random_dig_loc().expect("No location to dig."));
-                    }
-                    Ant::BlackQueen => {
-                        // Determine new location to walk to
-                        ant.action =
-                            Action::Walk(map.random_base_loc().expect("No location to walk."));
+            Action::Idle => match ant.kind {
+                Ant::BlackAnt => {
+                    ant.action = Action::Walk(map.random_dig_loc().unwrap());
+                }
+                Ant::BlackQueen => {
+                    if let Some(ant_c) = player.queue.first() {
+                        if let Some(timer) = ant.brooding_timer.as_mut() {
+                            timer.tick(scale_duration(time.delta(), game_settings.speed));
+                            if timer.just_finished() {
+                                commands.spawn((
+                                    Sprite {
+                                        image: assets.image("egg"),
+                                        ..default()
+                                    },
+                                    Transform {
+                                        translation: ant_t.translation.truncate().extend(EGG_Z_SCORE),
+                                        rotation: ant_t.rotation,
+                                        scale: Vec3::splat(0.5 * ant_c.scale),
+                                        ..default()
+                                    },
+                                    Egg {
+                                        ant: ant_c.kind.clone(),
+                                        timer: Timer::from_seconds(ant_c.brooding, TimerMode::Once),
+                                    },
+                                    MapCmp,
+                                ));
+
+                                player.queue.remove(0);
+                                ant.brooding_timer = None;
+                                ant.action = Action::Walk(map.random_base_loc().unwrap());
+                            }
+                        } else {
+                            ant.brooding_timer = Some(Timer::from_seconds(2.5, TimerMode::Once));
+                        }
+                    } else {
+                        ant.action = Action::Walk(map.random_base_loc().unwrap());
                     }
                 }
-            }
+            },
             Action::Walk(target_loc) => {
                 let current_loc = map.get_loc(&ant_t.translation);
                 if current_loc != target_loc {
                     walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
                 } else {
                     // Ant reached the target loc => continue with default action
-                    match ant.kind {
-                        Ant::BlackAnt => {
-                            ant.action = Action::Dig(*map.get_tile(&current_loc));
-                        }
-                        Ant::BlackQueen => {
-                            ant.action = Action::Idle;
-                        }
-                    }
+                    ant.action = match ant.kind {
+                        Ant::BlackAnt => Action::Dig(*map.get_tile(&current_loc)),
+                        Ant::BlackQueen => Action::Idle,
+                    };
                 }
             }
             _ => {}
+        }
+    }
+}
+
+pub fn check_keys(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut player: ResMut<Player>,
+    mut next_pause_state: ResMut<NextState<PauseState>>,
+    mut game_settings: ResMut<GameSettings>,
+) {
+    if keyboard.just_pressed(KeyCode::KeyW) {
+        player.queue.push(AntCmp::new(Ant::BlackAnt));
+    }
+
+    if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+        if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
+            game_settings.speed -= GAME_SPEED_STEP;
+            if game_settings.speed == 0. {
+                next_pause_state.set(PauseState::Paused);
+            }
+        }
+        if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
+            game_settings.speed += GAME_SPEED_STEP;
+            if game_settings.speed == GAME_SPEED_STEP {
+                next_pause_state.set(PauseState::Running);
+            }
         }
     }
 }

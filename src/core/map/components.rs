@@ -109,16 +109,10 @@ impl Map {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
                 if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
-                    let texture_index = if x == pos.x + 1 && y == pos.y + 1 {
-                        64 // Add soil hole in the top left corner of the base
-                    } else {
-                        i * Map::TEXTURE_SIZE.x as usize + j
-                    };
-
                     *tile = Tile {
                         x,
                         y,
-                        texture_index,
+                        texture_index: i * Map::TEXTURE_SIZE.x as usize + j,
                         is_base: true,
                         ..default()
                     };
@@ -135,20 +129,6 @@ impl Map {
             Self::MAP_VIEW.max.y
                 - Tile::SIZE * (loc.y as f32 + (step + step * (loc.bit / Tile::SIDE) as f32)),
         )
-    }
-
-    pub fn get_tile_coord(&self, texture_index: usize) -> Vec2 {
-        for tile in self.tiles.iter() {
-            if tile.texture_index == texture_index {
-                return Self::get_coord(&Loc {
-                    x: tile.x,
-                    y: tile.y,
-                    bit: 5,
-                });
-            }
-        }
-
-        panic!("Tile not found: {texture_index}");
     }
 
     pub fn get_tile(&self, loc: &Loc) -> &Tile {

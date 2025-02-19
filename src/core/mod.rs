@@ -10,8 +10,9 @@ mod player;
 mod resources;
 mod states;
 mod utils;
+mod constants;
 
-use crate::core::ants::systems::{animate_ants, resolve_action_ants, tile_dig};
+use crate::core::ants::systems::{animate_ants, check_keys, hatch_eggs, resolve_action_ants, tile_dig};
 use crate::core::audio::{
     play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
 };
@@ -28,6 +29,7 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_renet::renet::{RenetClient, RenetServer};
 use std::time::Duration;
+use crate::core::player::Player;
 
 pub struct GamePlugin;
 
@@ -42,6 +44,7 @@ impl Plugin for GamePlugin {
             .add_event::<ToggleMusicEv>()
             //Resources
             .init_resource::<GameSettings>()
+            .init_resource::<Player>()
             // Camera
             .add_systems(Startup, (setup_camera, draw_start_map).chain())
             .add_systems(Update, (move_camera, move_camera_keyboard))
@@ -87,10 +90,12 @@ impl Plugin for GamePlugin {
         .add_systems(
             Update,
             (
+                check_keys,
+                hatch_eggs,
                 animate_ants,
                 resolve_action_ants,
                 tile_dig,
-                spawn_menu_ants.run_if(on_timer(Duration::from_millis(100))),
+                spawn_menu_ants.run_if(on_timer(Duration::from_millis(200))),
             )
                 .run_if(in_state(PauseState::Running)),
         );
