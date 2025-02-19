@@ -2,17 +2,14 @@ use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::utils::{add_root_node, add_text};
+use crate::core::player::Player;
 use crate::core::states::GameState;
 use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
 use rand::Rng;
-use crate::core::player::Player;
 
-pub fn spawn_menu_ants(
-    mut player: ResMut<Player>,
-    mut counter: Local<u8>,
-) {
+pub fn spawn_menu_ants(mut player: ResMut<Player>, mut counter: Local<u8>) {
     if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
         *counter += 1;
         player.queue.push(AntCmp::new(Ant::BlackAnt));

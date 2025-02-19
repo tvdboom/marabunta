@@ -1,10 +1,10 @@
 use crate::core::assets::WorldAssets;
+use crate::core::constants::MAX_Z_SCORE;
 use crate::core::resources::GameSettings;
 use crate::core::states::PauseState;
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
-use crate::core::constants::MAX_Z_SCORE;
 
 #[derive(Component)]
 pub struct PauseCmp;

@@ -2,6 +2,7 @@ mod ants;
 mod assets;
 mod audio;
 mod camera;
+mod constants;
 mod map;
 mod menu;
 mod network;
@@ -10,18 +11,16 @@ mod player;
 mod resources;
 mod states;
 mod utils;
-mod constants;
 
-use crate::core::ants::systems::{animate_ants, check_keys, hatch_eggs, resolve_action_ants, tile_dig};
-use crate::core::audio::{
-    play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
-};
+use crate::core::ants::systems::*;
+use crate::core::audio::*;
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
 use crate::core::map::systems::{draw_start_map, MapCmp};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_menu, spawn_menu_ants};
 use crate::core::network::{client_receive_message, server_update};
 use crate::core::pause::{pause_game, spawn_pause_banner, toggle_pause_keyboard, unpause_game};
+use crate::core::player::Player;
 use crate::core::resources::GameSettings;
 use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::utils::despawn;
@@ -29,7 +28,6 @@ use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_renet::renet::{RenetClient, RenetServer};
 use std::time::Duration;
-use crate::core::player::Player;
 
 pub struct GamePlugin;
 
@@ -94,6 +92,7 @@ impl Plugin for GamePlugin {
                 hatch_eggs,
                 animate_ants,
                 resolve_action_ants,
+                update_ant_health_bars,
                 tile_dig,
                 spawn_menu_ants.run_if(on_timer(Duration::from_millis(200))),
             )

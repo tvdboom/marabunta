@@ -1,17 +1,17 @@
-use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp, Egg};
+use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp, AntHealth, Egg};
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
+use crate::core::constants::{EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
 use crate::core::map::components::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
+use crate::core::states::PauseState;
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use std::mem::discriminant;
-use crate::core::constants::{EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
-use crate::core::states::PauseState;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -86,10 +86,16 @@ pub fn hatch_eggs(
     time: Res<Time>,
 ) {
     for (egg_e, mut egg, egg_t) in egg_q.iter_mut() {
-        egg.timer.tick(scale_duration(time.delta(), game_settings.speed));
+        egg.timer
+            .tick(scale_duration(time.delta(), game_settings.speed));
 
         if egg.timer.just_finished() {
-            commands.spawn(spawn_ant(egg.ant.clone(), egg_t.translation.truncate(), &assets));
+            spawn_ant(
+                &mut commands,
+                egg.ant.clone(),
+                egg_t.translation.truncate(),
+                &assets,
+            );
             commands.entity(egg_e).despawn();
         }
     }
@@ -121,7 +127,10 @@ pub fn resolve_action_ants(
                                         ..default()
                                     },
                                     Transform {
-                                        translation: ant_t.translation.truncate().extend(EGG_Z_SCORE),
+                                        translation: ant_t
+                                            .translation
+                                            .truncate()
+                                            .extend(EGG_Z_SCORE),
                                         rotation: ant_t.rotation,
                                         scale: Vec3::splat(0.5 * ant_c.scale),
                                         ..default()
@@ -158,6 +167,31 @@ pub fn resolve_action_ants(
                 }
             }
             _ => {}
+        }
+    }
+}
+
+pub fn update_ant_health_bars(
+    mut ant_q: Query<(Entity, &mut AntCmp)>,
+    children_q: Query<&Children>,
+    mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealth>>,
+) {
+    for (ant_e, mut ant) in ant_q.iter_mut() {
+        if ant.health < ant.max_health {
+            if ant.health == 0. {
+                ant.action = Action::Die;
+
+            } else {
+                for child in children_q.iter_descendants(ant_e) {
+                    if let Ok((mut sprite_t, mut sprite)) = health_q.get_mut(child) {
+                        if let Some(size) = sprite.custom_size.as_mut() {
+                            let full_size = enemy.dim.x * 0.8 - 2.0;
+                            size.x = full_size * enemy.health / enemy.max_health;
+                            sprite_t.translation.x = (size.x - full_size) * 0.5;
+                        }
+                    }
+                }
+            }
         }
     }
 }

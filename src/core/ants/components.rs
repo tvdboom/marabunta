@@ -3,6 +3,9 @@ use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use strum_macros::EnumIter;
 
+#[derive(Component)]
+pub struct AntHealth;
+
 #[derive(EnumIter, Clone, Debug)]
 pub enum Ant {
     BlackAnt,
@@ -21,6 +24,7 @@ impl Ant {
 #[derive(EnumIter, Clone, Debug)]
 pub enum Action {
     Bite,
+    Die,
     Idle,
     Walk(Loc), // Location to walk to
     Dig(Tile), // Tile to dig
@@ -30,6 +34,7 @@ impl Action {
     pub fn frames(&self) -> u32 {
         match &self {
             Action::Bite => 8,
+            Action::Die => 10,
             Action::Dig(_) => 20,
             Action::Idle => 20,
             Action::Walk(_) => 8,
@@ -52,6 +57,7 @@ pub struct AnimationCmp {
 pub struct AntCmp {
     pub kind: Ant,
     pub health: f32,
+    pub max_health: f32,
     pub speed: f32,
     pub scale: f32,
     pub action: Action,
@@ -66,6 +72,7 @@ impl AntCmp {
             Ant::BlackAnt => Self {
                 kind: Ant::BlackAnt,
                 health: 10.,
+                max_health: 10.,
                 speed: 20.,
                 scale: 0.03,
                 action: Action::Idle,
@@ -76,6 +83,7 @@ impl AntCmp {
             Ant::BlackQueen => Self {
                 kind: Ant::BlackQueen,
                 health: 1000.,
+                max_health: 1000.,
                 speed: 10.,
                 scale: 0.05,
                 action: Action::Idle,

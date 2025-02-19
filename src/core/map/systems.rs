@@ -1,11 +1,11 @@
 use crate::core::ants::components::Ant;
+use crate::core::ants::utils::spawn_ant;
 use crate::core::assets::WorldAssets;
+use crate::core::constants::TILE_Z_SCORE;
 use crate::core::map::components::Map;
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use rand::{rng, Rng};
-use crate::core::ants::utils::spawn_ant;
-use crate::core::constants::TILE_Z_SCORE;
 
 #[derive(Component)]
 pub struct MapCmp;
@@ -68,7 +68,7 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
 
         // Spawn queen
         if tile.texture_index == 9 {
-            commands.spawn(spawn_ant(Ant::BlackQueen, coord, &assets));
+            spawn_ant(&mut commands, Ant::BlackQueen, coord, &assets);
         }
     }
 

@@ -1,44 +1,65 @@
-use crate::core::ants::components::{AnimationCmp, Ant, AntCmp};
-use crate::core::map::components::{Loc, Map};
-use crate::core::resources::GameSettings;
-use bevy::math::{Quat, Vec2, Vec3};
-use bevy::prelude::{default, Local, Res, Sprite, Time, Timer, TimerMode, Transform};
-use std::f32::consts::PI;
-use rand::Rng;
+use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealth};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
+use crate::core::map::components::{Loc, Map};
 use crate::core::map::systems::MapCmp;
+use crate::core::resources::GameSettings;
 use crate::utils::NameFromEnum;
+use bevy::color::palettes::css::{BLACK, LIME};
+use bevy::math::{Quat, Vec2, Vec3};
+use bevy::prelude::*;
+use rand::Rng;
+use std::f32::consts::PI;
 
-pub fn spawn_ant(
-    kind: Ant,
-    pos: Vec2,
-    assets: &Local<WorldAssets>,
-) -> (Sprite, Transform, AnimationCmp, AntCmp, MapCmp) {
+pub fn spawn_ant(mut commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
     let ant = AntCmp::new(kind);
 
     let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
-    (
-        Sprite {
-            image: atlas.image,
-            texture_atlas: Some(atlas.texture),
-            ..default()
-        },
-        Transform {
-            translation: pos.extend(ANT_Z_SCORE + ant.z_score),
-            rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
-            scale: Vec3::splat(ant.scale),
-            ..default()
-        },
-        AnimationCmp {
-            timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
-            last_index: atlas.last_index,
-            action: ant.action.clone(),
-        },
-        ant,
-        MapCmp,
-    )
+    commands
+        .spawn((
+            Sprite {
+                image: atlas.image,
+                texture_atlas: Some(atlas.texture),
+                ..default()
+            },
+            Transform {
+                translation: pos.extend(ANT_Z_SCORE + ant.z_score),
+                rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
+                scale: Vec3::splat(ant.scale),
+                ..default()
+            },
+            AnimationCmp {
+                timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
+                last_index: atlas.last_index,
+                action: ant.action.clone(),
+            },
+            ant,
+            MapCmp,
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Sprite {
+                        color: Color::from(BLACK),
+                        // custom_size: Some(Vec2::new(enemy.dim.x * 0.8, enemy.dim.y * 0.1)),
+                        ..default()
+                    },
+                    Transform::from_xyz(0., enemy.dim.y * 0.5 - 5.0, 0.1),
+                    // Visibility::Hidden,
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Sprite {
+                            color: Color::from(LIME),
+                            // custom_size: Some(Vec2::new(enemy.dim.x * 0.78, enemy.dim.y * 0.08)),
+                            ..default()
+                        },
+                        Transform::from_xyz(0., 0., 0.2),
+                        AntHealth,
+                    ));
+                });
+        });
 }
 
 pub fn walk(

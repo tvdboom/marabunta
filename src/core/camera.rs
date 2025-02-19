@@ -1,9 +1,9 @@
+use crate::core::constants::{LERP_FACTOR, MAX_ZOOM, MIN_ZOOM, ZOOM_FACTOR};
 use crate::core::map::components::Map;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
-use crate::core::constants::{LERP_FACTOR, MAX_ZOOM, MIN_ZOOM, ZOOM_FACTOR};
 
 #[derive(Component)]
 pub struct MainCamera;
