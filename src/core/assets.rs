@@ -117,12 +117,16 @@ impl FromWorld for WorldAssets {
                 assets.load("images/ants/black_ant_dig.png"),
             ),
             (
-                "black_ant_move",
-                assets.load("images/ants/black_ant_move.png"),
+                "black_ant_idle",
+                assets.load("images/ants/black_ant_idle.png"),
             ),
             (
-                "black_queen_move",
-                assets.load("images/ants/black_queen_move.png"),
+                "black_ant_walk",
+                assets.load("images/ants/black_ant_walk.png"),
+            ),
+            (
+                "black_queen_walk",
+                assets.load("images/ants/black_queen_walk.png"),
             ),
         ]);
 

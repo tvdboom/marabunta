@@ -16,7 +16,7 @@ pub fn spawn_menu_ants(
     mut counter: Local<u8>,
     assets: Local<WorldAssets>,
 ) {
-    if *counter < 1 && rand::rng().random::<f32>() < 0.1 {
+    if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
         *counter += 1;
         spawn_ant(
             &mut commands,

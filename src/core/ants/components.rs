@@ -1,5 +1,4 @@
 use crate::core::map::components::Loc;
-use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 
 #[derive(Debug)]
@@ -11,8 +10,18 @@ pub enum Ant {
 #[derive(Clone, Debug)]
 pub enum Action {
     Idle,
-    Walk(Loc),
-    Dig,
+    Walk(Loc),   // Location to walk to
+    Dig(Entity), // Entity of the tile to dig
+}
+
+impl Action {
+    pub fn interval(&self) -> f32 {
+        match &self {
+            Action::Idle => 0.2,
+            Action::Walk(_) => 0.2,
+            Action::Dig(_) => 0.05,
+        }
+    }
 }
 
 #[derive(Component)]
@@ -24,7 +33,7 @@ pub struct AnimationCmp {
 
 #[derive(Component)]
 pub struct AntCmp {
-    pub name: String,
+    pub kind: Ant,
     pub health: f32,
     pub speed: f32,
     pub scale: f32,
@@ -36,7 +45,7 @@ impl AntCmp {
     pub fn new(kind: Ant) -> Self {
         match kind {
             Ant::BlackAnt => Self {
-                name: Ant::BlackAnt.to_snake(),
+                kind: Ant::BlackAnt,
                 health: 10.,
                 speed: 20.,
                 scale: 0.03,
@@ -44,7 +53,7 @@ impl AntCmp {
                 z_score: 0.1,
             },
             Ant::BlackQueen => Self {
-                name: Ant::BlackQueen.to_snake(),
+                kind: Ant::BlackQueen,
                 health: 1000.,
                 speed: 10.,
                 scale: 0.05,

@@ -4,6 +4,8 @@ use rand::prelude::IndexedRandom;
 
 #[derive(Component, Clone)]
 pub struct Tile {
+    pub x: u32,
+    pub y: u32,
     pub texture_index: usize,
     pub rotation: i32,
 }
@@ -15,28 +17,16 @@ impl Tile {
 
     pub const SOIL: [usize; 3] = [29, 66, 67];
 
-    pub fn new(texture_index: usize) -> Self {
-        Self {
-            texture_index,
-            rotation: 0,
-        }
-    }
-
-    pub fn from_rotation(texture_index: usize, rotation: i32) -> Self {
-        Self {
-            texture_index,
-            rotation,
-        }
-    }
-
     /// Create a new tile with a random soil texture and rotation
-    pub fn soil() -> Self {
+    pub fn soil(x: u32, y: u32) -> Self {
         let angles = [0, 90, 180, 270];
 
-        Tile::from_rotation(
-            *Self::SOIL.choose(&mut rand::rng()).unwrap(),
-            *angles.choose(&mut rand::rng()).unwrap(),
-        )
+        Tile {
+            x,
+            y,
+            texture_index: *Self::SOIL.choose(&mut rand::rng()).unwrap(),
+            rotation: *angles.choose(&mut rand::rng()).unwrap(),
+        }
     }
 
     pub fn bitmap(&self) -> u16 {
