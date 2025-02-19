@@ -2,12 +2,27 @@ use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
 use rand::prelude::IndexedRandom;
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct Tile {
     pub x: u32,
     pub y: u32,
     pub texture_index: usize,
     pub rotation: i32,
+    pub is_base: bool,
+    pub terraform: f32,
+}
+
+impl Default for Tile {
+    fn default() -> Self {
+        Tile {
+            x: 0,
+            y: 0,
+            texture_index: 0,
+            rotation: 0,
+            is_base: false,
+            terraform: 100.,
+        }
+    }
 }
 
 impl Tile {
@@ -26,6 +41,8 @@ impl Tile {
             y,
             texture_index: *Self::SOIL.choose(&mut rand::rng()).unwrap(),
             rotation: *angles.choose(&mut rand::rng()).unwrap(),
+            is_base: false,
+            ..default()
         }
     }
 

@@ -3,6 +3,7 @@ use crate::core::menu::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON
 use crate::core::menu::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::player::Player;
+use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::GameState;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -14,6 +15,7 @@ pub struct MenuCmp;
 
 #[derive(Component, Clone, Debug)]
 pub enum MenuBtn {
+    Multiplayer,
     HostGame,
     FindGame,
     Play,
@@ -28,11 +30,15 @@ pub fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     btn_q: Query<&MenuBtn>,
+    game_state: Res<State<GameState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
 ) {
     match btn_q.get(click.entity()).unwrap() {
+        MenuBtn::Multiplayer => {
+            next_game_state.set(GameState::MultiPlayerMenu);
+        }
         MenuBtn::HostGame => {
             // Remove client resources if they exist
             if client.is_some() {
@@ -54,27 +60,45 @@ pub fn on_click_menu_button(
             next_game_state.set(GameState::Lobby);
         }
         MenuBtn::Play => {
-            let mut server = server.unwrap();
+            if *game_state.get() != GameState::MainMenu {
+                // Multiplayer context
+                let mut server = server.unwrap();
 
-            // Send the start game signal to all clients with their player number
-            for (i, client) in server.clients_id().iter().enumerate() {
-                let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
-                server.send_message(*client, DefaultChannel::ReliableOrdered, message);
+                // Send the start game signal to all clients with their player number
+                for (i, client) in server.clients_id().iter().enumerate() {
+                    let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
+                    server.send_message(*client, DefaultChannel::ReliableOrdered, message);
+                }
+
+                commands.insert_resource(GameSettings {
+                    game_mode: GameMode::MultiPlayer,
+                    ..default()
+                });
+            } else {
+                // Single player context
+                commands.insert_resource(GameSettings {
+                    game_mode: GameMode::SinglePlayer,
+                    ..default()
+                });
             }
 
             commands.insert_resource(Player::new(0)); // Host is always player 0
             next_game_state.set(GameState::Game);
         }
         MenuBtn::BackToMenu => {
-            if let Some(client) = client.as_mut() {
-                client.disconnect();
-            } else if let Some(mut server) = server {
-                server.disconnect_all();
-                commands.remove_resource::<RenetServer>();
-                commands.remove_resource::<NetcodeServerTransport>();
-            }
+            if *game_state.get() == GameState::MultiPlayerMenu {
+                next_game_state.set(GameState::MainMenu);
+            } else {
+                if let Some(client) = client.as_mut() {
+                    client.disconnect();
+                } else if let Some(mut server) = server {
+                    server.disconnect_all();
+                    commands.remove_resource::<RenetServer>();
+                    commands.remove_resource::<NetcodeServerTransport>();
+                }
 
-            next_game_state.set(GameState::Menu)
+                next_game_state.set(GameState::MultiPlayerMenu);
+            }
         }
         MenuBtn::Quit => std::process::exit(0),
     }

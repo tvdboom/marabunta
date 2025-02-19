@@ -1,25 +1,45 @@
 use crate::core::map::components::Loc;
+use crate::core::map::tile::Tile;
 use bevy::prelude::*;
+use strum_macros::EnumIter;
 
-#[derive(Debug)]
+#[derive(EnumIter, Debug)]
 pub enum Ant {
     BlackAnt,
     BlackQueen,
 }
 
-#[derive(Clone, Debug)]
+impl Ant {
+    pub fn size(&self) -> UVec2 {
+        match self {
+            Ant::BlackAnt => UVec2::new(307, 438),
+            Ant::BlackQueen => UVec2::new(307, 525),
+        }
+    }
+}
+
+#[derive(EnumIter, Clone, Debug)]
 pub enum Action {
+    Bite,
     Idle,
-    Walk(Loc),   // Location to walk to
-    Dig(Entity), // Entity of the tile to dig
+    Walk(Loc), // Location to walk to
+    Dig(Tile), // Tile to dig
 }
 
 impl Action {
+    pub fn columns(&self) -> u32 {
+        match &self {
+            Action::Bite => 8,
+            Action::Dig(_) => 20,
+            Action::Idle => 20,
+            Action::Walk(_) => 8,
+        }
+    }
+
     pub fn interval(&self) -> f32 {
         match &self {
-            Action::Idle => 0.2,
-            Action::Walk(_) => 0.2,
             Action::Dig(_) => 0.05,
+            _ => 0.2,
         }
     }
 }

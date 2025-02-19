@@ -14,7 +14,7 @@ pub fn walk(
     game_settings: &Res<GameSettings>,
     time: &Res<Time>,
 ) {
-    let current_loc = Map::get_loc(&ant_t.translation);
+    let current_loc = map.get_loc(&ant_t.translation);
     let path = map.shortest_path(&current_loc, target_loc).split_off(1);
 
     if let Some(next_loc) = path.first() {
@@ -33,7 +33,8 @@ pub fn walk(
                 * game_settings.speed
                 * time.delta_secs();
 
-        if map.is_walkable(&Map::get_loc(&next_pos)) {
+        let next_loc = map.get_loc(&next_pos);
+        if map.is_walkable(&next_loc) || next_loc == *target_loc {
             ant_t.translation = next_pos;
         } else {
             // At a tunnel's wall, rotate faster towards the next location

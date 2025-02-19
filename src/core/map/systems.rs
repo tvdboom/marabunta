@@ -3,15 +3,11 @@ use crate::core::ants::systems::spawn_ant;
 use crate::core::assets::WorldAssets;
 use crate::core::map::components::Map;
 use crate::core::map::tile::Tile;
-use crate::core::states::{GameState, PauseState};
 use bevy::prelude::*;
 use rand::{rng, Rng};
 
 #[derive(Component)]
 pub struct MapCmp;
-
-#[derive(Component)]
-pub struct StoneCmp;
 
 pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
     let mut map = Map::new();
@@ -20,10 +16,16 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
         Map::MAP_SIZE.y / 2 - 6,
     ));
 
-    for (y, col) in map.world().iter().enumerate() {
-        for (x, tile) in col.iter().enumerate() {
-            let texture = assets.texture("tiles");
-            commands.spawn((
+    for (i, tile) in map.world().iter().enumerate() {
+        let texture = assets.texture("tiles");
+
+        let coord = Vec2::new(
+            Map::WORLD_VIEW.min.x + Tile::SIZE * ((i as u32 % Map::WORLD_SIZE.x) as f32 + 0.5),
+            Map::WORLD_VIEW.max.y - Tile::SIZE * ((i as u32 / Map::WORLD_SIZE.x) as f32 + 0.5),
+        );
+
+        let tile_e = commands
+            .spawn((
                 Sprite {
                     image: texture.image,
                     custom_size: Some(Vec2::splat(Tile::SIZE)),
@@ -34,61 +36,40 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
                     ..default()
                 },
                 Transform {
-                    translation: Map::get_world_coord(x, y).extend(0.),
+                    translation: coord.extend(0.),
                     rotation: Quat::from_rotation_z((tile.rotation as f32).to_radians()),
                     ..default()
                 },
-                tile.clone(),
+                *tile,
                 MapCmp,
-            ));
+            ))
+            .id();
 
-            // Add random stones for decoration
-            if Tile::SOIL.contains(&tile.texture_index) && rand::random::<f32>() > 0.9 {
-                commands.spawn((
+        // Add random stones for decoration
+        if Tile::SOIL.contains(&tile.texture_index) && rand::random::<f32>() < 0.1 {
+            commands
+                .spawn((
                     Sprite {
                         image: assets.image(&format!("stone{}", rng().random_range(1..=18))),
                         ..default()
                     },
                     Transform {
-                        translation: Map::get_world_coord(x, y).extend(1.),
+                        translation: Vec3::new(0., 0., 0.1),
                         rotation: Quat::from_rotation_z(
                             rng().random_range(0.0_f32..360.).to_radians(),
                         ),
                         scale: Vec3::splat(rng().random_range(0.1..0.2)),
                         ..default()
                     },
-                    StoneCmp,
-                    MapCmp,
-                ));
-            }
+                ))
+                .set_parent(tile_e);
+        }
 
-            // Spawn queen at hole
-            // if tile.texture_index == 64 {
-            //     spawn_ant(
-            //         &mut commands,
-            //         Ant::BlackQueen,
-            //         Map::get_world_coord(x, y),
-            //         &assets,
-            //     );
-            // }
+        // Spawn queen at hole
+        if tile.texture_index == 64 {
+            commands.spawn(spawn_ant(Ant::BlackQueen, coord, &assets));
         }
     }
 
     commands.insert_resource(map);
-}
-
-pub fn toggle_pause_keyboard(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    game_state: Res<State<GameState>>,
-    pause_state: Res<State<PauseState>>,
-    mut next_pause_state: ResMut<NextState<PauseState>>,
-) {
-    // if *game_state.get() == GameState::Game {
-    if keyboard.just_pressed(KeyCode::Space) {
-        match pause_state.get() {
-            PauseState::Running => next_pause_state.set(PauseState::Paused),
-            PauseState::Paused => next_pause_state.set(PauseState::Running),
-        }
-    }
-    // }
 }

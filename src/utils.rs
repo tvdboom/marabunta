@@ -1,6 +1,5 @@
 use regex::Regex;
 use std::fmt::Debug;
-use std::time::Duration;
 
 /// Helper function to extract only the variant name (removes tuple/struct fields)
 fn extract_variant_name(text: String) -> String {
@@ -42,10 +41,4 @@ impl<T: Debug> NameFromEnum for T {
         let text = extract_variant_name(format!("{:?}", self));
         re.replace_all(&text, "${1}_${2}").to_lowercase()
     }
-}
-
-/// Scale a Duration by a factor
-pub fn scale_duration(duration: Duration, scale: f32) -> Duration {
-    let sec = (duration.as_secs() as f32 + duration.subsec_nanos() as f32 * 1e-9) * scale;
-    Duration::new(sec.trunc() as u64, (sec.fract() * 1e9) as u32)
 }

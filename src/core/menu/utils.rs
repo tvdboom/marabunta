@@ -13,13 +13,6 @@ pub fn recolor<E: Debug + Clone + Reflect>(
     }
 }
 
-/// Generic system that despawns all entities with a specific component
-pub fn despawn<T: Component>(mut commands: Commands, component: Query<Entity, With<T>>) {
-    for entity in &component {
-        commands.entity(entity).despawn_recursive();
-    }
-}
-
 /// Add a root UI node that covers the whole screen
 pub fn add_root_node() -> (Node, PickingBehavior) {
     (

@@ -18,12 +18,10 @@ pub fn spawn_menu_ants(
 ) {
     if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
         *counter += 1;
-        spawn_ant(
-            &mut commands,
-            Ant::BlackAnt,
-            map.get_tile_coord(64),
-            &assets,
-        );
+        commands.spawn((
+            spawn_ant(Ant::BlackAnt, map.get_tile_coord(64), &assets),
+            MenuCmp,
+        ));
     }
 }
 
@@ -56,11 +54,17 @@ pub fn setup_menu(
                 });
 
             match game_state.get() {
-                GameState::Menu => {
+                GameState::MainMenu => {
+                    spawn_menu_button(parent, MenuBtn::Play, &assets);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        spawn_menu_button(parent, MenuBtn::Multiplayer, &assets);
+                        spawn_menu_button(parent, MenuBtn::Quit, &assets);
+                    }
+                }
+                GameState::MultiPlayerMenu => {
                     spawn_menu_button(parent, MenuBtn::HostGame, &assets);
                     spawn_menu_button(parent, MenuBtn::FindGame, &assets);
-
-                    #[cfg(not(target_arch = "wasm32"))]
                     spawn_menu_button(parent, MenuBtn::Quit, &assets);
                 }
                 GameState::Lobby | GameState::ConnectedLobby => {

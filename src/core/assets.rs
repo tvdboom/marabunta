@@ -1,7 +1,10 @@
+use crate::core::ants::components::{Action, Ant};
+use crate::utils::NameFromEnum;
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::*;
 use bevy_kira_audio::AudioSource;
 use std::collections::HashMap;
+use strum::IntoEnumIterator;
 
 #[derive(Clone)]
 pub struct TextureInfo {
@@ -70,7 +73,7 @@ impl FromWorld for WorldAssets {
             ("FiraMono-Medium", assets.load("fonts/FiraMono-Medium.ttf")),
         ]);
 
-        let images: HashMap<&'static str, Handle<Image>> = HashMap::from([
+        let mut images: HashMap<&'static str, Handle<Image>> = HashMap::from([
             // Icons
             ("mute", assets.load("images/icons/mute.png")),
             ("sound", assets.load("images/icons/sound.png")),
@@ -107,28 +110,15 @@ impl FromWorld for WorldAssets {
             ("stone16", assets.load("images/map/stone_16.png")),
             ("stone17", assets.load("images/map/stone_17.png")),
             ("stone18", assets.load("images/map/stone_18.png")),
-            // Ants
-            (
-                "black_ant_bite",
-                assets.load("images/ants/black_ant_bite.png"),
-            ),
-            (
-                "black_ant_dig",
-                assets.load("images/ants/black_ant_dig.png"),
-            ),
-            (
-                "black_ant_idle",
-                assets.load("images/ants/black_ant_idle.png"),
-            ),
-            (
-                "black_ant_walk",
-                assets.load("images/ants/black_ant_walk.png"),
-            ),
-            (
-                "black_queen_walk",
-                assets.load("images/ants/black_queen_walk.png"),
-            ),
         ]);
+
+        for ant in Ant::iter() {
+            for action in Action::iter() {
+                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
+                    .as_str();
+                images.insert(name, assets.load(&format!("images/ants/{name}.png")));
+            }
+        }
 
         let mut texture = world
             .get_resource_mut::<Assets<TextureAtlasLayout>>()
@@ -144,71 +134,27 @@ impl FromWorld for WorldAssets {
             },
         )]);
 
-        let black_ant_bite = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 8, 1, None, None);
-        let black_ant_dig = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 20, 1, None, None);
-        let black_ant_idle = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 20, 1, None, None);
-        let black_ant_walk = TextureAtlasLayout::from_grid(UVec2::new(307, 438), 8, 1, None, None);
+        let mut atlas = HashMap::new();
 
-        let black_queen_walk =
-            TextureAtlasLayout::from_grid(UVec2::new(307, 525), 8, 1, None, None);
-
-        let atlas = HashMap::from([
-            (
-                "black_ant_bite",
-                AtlasInfo {
-                    image: images["black_ant_bite"].clone_weak(),
-                    texture: TextureAtlas {
-                        layout: texture.add(black_ant_bite),
-                        index: 0,
+        for ant in Ant::iter() {
+            for action in Action::iter() {
+                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
+                    .as_str();
+                let layout =
+                    TextureAtlasLayout::from_grid(ant.size(), action.columns(), 1, None, None);
+                atlas.insert(
+                    name,
+                    AtlasInfo {
+                        image: images[name].clone_weak(),
+                        texture: TextureAtlas {
+                            layout: texture.add(layout),
+                            index: 0,
+                        },
+                        last_index: action.columns() as usize - 1,
                     },
-                    last_index: 7,
-                },
-            ),
-            (
-                "black_ant_dig",
-                AtlasInfo {
-                    image: images["black_ant_dig"].clone_weak(),
-                    texture: TextureAtlas {
-                        layout: texture.add(black_ant_dig),
-                        index: 0,
-                    },
-                    last_index: 19,
-                },
-            ),
-            (
-                "black_ant_idle",
-                AtlasInfo {
-                    image: images["black_ant_idle"].clone_weak(),
-                    texture: TextureAtlas {
-                        layout: texture.add(black_ant_idle),
-                        index: 0,
-                    },
-                    last_index: 19,
-                },
-            ),
-            (
-                "black_ant_walk",
-                AtlasInfo {
-                    image: images["black_ant_walk"].clone_weak(),
-                    texture: TextureAtlas {
-                        layout: texture.add(black_ant_walk),
-                        index: 0,
-                    },
-                    last_index: 7,
-                },
-            ),
-            (
-                "black_queen_walk",
-                AtlasInfo {
-                    image: images["black_queen_walk"].clone_weak(),
-                    texture: TextureAtlas {
-                        layout: texture.add(black_queen_walk),
-                        index: 0,
-                    },
-                    last_index: 7,
-                },
-            ),
-        ]);
+                );
+            }
+        }
 
         Self {
             audio,

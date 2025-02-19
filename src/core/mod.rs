@@ -5,22 +5,25 @@ mod camera;
 mod map;
 mod menu;
 mod network;
+mod pause;
 mod player;
 mod resources;
 mod states;
+mod utils;
 
-use crate::core::ants::systems::{animate_ants, resolve_action_ants};
+use crate::core::ants::systems::{animate_ants, resolve_action_ants, tile_dig};
 use crate::core::audio::{
     play_music, setup_music_btn, stop_music, toggle_music, toggle_music_keyboard, ToggleMusicEv,
 };
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
-use crate::core::map::systems::{draw_start_map, toggle_pause_keyboard, MapCmp};
+use crate::core::map::systems::{draw_start_map, MapCmp};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_menu, spawn_menu_ants};
-use crate::core::menu::utils::despawn;
 use crate::core::network::{client_receive_message, server_update};
+use crate::core::pause::{pause_game, spawn_pause_banner, toggle_pause_keyboard, unpause_game};
 use crate::core::resources::GameSettings;
 use crate::core::states::{GameState, MusicState, PauseState};
+use crate::core::utils::despawn;
 use bevy::prelude::*;
 use bevy::time::common_conditions::on_timer;
 use bevy_renet::renet::{RenetClient, RenetServer};
@@ -57,7 +60,12 @@ impl Plugin for GamePlugin {
             );
 
         // Menu
-        for state in [GameState::Menu, GameState::Lobby, GameState::ConnectedLobby] {
+        for state in [
+            GameState::MainMenu,
+            GameState::MultiPlayerMenu,
+            GameState::Lobby,
+            GameState::ConnectedLobby,
+        ] {
             app.add_systems(OnEnter(state), setup_menu)
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
@@ -67,14 +75,21 @@ impl Plugin for GamePlugin {
             OnEnter(GameState::Game),
             (despawn::<MapCmp>, draw_start_map).chain(),
         )
-        // Game
-        .add_systems(Update, toggle_pause_keyboard)
+        // Pause
+        .add_systems(Startup, spawn_pause_banner)
+        .add_systems(OnEnter(PauseState::Paused), pause_game)
+        .add_systems(OnEnter(PauseState::Running), unpause_game)
+        .add_systems(
+            Update,
+            toggle_pause_keyboard.run_if(in_state(GameState::Game)),
+        )
         // Ants
         .add_systems(
             Update,
             (
                 animate_ants,
                 resolve_action_ants,
+                tile_dig,
                 spawn_menu_ants.run_if(on_timer(Duration::from_millis(100))),
             )
                 .run_if(in_state(PauseState::Running)),

@@ -5,17 +5,23 @@ use crate::core::map::components::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::resources::GameSettings;
-use crate::utils::{scale_duration, NameFromEnum};
+use crate::core::utils::scale_duration;
+use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
 use std::mem::discriminant;
 
-pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
+pub fn spawn_ant(
+    kind: Ant,
+    pos: Vec2,
+    assets: &Local<WorldAssets>,
+) -> (Sprite, Transform, AnimationCmp, AntCmp, MapCmp) {
     let ant = AntCmp::new(kind);
 
     let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
-    commands.spawn((
+
+    (
         Sprite {
             image: atlas.image,
             texture_atlas: Some(atlas.texture),
@@ -34,7 +40,7 @@ pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<W
         },
         ant,
         MapCmp,
-    ));
+    )
 }
 
 pub fn animate_ants(
@@ -76,9 +82,34 @@ pub fn animate_ants(
     }
 }
 
+pub fn tile_dig(
+    mut commands: Commands,
+    mut ant_q: Query<&mut AntCmp>,
+    mut tile_q: Query<(Entity, &mut Tile)>,
+    game_settings: Res<GameSettings>,
+    time: Res<Time>,
+) {
+    for (tile_e, mut tile) in tile_q.iter_mut() {
+        let mut ants = ant_q
+            .iter_mut()
+            .filter(|ant| matches!(ant.action, Action::Dig(t) if t.x == tile.x && t.y == tile.y))
+            .collect::<Vec<_>>();
+
+        let terraform = ants.len() as f32 * 20. * game_settings.speed * time.delta_secs();
+
+        if tile.terraform > terraform {
+            tile.terraform -= terraform;
+        } else {
+            ants.iter_mut().for_each(|ant| {
+                ant.action = Action::Idle;
+            });
+            commands.entity(tile_e).despawn();
+        }
+    }
+}
+
 pub fn resolve_action_ants(
     mut ant_q: Query<(&mut AntCmp, &mut Transform)>,
-    tile_q: Query<(Entity, &Tile)>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
     time: Res<Time>,
@@ -95,41 +126,19 @@ pub fn resolve_action_ants(
                     Ant::BlackQueen => {
                         // Determine new location to walk to
                         ant.action =
-                            Action::Walk(map.random_walk_loc().expect("No location to walk."));
+                            Action::Walk(map.random_base_loc().expect("No location to walk."));
                     }
                 }
             }
             Action::Walk(target_loc) => {
-                let current_loc = Map::get_loc(&ant_t.translation);
+                let current_loc = map.get_loc(&ant_t.translation);
                 if current_loc != target_loc {
                     walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
                 } else {
                     // Ant reached the target loc => continue with default action
                     match ant.kind {
                         Ant::BlackAnt => {
-                            // Rotate towards the wall
-                            let neighbors = map.get_neighbors(&current_loc, false);
-                            let wall = neighbors.first().unwrap();
-
-                            let d = -ant_t.translation + Map::get_coord(wall).extend(ant_t.translation.z);
-                            let angle = Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5);
-
-                            if ant_t.rotation != angle {
-                                // Rotate towards the wall
-                                ant_t.rotation = ant_t.rotation.rotate_towards(
-                                    angle,
-                                    game_settings.speed * time.delta_secs(),
-                                );
-                            } else {
-                                // Determine tile to dig
-                                let tile_e = tile_q
-                                    .iter()
-                                    .find(|(_, t)| t.x == wall.x && t.y == wall.y)
-                                    .map(|(e, _)| e)
-                                    .expect("Current loc has no associated tile.");
-
-                                ant.action = Action::Dig(tile_e);
-                            }
+                            ant.action = Action::Dig(*map.get_tile(&current_loc));
                         }
                         Ant::BlackQueen => {
                             ant.action = Action::Idle;
@@ -137,7 +146,7 @@ pub fn resolve_action_ants(
                     }
                 }
             }
-            Action::Dig(entity) => {}
+            _ => {}
         }
     }
 }

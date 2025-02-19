@@ -4,7 +4,7 @@ use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 pub struct Loc {
     pub x: u32,
     pub y: u32,
@@ -22,7 +22,7 @@ impl Loc {
 
 #[derive(Resource)]
 pub struct Map {
-    pub tiles: Vec<Vec<Tile>>,
+    pub tiles: Vec<Tile>,
 }
 
 impl Map {
@@ -66,14 +66,19 @@ impl Map {
     pub const TEXTURE_SIZE: UVec2 = UVec2::new(8, 9);
 
     pub fn new() -> Self {
-        let tiles: Vec<Vec<Tile>> = (0..Self::MAP_SIZE.y)
-            .map(|y| (0..Self::MAP_SIZE.x).map(|x| Tile::soil(x, y)).collect())
+        let tiles: Vec<Tile> = (0..Self::MAP_SIZE.y)
+            .map(|y| {
+                (0..Self::MAP_SIZE.x)
+                    .map(|x| Tile::soil(x, y))
+                    .collect::<Vec<_>>()
+            })
+            .flatten()
             .collect();
 
         Self { tiles }
     }
 
-    pub fn world(&self) -> Vec<Vec<Tile>> {
+    pub fn world(&self) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
             .map(|y| {
                 (0..Self::WORLD_SIZE.x)
@@ -83,36 +88,43 @@ impl Map {
                             || x < Self::OFFSET.x
                             || x >= Self::MAP_SIZE.x + Self::OFFSET.x
                         {
-                            Tile::soil(x, y)
+                            Tile::soil(0, 0)
                         } else {
-                            self.tiles[(y - Self::OFFSET.y) as usize][(x - Self::OFFSET.x) as usize]
-                                .clone()
+                            self.tiles
+                                .iter()
+                                .find(|t| {
+                                    t.x == (x - Self::OFFSET.x) && t.y == (y - Self::OFFSET.y)
+                                })
+                                .unwrap()
+                                .to_owned()
                         }
                     })
-                    .collect()
+                    .collect::<Vec<_>>()
             })
+            .flatten()
             .collect()
     }
 
     pub fn insert_base(&mut self, pos: UVec2) {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
-                self.tiles[y as usize][x as usize] = Tile {
-                    x,
-                    y,
-                    texture_index: i * Map::TEXTURE_SIZE.x as usize + j,
-                    rotation: 0,
-                };
+                if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
+                    let texture_index = if x == pos.x + 1 && y == pos.y + 1 {
+                        64 // Add soil hole in the top left corner of the base
+                    } else {
+                        i * Map::TEXTURE_SIZE.x as usize + j
+                    };
+
+                    *tile = Tile {
+                        x,
+                        y,
+                        texture_index,
+                        is_base: true,
+                        ..default()
+                    };
+                }
             }
         }
-
-        // Add soil hole
-        self.tiles[pos.y as usize + 1][pos.x as usize + 1] = Tile {
-            x: pos.x + 1,
-            y: pos.y + 1,
-            texture_index: 64,
-            rotation: 0,
-        };
     }
 
     pub fn get_coord(loc: &Loc) -> Vec2 {
@@ -125,30 +137,25 @@ impl Map {
         )
     }
 
-    pub fn get_world_coord(x: usize, y: usize) -> Vec2 {
-        Vec2::new(
-            Self::WORLD_VIEW.min.x + Tile::SIZE * (x as f32 + 0.5),
-            Self::WORLD_VIEW.max.y - Tile::SIZE * (y as f32 + 0.5),
-        )
-    }
-
     pub fn get_tile_coord(&self, texture_index: usize) -> Vec2 {
-        for (y, row) in self.tiles.iter().enumerate() {
-            for (x, tile) in row.iter().enumerate() {
-                if tile.texture_index == texture_index {
-                    return Self::get_coord(&Loc {
-                        x: x as u32,
-                        y: y as u32,
-                        bit: 5,
-                    });
-                }
+        for tile in self.tiles.iter() {
+            if tile.texture_index == texture_index {
+                return Self::get_coord(&Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit: 5,
+                });
             }
         }
 
-        panic!("Tile not found: {}", texture_index);
+        panic!("Tile not found: {texture_index}");
     }
 
-    pub fn get_loc(coord: &Vec3) -> Loc {
+    pub fn get_tile(&self, loc: &Loc) -> &Tile {
+        &self.tiles[(loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize]
+    }
+
+    pub fn get_loc(&self, coord: &Vec3) -> Loc {
         let pos_x = (coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE;
         let pos_y = (Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE;
 
@@ -165,20 +172,18 @@ impl Map {
         }
     }
 
-    pub fn random_walk_loc(&self) -> Option<Loc> {
+    pub fn random_base_loc(&self) -> Option<Loc> {
         let mut locations = vec![];
 
-        for (y, row) in self.tiles.iter().enumerate() {
-            for (x, _) in row.iter().enumerate() {
-                for bit in 0..16 {
-                    let loc = Loc {
-                        x: x as u32,
-                        y: y as u32,
-                        bit,
-                    };
-                    if self.is_walkable(&loc) {
-                        locations.push(loc);
-                    }
+        for tile in self.tiles.iter().filter(|t| t.is_base) {
+            for bit in 0..16 {
+                let loc = Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit,
+                };
+                if self.is_walkable(&loc) {
+                    locations.push(loc);
                 }
             }
         }
@@ -189,18 +194,19 @@ impl Map {
     pub fn random_dig_loc(&self) -> Option<Loc> {
         let mut locations = vec![];
 
-        for (y, row) in self.tiles.iter().enumerate() {
-            for (x, _) in row.iter().enumerate() {
-                for bit in 0..16 {
-                    let loc = Loc {
-                        x: x as u32,
-                        y: y as u32,
-                        bit,
-                    };
+        for tile in self.tiles.iter() {
+            for bit in 0..16 {
+                let loc = Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit,
+                };
 
-                    if self.is_walkable(&loc) && self.get_neighbors(&loc, false).len() > 0 {
-                        locations.push(loc);
-                    }
+                if !self.is_walkable(&loc)
+                    && !loc.is_map_edge()
+                    && self.get_neighbors(&loc).iter().any(|l| self.is_walkable(l))
+                {
+                    locations.push(loc);
                 }
             }
         }
@@ -208,7 +214,11 @@ impl Map {
         locations.choose(&mut rand::rng()).copied()
     }
 
-    pub fn get_neighbors(&self, loc: &Loc, walkable: bool) -> Vec<Loc> {
+    pub fn is_walkable(&self, loc: &Loc) -> bool {
+        self.get_tile(loc).bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1) != 0
+    }
+
+    pub fn get_neighbors(&self, loc: &Loc) -> Vec<Loc> {
         let mut neighbors = vec![];
 
         let moves = [
@@ -224,6 +234,7 @@ impl Map {
 
         for (dx, dy) in moves {
             let (mut x, mut y, mut bit) = (loc.x, loc.y, loc.bit);
+
             // Bit positions on the tile
             let nx = (bit % Tile::SIDE) as i8 + dx;
             let ny = (bit / Tile::SIDE) as i8 + dy;
@@ -244,22 +255,24 @@ impl Map {
                 (y, (bit as i8 + 4 * dy) as u8)
             };
 
-            let loc = Loc { x, y, bit };
-            let is_path = self.is_walkable(&loc);
-            if (walkable && is_path) || (!walkable && !is_path) {
-                neighbors.push(loc);
-            }
+            neighbors.push(Loc { x, y, bit });
         }
 
         neighbors
     }
 
-    pub fn is_walkable(&self, loc: &Loc) -> bool {
-        self.tiles[loc.y as usize][loc.x as usize].bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1)
-            != 0
-    }
-
     pub fn shortest_path(&self, start: &Loc, goal: &Loc) -> Vec<Loc> {
-        bfs(start, |loc| self.get_neighbors(loc, true), |loc| loc == goal).expect("No path found.")
+        // Allow the last loc to be a wall
+        bfs(
+            start,
+            |loc| {
+                self.get_neighbors(loc)
+                    .into_iter()
+                    .filter(|l| self.is_walkable(l) || l == goal)
+                    .collect::<Vec<_>>()
+            },
+            |loc| loc == goal,
+        )
+        .expect("No path found.")
     }
 }

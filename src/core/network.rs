@@ -1,6 +1,6 @@
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
-use crate::core::states::GameState;
+use crate::core::states::{GameState, PauseState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::{ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent};
@@ -14,6 +14,8 @@ const PROTOCOL_ID: u64 = 7;
 pub enum ServerMessage {
     NPlayers(usize),
     StartGame(usize),
+    PauseGame,
+    ResumeGame,
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
@@ -86,6 +88,7 @@ pub fn client_receive_message(
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut client: ResMut<RenetClient>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         match bincode::deserialize(&message).unwrap() {
@@ -97,6 +100,12 @@ pub fn client_receive_message(
             ServerMessage::StartGame(i) => {
                 commands.insert_resource(Player::new(i));
                 next_game_state.set(GameState::Game);
+            }
+            ServerMessage::PauseGame => {
+                next_pause_state.set(PauseState::Paused);
+            }
+            ServerMessage::ResumeGame => {
+                next_pause_state.set(PauseState::Running);
             }
         }
     }
