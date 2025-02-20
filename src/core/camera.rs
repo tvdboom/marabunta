@@ -1,5 +1,5 @@
 use crate::core::constants::{LERP_FACTOR, MAX_ZOOM, MIN_ZOOM, ZOOM_FACTOR};
-use crate::core::map::components::Map;
+use crate::core::map::map::Map;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::SystemCursorIcon;

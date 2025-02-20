@@ -1,5 +1,4 @@
-use crate::core::map::components::Loc;
-use crate::core::map::tile::Tile;
+use crate::core::map::loc::Loc;
 use bevy::prelude::*;
 use strum_macros::EnumIter;
 
@@ -30,7 +29,7 @@ pub enum Action {
     Die,
     Idle,
     Walk(Loc), // Location to walk to
-    Dig(Tile), // Tile to dig
+    Dig(Loc),  // Loc to dig
 }
 
 impl Action {
@@ -127,6 +126,9 @@ impl AntCmp {
 
 #[derive(Component)]
 pub struct Egg {
+    /// Type of ant in the egg
     pub ant: Ant,
+
+    /// Time to hatch
     pub timer: Timer,
 }

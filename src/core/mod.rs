@@ -82,7 +82,7 @@ impl Plugin for GamePlugin {
         .add_systems(OnEnter(PauseState::Running), unpause_game)
         .add_systems(
             Update,
-            toggle_pause_keyboard.run_if(in_state(GameState::Game)),
+            toggle_pause_keyboard, //.run_if(in_state(GameState::Game)),
         )
         // Ants
         .add_systems(

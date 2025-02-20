@@ -1,7 +1,8 @@
 use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealth, AntHealthWrapper};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
-use crate::core::map::components::{Loc, Map};
+use crate::core::map::loc::Loc;
+use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::resources::GameSettings;
 use crate::utils::NameFromEnum;

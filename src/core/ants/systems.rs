@@ -1,19 +1,19 @@
-use crate::core::ants::components::{
-    Action, AnimationCmp, Ant, AntCmp, AntHealth, AntHealthWrapper, Egg,
-};
+use crate::core::ants::components::*;
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
-use crate::core::map::components::Map;
+use crate::core::constants::{ANT_Z_SCORE, EGG_Z_SCORE};
+use crate::core::map::loc::Direction;
+use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
+use crate::core::map::utils::spawn_tile;
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
-use crate::core::states::PauseState;
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use std::mem::discriminant;
+use strum::IntoEnumIterator;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -61,29 +61,58 @@ pub fn animate_ants(
 pub fn tile_dig(
     mut commands: Commands,
     mut ant_q: Query<&mut AntCmp>,
-    mut tile_q: Query<(Entity, &mut Tile)>,
+    mut tile_q: Query<(Entity, &Transform, &mut Tile)>,
+    mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
+    assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (tile_e, mut tile) in tile_q.iter_mut() {
-        let mut ants = ant_q
-            .iter_mut()
-            .filter(|ant| matches!(ant.action, Action::Dig(t) if t.x == tile.x && t.y == tile.y))
-            .collect::<Vec<_>>();
+    let tile_entities: Vec<_> = tile_q.iter().map(|(e, _, t)| (e, t.x, t.y)).collect();
 
-        let terraform = ants.len() as f32 * 20. * game_settings.speed * time.delta_secs();
+    for (_, tile_t, mut tile) in tile_q.iter_mut() {
+        for (i, dir) in Direction::iter().enumerate() {
 
-        if tile.terraform > terraform {
-            tile.terraform -= terraform;
-        } else {
-            // Tile is fully terraformed
+            // Select ants that were digging on that tile in the same direction
+            let mut ants = ant_q
+                .iter_mut()
+                .filter(|ant| {
+                    matches!(ant.action, Action::Dig(l) if l.x == tile.x && l.y == tile.y && l.direction() == dir)
+                })
+                .collect::<Vec<_>>();
 
+            // Calculate the aggregate terraform progress
+            let terraform = ants.len() as f32 * 20. * game_settings.speed * time.delta_secs();
 
-            // Set digging ants back to idle
-            ants.iter_mut().for_each(|ant| {
-                ant.action = Action::Idle;
-            });
-            commands.entity(tile_e).despawn();
+            if tile.terraform[i] > terraform {
+                tile.terraform[i] -= terraform;
+            } else {
+                // Direction is fully terraformed
+                tile.terraform[i] = 100.; // Reset terraform progress for the new tile
+
+                for new_t in map.select_new_tiles(&tile, &dir).iter_mut() {
+                    commands
+                        .entity(
+                            tile_entities
+                                .iter()
+                                .find(|(_, x, y)| *x == new_t.x && *y == new_t.y)
+                                .unwrap()
+                                .0,
+                        )
+                        .despawn_recursive();
+
+                    spawn_tile(
+                        &mut commands,
+                        &new_t,
+                        tile_t.translation.truncate(),
+                        &assets,
+                    );
+                }
+
+                // Set digging ants back to idle
+                ants.iter_mut().for_each(|ant| {
+                    ant.action = Action::Idle;
+                });
+            }
         }
     }
 }
@@ -161,7 +190,10 @@ pub fn resolve_action_ants(
                                     },
                                     Egg {
                                         ant: ant_c.kind.clone(),
-                                        timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
+                                        timer: Timer::from_seconds(
+                                            ant_c.hatch_time,
+                                            TimerMode::Once,
+                                        ),
                                     },
                                     MapCmp,
                                 ));
@@ -185,7 +217,7 @@ pub fn resolve_action_ants(
                 } else {
                     // Ant reached the target loc => continue with default action
                     ant.action = match ant.kind {
-                        Ant::BlackAnt => Action::Dig(*map.get_tile(&current_loc)),
+                        Ant::BlackAnt => Action::Dig(current_loc),
                         Ant::BlackQueen => Action::Idle,
                     };
                 }
@@ -239,28 +271,8 @@ pub fn update_ant_health_bars(
     }
 }
 
-pub fn check_keys(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut player: ResMut<Player>,
-    mut next_pause_state: ResMut<NextState<PauseState>>,
-    mut game_settings: ResMut<GameSettings>,
-) {
+pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
     if keyboard.just_pressed(KeyCode::KeyW) {
         player.queue.push(AntCmp::new(Ant::BlackAnt));
-    }
-
-    if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-        if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
-            game_settings.speed -= GAME_SPEED_STEP;
-            if game_settings.speed == 0. {
-                next_pause_state.set(PauseState::Paused);
-            }
-        }
-        if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
-            game_settings.speed += GAME_SPEED_STEP;
-            if game_settings.speed == GAME_SPEED_STEP {
-                next_pause_state.set(PauseState::Running);
-            }
-        }
     }
 }

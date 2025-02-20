@@ -1,9 +1,9 @@
 use crate::core::ants::components::Ant;
 use crate::core::ants::utils::spawn_ant;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::TILE_Z_SCORE;
-use crate::core::map::components::Map;
+use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
+use crate::core::map::utils::spawn_tile;
 use bevy::prelude::*;
 use rand::{rng, Rng};
 
@@ -17,34 +17,13 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
         Map::MAP_SIZE.y / 2 - 6,
     ));
 
-    for (i, tile) in map.world().iter().enumerate() {
-        let texture = assets.texture("tiles");
-
-        let coord = Vec2::new(
+    for (i, tile) in map.world().iter_mut().enumerate() {
+        let pos = Vec2::new(
             Map::WORLD_VIEW.min.x + Tile::SIZE * ((i as u32 % Map::WORLD_SIZE.x) as f32 + 0.5),
             Map::WORLD_VIEW.max.y - Tile::SIZE * ((i as u32 / Map::WORLD_SIZE.x) as f32 + 0.5),
         );
 
-        let tile_e = commands
-            .spawn((
-                Sprite {
-                    image: texture.image,
-                    custom_size: Some(Vec2::splat(Tile::SIZE)),
-                    texture_atlas: Some(TextureAtlas {
-                        layout: texture.layout,
-                        index: tile.texture_index,
-                    }),
-                    ..default()
-                },
-                Transform {
-                    translation: coord.extend(TILE_Z_SCORE),
-                    rotation: Quat::from_rotation_z((tile.rotation as f32).to_radians()),
-                    ..default()
-                },
-                *tile,
-                MapCmp,
-            ))
-            .id();
+        let tile_e = spawn_tile(&mut commands, tile, pos, &assets);
 
         // Add random stones for decoration
         if Tile::SOIL.contains(&tile.texture_index) && rand::random::<f32>() < 0.1 {
@@ -68,7 +47,7 @@ pub fn draw_start_map(mut commands: Commands, assets: Local<WorldAssets>) {
 
         // Spawn queen
         if tile.texture_index == 9 {
-            spawn_ant(&mut commands, Ant::BlackQueen, coord, &assets);
+            spawn_ant(&mut commands, Ant::BlackQueen, pos, &assets);
         }
     }
 

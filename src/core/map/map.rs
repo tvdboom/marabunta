@@ -1,24 +1,10 @@
+use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
-
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
-pub struct Loc {
-    pub x: u32,
-    pub y: u32,
-    pub bit: u8, // 0-15, representing a position in the tile's 4x4 bit grid
-}
-
-impl Loc {
-    pub fn is_map_edge(&self) -> bool {
-        (self.x == 0 && [0, 4, 8, 12].contains(&self.bit))
-            || (self.x == Map::MAP_SIZE.x - 1 && [3, 7, 11, 15].contains(&self.bit))
-            || (self.y == 0 && [0, 1, 2, 3].contains(&self.bit))
-            || (self.y == Map::MAP_SIZE.y - 1 && [12, 13, 14, 15].contains(&self.bit))
-    }
-}
+use strum::IntoEnumIterator;
 
 #[derive(Resource)]
 pub struct Map {
@@ -90,13 +76,13 @@ impl Map {
                         {
                             Tile::soil(0, 0)
                         } else {
-                            self.tiles
+                            *self
+                                .tiles
                                 .iter()
                                 .find(|t| {
                                     t.x == (x - Self::OFFSET.x) && t.y == (y - Self::OFFSET.y)
                                 })
                                 .unwrap()
-                                .to_owned()
                         }
                     })
                     .collect::<Vec<_>>()
@@ -253,6 +239,63 @@ impl Map {
             },
             |loc| loc == goal,
         )
-        .expect("No path found.")
+        .expect(format!("No path found from {:?} to {:?}.", start, goal).as_str())
+    }
+
+    pub fn get_adjacent_tile(&self, tile: &Tile, dir: &Direction) -> Option<&Tile> {
+        let x = match dir {
+            Direction::East => tile.x + 1,
+            Direction::West => tile.x - 1,
+            _ => tile.x,
+        };
+
+        let y = match dir {
+            Direction::North => tile.y - 1,
+            Direction::South => tile.y + 1,
+            _ => tile.y,
+        };
+
+        self.tiles.get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+    }
+
+    pub fn select_new_tiles(&mut self, tile: &Tile, dir: &Direction) -> Vec<Tile> {
+        let mut new_tiles = vec![];
+
+        // Select a new tile where dig that has the direction open
+        let mut possible_tiles = vec![];
+        for i in 0..=68 {
+            for rotation in Tile::ANGLES {
+                let new_tile = Tile {
+                    texture_index: i,
+                    rotation,
+                    ..*tile
+                };
+
+                // Check if the tile fits the surrounding tiles except in the direction that was dug
+                let mut fits = true;
+                println!("Digging in tile {:?} with dir: {:?}", tile, dir);
+                for d in Direction::iter().filter(|d| d != dir) {
+                    println!("Checking border for {:?} in dir {:?}: {:016b} -- {:016b}, {:016b} - {:?}", new_tile, d, new_tile.bitmap(), new_tile.border(&d), self.get_adjacent_tile(tile, &d).unwrap_or(&Tile::default()).border(&d.opposite()), self.get_adjacent_tile(tile, &d));
+                    if new_tile.border(&d) != self.get_adjacent_tile(tile, &d).unwrap_or(&Tile::default()).border(&d.opposite()) {
+                        fits = false;
+                        break;
+                    }
+                }
+
+                if fits {
+                    possible_tiles.push(new_tile);
+                }
+            }
+        }
+
+        // From the possible tiles, select a random one
+        let new_t = possible_tiles.choose(&mut rand::rng()).unwrap();
+
+        // Replace the tile in the map
+        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = *new_t;
+
+        new_tiles.push(*new_t);
+
+        new_tiles
     }
 }

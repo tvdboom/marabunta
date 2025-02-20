@@ -12,7 +12,7 @@ pub const ZOOM_FACTOR: f32 = 1.1;
 pub const LERP_FACTOR: f32 = 0.05;
 
 // Game settings
-pub const MAX_GAME_SPEED: f32 = 5.;
+pub const MAX_GAME_SPEED: f32 = 3.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
 
 // Z-scores
