@@ -1,7 +1,7 @@
+use crate::core::map::loc::Direction;
 use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
 use rand::prelude::IndexedRandom;
-use crate::core::map::loc::Direction;
 
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Tile {
@@ -118,16 +118,20 @@ impl Tile {
     pub fn border(&self, dir: &Direction) -> u16 {
         let bitmap = self.bitmap();
         match dir {
-            Direction::North => (bitmap >> 12) & 0b1111,
-            Direction::East => ((bitmap >> 3) & 0b1)
-                | (((bitmap >> 7) & 0b1) << 1)
-                | (((bitmap >> 11) & 0b1) << 2)
-                | (((bitmap >> 15) & 0b1) << 3),
+            Direction::North => bitmap >> 12,
+            Direction::East => {
+                (((bitmap >> 12) & 1) << 3)
+                    | (((bitmap >> 8) & 1) << 2)
+                    | (((bitmap >> 4) & 1) << 1)
+                    | ((bitmap) & 1)
+            }
             Direction::South => bitmap & 0b1111,
-            Direction::West => ((bitmap >> 0) & 1)
-                | (((bitmap >> 4) & 0b1) << 1)
-                | (((bitmap >> 8) & 0b1) << 2)
-                | (((bitmap >> 12) & 0b1) << 3),
+            Direction::West => {
+                (((bitmap >> 15) & 1) << 3)
+                    | (((bitmap >> 11) & 1) << 2)
+                    | (((bitmap >> 7) & 1) << 1)
+                    | ((bitmap >> 3) & 1)
+            }
         }
     }
 }

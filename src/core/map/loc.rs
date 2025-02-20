@@ -36,12 +36,11 @@ impl Loc {
     }
 
     pub fn direction(&self) -> Direction {
-        // Every direction has 3 corresponding bits
         match self.bit {
-            0..3 => Direction::North,
-            3 | 7 | 11 => Direction::East,
-            13..16 => Direction::South,
-            4 | 8 | 12 => Direction::West,
+            0..4 => Direction::North,
+            6 | 7 | 10 | 11 => Direction::East,
+            12..16 => Direction::South,
+            4 | 5 | 8 | 9 => Direction::West,
             _ => unreachable!(),
         }
     }

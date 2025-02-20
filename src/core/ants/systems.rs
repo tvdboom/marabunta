@@ -71,7 +71,6 @@ pub fn tile_dig(
 
     for (_, tile_t, mut tile) in tile_q.iter_mut() {
         for (i, dir) in Direction::iter().enumerate() {
-
             // Select ants that were digging on that tile in the same direction
             let mut ants = ant_q
                 .iter_mut()

@@ -41,7 +41,7 @@ pub fn spawn_tile(
             },
             Transform {
                 translation: pos.extend(TILE_Z_SCORE),
-                rotation: Quat::from_rotation_z((tile.rotation as f32).to_radians()),
+                rotation: Quat::from_rotation_z((-tile.rotation as f32).to_radians()),
                 ..default()
             },
             *tile,

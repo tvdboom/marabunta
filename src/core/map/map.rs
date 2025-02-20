@@ -242,7 +242,7 @@ impl Map {
         .expect(format!("No path found from {:?} to {:?}.", start, goal).as_str())
     }
 
-    pub fn get_adjacent_tile(&self, tile: &Tile, dir: &Direction) -> Option<&Tile> {
+    pub fn adjacent_tile(&self, tile: &Tile, dir: &Direction) -> Option<&Tile> {
         let x = match dir {
             Direction::East => tile.x + 1,
             Direction::West => tile.x - 1,
@@ -255,7 +255,8 @@ impl Map {
             _ => tile.y,
         };
 
-        self.tiles.get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+        self.tiles
+            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
     }
 
     pub fn select_new_tiles(&mut self, tile: &Tile, dir: &Direction) -> Vec<Tile> {
@@ -265,30 +266,31 @@ impl Map {
         let mut possible_tiles = vec![];
         for i in 0..=68 {
             for rotation in Tile::ANGLES {
-                let new_tile = Tile {
+                let new_t = Tile {
                     texture_index: i,
                     rotation,
                     ..*tile
                 };
 
-                // Check if the tile fits the surrounding tiles except in the direction that was dug
-                let mut fits = true;
-                println!("Digging in tile {:?} with dir: {:?}", tile, dir);
-                for d in Direction::iter().filter(|d| d != dir) {
-                    println!("Checking border for {:?} in dir {:?}: {:016b} -- {:016b}, {:016b} - {:?}", new_tile, d, new_tile.bitmap(), new_tile.border(&d), self.get_adjacent_tile(tile, &d).unwrap_or(&Tile::default()).border(&d.opposite()), self.get_adjacent_tile(tile, &d));
-                    if new_tile.border(&d) != self.get_adjacent_tile(tile, &d).unwrap_or(&Tile::default()).border(&d.opposite()) {
-                        fits = false;
-                        break;
-                    }
+                // The dug direction must have an opening
+                if new_t.border(&dir) == 0 {
+                    continue;
                 }
 
-                if fits {
-                    possible_tiles.push(new_tile);
+                // Check if the tile fits the surrounding tiles except in the direction that was dug
+                if Direction::iter().filter(|d| d != dir).all(|d| {
+                    new_t.border(&d)
+                        == self
+                            .adjacent_tile(tile, &d)
+                            .unwrap_or(&Tile::default())
+                            .border(&d.opposite())
+                }) {
+                    possible_tiles.push(new_t);
                 }
             }
         }
 
-        // From the possible tiles, select a random one
+        // Select a random tile from the possible options
         let new_t = possible_tiles.choose(&mut rand::rng()).unwrap();
 
         // Replace the tile in the map

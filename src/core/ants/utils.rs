@@ -76,12 +76,13 @@ pub fn walk(
 
     if let Some(next_loc) = path.first() {
         // Calculate the distance vector to the next location
-        let d = -ant_t.translation + Map::get_coord(next_loc).extend(ant_t.translation.z);
+        let target_pos = Map::get_coord(next_loc).extend(ant_t.translation.z);
+        let d = -ant_t.translation + target_pos;
 
         // Rotate towards the next location
         ant_t.rotation = ant_t.rotation.rotate_towards(
             Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-            game_settings.speed * time.delta_secs(),
+            2. * game_settings.speed * time.delta_secs(),
         );
 
         let next_pos = ant_t.translation
@@ -90,6 +91,14 @@ pub fn walk(
                 * game_settings.speed
                 * time.delta_secs();
 
+        // If walking in a circle, increase the rotation
+        if d == -next_pos + target_pos {
+            ant_t.rotation = ant_t.rotation.rotate_towards(
+                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+                game_settings.speed * time.delta_secs(),
+            );
+        }
+
         let next_loc = map.get_loc(&next_pos);
         if path.len() == 1 || next_loc == *target_loc || map.is_walkable(&next_loc) {
             ant_t.translation = next_pos;
@@ -97,7 +106,7 @@ pub fn walk(
             // At a wall, rotate faster towards the next location
             ant_t.rotation = ant_t.rotation.rotate_towards(
                 Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                2. * game_settings.speed * time.delta_secs(),
+                game_settings.speed * time.delta_secs(),
             );
         }
     }
