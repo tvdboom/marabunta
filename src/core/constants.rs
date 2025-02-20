@@ -1,3 +1,10 @@
+use bevy::color::Color;
+
+// Menu
+pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
+pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.65, 0.35);
+
 // Camera
 pub const MIN_ZOOM: f32 = 0.2;
 pub const MAX_ZOOM: f32 = 1.;

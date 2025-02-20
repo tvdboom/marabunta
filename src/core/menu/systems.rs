@@ -56,7 +56,7 @@ pub fn setup_menu(
                 GameState::MultiPlayerMenu => {
                     spawn_menu_button(parent, MenuBtn::HostGame, &assets);
                     spawn_menu_button(parent, MenuBtn::FindGame, &assets);
-                    spawn_menu_button(parent, MenuBtn::Quit, &assets);
+                    spawn_menu_button(parent, MenuBtn::Back, &assets);
                 }
                 GameState::Lobby | GameState::ConnectedLobby => {
                     if let Some(server) = server {
@@ -81,7 +81,7 @@ pub fn setup_menu(
                         parent.spawn((add_text("Searching for a game...", &assets), LobbyTextCmp));
                     }
 
-                    spawn_menu_button(parent, MenuBtn::BackToMenu, &assets);
+                    spawn_menu_button(parent, MenuBtn::Back, &assets);
                 }
                 _ => (),
             }

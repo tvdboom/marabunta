@@ -2,7 +2,7 @@ use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
 use rand::prelude::IndexedRandom;
 
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct Tile {
     pub x: u32,
     pub y: u32,

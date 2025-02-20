@@ -1,4 +1,4 @@
-use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealth};
+use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealth, AntHealthWrapper};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::components::{Loc, Map};
@@ -11,12 +11,12 @@ use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
 
-pub fn spawn_ant(mut commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
+pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
     let ant = AntCmp::new(kind);
 
     let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
-    commands
+    let id = commands
         .spawn((
             Sprite {
                 image: atlas.image,
@@ -30,35 +30,35 @@ pub fn spawn_ant(mut commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Loc
                 ..default()
             },
             AnimationCmp {
+                action: ant.action.clone(),
                 timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
                 last_index: atlas.last_index,
-                action: ant.action.clone(),
             },
-            ant,
+            ant.clone(),
             MapCmp,
         ))
+        .id();
+
+    // Spawn health bars
+    commands
+        .spawn((
+            Sprite {
+                color: Color::from(BLACK),
+                custom_size: Some(Vec2::new(ant.size().x * 0.8, ant.size().y * 0.1)),
+                ..default()
+            },
+            AntHealthWrapper(id),
+        ))
         .with_children(|parent| {
-            parent
-                .spawn((
-                    Sprite {
-                        color: Color::from(BLACK),
-                        // custom_size: Some(Vec2::new(enemy.dim.x * 0.8, enemy.dim.y * 0.1)),
-                        ..default()
-                    },
-                    Transform::from_xyz(0., enemy.dim.y * 0.5 - 5.0, 0.1),
-                    // Visibility::Hidden,
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Sprite {
-                            color: Color::from(LIME),
-                            // custom_size: Some(Vec2::new(enemy.dim.x * 0.78, enemy.dim.y * 0.08)),
-                            ..default()
-                        },
-                        Transform::from_xyz(0., 0., 0.2),
-                        AntHealth,
-                    ));
-                });
+            parent.spawn((
+                Sprite {
+                    color: Color::from(LIME),
+                    custom_size: Some(Vec2::new(ant.size().x * 0.77, ant.size().y * 0.08)),
+                    ..default()
+                },
+                Transform::from_xyz(0., 0., 0.1),
+                AntHealth,
+            ));
         });
 }
 

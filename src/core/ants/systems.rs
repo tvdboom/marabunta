@@ -1,7 +1,9 @@
-use crate::core::ants::components::{Action, AnimationCmp, Ant, AntCmp, AntHealth, Egg};
+use crate::core::ants::components::{
+    Action, AnimationCmp, Ant, AntCmp, AntHealth, AntHealthWrapper, Egg,
+};
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
+use crate::core::constants::{ANT_Z_SCORE, EGG_Z_SCORE, GAME_SPEED_STEP, MAX_GAME_SPEED};
 use crate::core::map::components::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
@@ -29,7 +31,11 @@ pub fn animate_ants(
             if animation.timer.just_finished() {
                 if let Some(atlas) = &mut sprite.texture_atlas {
                     atlas.index = if atlas.index == animation.last_index {
-                        0
+                        if ant.action == Action::Die {
+                            atlas.index // Remain at last frame when dead
+                        } else {
+                            0
+                        }
                     } else {
                         atlas.index + 1
                     };
@@ -44,9 +50,9 @@ pub fn animate_ants(
                 ..default()
             };
             *animation = AnimationCmp {
+                action: ant.action.clone(),
                 timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
                 last_index: atlas.last_index,
-                action: ant.action.clone(),
             };
         }
     }
@@ -70,6 +76,10 @@ pub fn tile_dig(
         if tile.terraform > terraform {
             tile.terraform -= terraform;
         } else {
+            // Tile is fully terraformed
+
+
+            // Set digging ants back to idle
             ants.iter_mut().for_each(|ant| {
                 ant.action = Action::Idle;
             });
@@ -103,27 +113,41 @@ pub fn hatch_eggs(
 
 pub fn resolve_action_ants(
     mut commands: Commands,
-    mut ant_q: Query<(&mut AntCmp, &mut Transform)>,
+    mut ant_q: Query<(Entity, &mut AntCmp, &mut Transform)>,
+    wrapper_q: Query<(Entity, &AntHealthWrapper)>,
     mut player: ResMut<Player>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (mut ant, mut ant_t) in ant_q.iter_mut() {
+    for (ant_e, mut ant, mut ant_t) in ant_q.iter_mut() {
         match ant.action {
+            Action::Die => {
+                if let Some(timer) = ant.timer.as_mut() {
+                    timer.tick(scale_duration(time.delta(), game_settings.speed));
+
+                    if timer.just_finished() {
+                        commands
+                            .entity(wrapper_q.iter().find(|(_, w)| w.0 == ant_e).unwrap().0)
+                            .despawn_recursive();
+                        commands.entity(ant_e).despawn();
+                    }
+                }
+            }
             Action::Idle => match ant.kind {
                 Ant::BlackAnt => {
                     ant.action = Action::Walk(map.random_dig_loc().unwrap());
                 }
                 Ant::BlackQueen => {
                     if let Some(ant_c) = player.queue.first() {
-                        if let Some(timer) = ant.brooding_timer.as_mut() {
+                        if let Some(timer) = ant.timer.as_mut() {
                             timer.tick(scale_duration(time.delta(), game_settings.speed));
+
                             if timer.just_finished() {
                                 commands.spawn((
                                     Sprite {
-                                        image: assets.image("egg"),
+                                        image: assets.image("larva1"),
                                         ..default()
                                     },
                                     Transform {
@@ -137,17 +161,17 @@ pub fn resolve_action_ants(
                                     },
                                     Egg {
                                         ant: ant_c.kind.clone(),
-                                        timer: Timer::from_seconds(ant_c.brooding, TimerMode::Once),
+                                        timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
                                     },
                                     MapCmp,
                                 ));
 
                                 player.queue.remove(0);
-                                ant.brooding_timer = None;
+                                ant.timer = None;
                                 ant.action = Action::Walk(map.random_base_loc().unwrap());
                             }
                         } else {
-                            ant.brooding_timer = Some(Timer::from_seconds(2.5, TimerMode::Once));
+                            ant.timer = Some(Timer::from_seconds(2.5, TimerMode::Once));
                         }
                     } else {
                         ant.action = Action::Walk(map.random_base_loc().unwrap());
@@ -172,26 +196,45 @@ pub fn resolve_action_ants(
 }
 
 pub fn update_ant_health_bars(
-    mut ant_q: Query<(Entity, &mut AntCmp)>,
-    children_q: Query<&Children>,
+    ant_q: Query<
+        (&Transform, &AntCmp),
+        (With<AntCmp>, Without<AntHealthWrapper>, Without<AntHealth>),
+    >,
+    mut wrapper_q: Query<
+        (Entity, &mut Transform, &mut Visibility, &AntHealthWrapper),
+        (With<AntHealthWrapper>, Without<AntHealth>),
+    >,
     mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealth>>,
+    children_q: Query<&Children>,
 ) {
-    for (ant_e, mut ant) in ant_q.iter_mut() {
-        if ant.health < ant.max_health {
-            if ant.health == 0. {
-                ant.action = Action::Die;
+    for (wrapper_e, mut wrapper_t, mut wrapper_v, wrapper) in wrapper_q.iter_mut() {
+        let (ant_t, ant) = ant_q.get(wrapper.0).unwrap();
 
-            } else {
-                for child in children_q.iter_descendants(ant_e) {
-                    if let Ok((mut sprite_t, mut sprite)) = health_q.get_mut(child) {
-                        if let Some(size) = sprite.custom_size.as_mut() {
-                            let full_size = enemy.dim.x * 0.8 - 2.0;
-                            size.x = full_size * enemy.health / enemy.max_health;
-                            sprite_t.translation.x = (size.x - full_size) * 0.5;
-                        }
+        // Show the health bar when the ant is damaged
+        if ant.health > 0. && ant.health < ant.max_health {
+            *wrapper_v = Visibility::Visible;
+
+            // Place the health bar on top of the ant on a distance dependent on the ant's rotation
+            wrapper_t.translation = (ant_t.translation.truncate()
+                + Vec2::new(
+                    0.,
+                    ant.size().y
+                        * 0.5
+                        * (ant_t.rotation.to_euler(EulerRot::ZXY).0.cos().abs() * 0.5 + 0.5),
+                ))
+            .extend(ANT_Z_SCORE + 0.1);
+
+            for child in children_q.iter_descendants(wrapper_e) {
+                if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
+                    if let Some(size) = health_s.custom_size.as_mut() {
+                        let full_size = ant.size().x * 0.77;
+                        size.x = full_size * ant.health / ant.max_health;
+                        health_t.translation.x = (size.x - full_size) * 0.5;
                     }
                 }
             }
+        } else {
+            *wrapper_v = Visibility::Hidden;
         }
     }
 }
