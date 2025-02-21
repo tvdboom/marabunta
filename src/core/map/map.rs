@@ -261,7 +261,7 @@ impl Map {
             0 | 5 => {
                 // Zero means dig North when the left tile has a wall at bit 15
                 // Else it means
-                if self.adjacent_tile(loc.x, loc.y, Direction::West)
+                 self.adjacent_tile(loc.x, loc.y, &Direction::West).bitmap()
             },
             3 | 6 => (),
             12 | 9 => (),
@@ -283,7 +283,7 @@ impl Map {
         };
 
         self.tiles
-            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize).unwrap_or(&Tile::default())
+            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize).unwrap_or(&Tile::default()).clone()
     }
 
     /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
@@ -309,7 +309,6 @@ impl Map {
                         new_t.border(&d)
                             == self
                                 .adjacent_tile(tile.x, tile.y, &d)
-                                .unwrap_or(&Tile::default())
                                 .border(&d.opposite())
                     })
                 {
@@ -331,7 +330,7 @@ impl Map {
         println!("{:?}", new_t);
 
         // Replace tile in the dug direction
-        let new_t = self.find_tile(self.adjacent_tile(tile.x, tile.y, dir).unwrap(), None);
+        let new_t = self.find_tile(&self.adjacent_tile(tile.x, tile.y, dir), None);
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);
         println!("{:?}", new_t);

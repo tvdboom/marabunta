@@ -117,7 +117,7 @@ pub fn tile_dig(
                     );
                 }
 
-                // Set digging ants onto new task
+                // Set digging ants onto a new task
                 ants.iter_mut().for_each(|(_, ant)| {
                     if rand::rng().random::<f32>() < 0.8 {
                         // 80% of digging in the next tile
