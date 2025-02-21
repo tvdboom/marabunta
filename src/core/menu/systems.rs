@@ -10,7 +10,7 @@ use bevy_renet::renet::RenetServer;
 use rand::Rng;
 
 pub fn spawn_menu_ants(mut player: ResMut<Player>, mut counter: Local<u8>) {
-    if *counter < 20 && rand::rng().random::<f32>() < 0.1 {
+    if *counter < 1 && rand::rng().random::<f32>() < 0.1 {
         *counter += 1;
         player.queue.push(AntCmp::new(Ant::BlackAnt));
     }

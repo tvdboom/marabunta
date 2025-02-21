@@ -107,6 +107,13 @@ impl Map {
         }
     }
 
+    pub fn get_coord_from_xy(x: u32, y: u32) -> Vec2 {
+        Vec2::new(
+            Map::MAP_VIEW.min.x + Tile::SIZE * (x as f32 + 0.5),
+            Map::MAP_VIEW.max.y - Tile::SIZE * (y as f32 + 0.5),
+        )
+    }
+
     pub fn get_coord(loc: &Loc) -> Vec2 {
         let step = 1. / (Tile::SIDE as f32 + 1.); // Steps within a tile (=0.2)
         Vec2::new(
@@ -157,22 +164,23 @@ impl Map {
         locations.choose(&mut rand::rng()).copied()
     }
 
-    pub fn random_dig_loc(&self) -> Option<Loc> {
+    pub fn random_dig_loc(&self, tile: Option<&Tile>) -> Option<Loc> {
         let mut locations = vec![];
+        for t in self.tiles.iter() {
+            if tile.map_or(true, |c| c.equals(t)) {
+                for bit in 0..16 {
+                    let loc = Loc {
+                        x: t.x,
+                        y: t.y,
+                        bit,
+                    };
 
-        for tile in self.tiles.iter() {
-            for bit in 0..16 {
-                let loc = Loc {
-                    x: tile.x,
-                    y: tile.y,
-                    bit,
-                };
-
-                if !self.is_walkable(&loc)
-                    && !loc.is_map_edge()
-                    && self.get_neighbors(&loc).iter().any(|l| self.is_walkable(l))
-                {
-                    locations.push(loc);
+                    if !self.is_walkable(&loc)
+                        && !loc.is_map_edge()
+                        && self.get_neighbors(&loc).iter().any(|l| self.is_walkable(l))
+                    {
+                        locations.push(loc);
+                    }
                 }
             }
         }
@@ -259,10 +267,8 @@ impl Map {
             .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
     }
 
-    pub fn select_new_tiles(&mut self, tile: &Tile, dir: &Direction) -> Vec<Tile> {
-        let mut new_tiles = vec![];
-
-        // Select a new tile where dig that has the direction open
+    /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
+    pub fn find_tile(&self, tile: &Tile, exclude_dir: Option<&Direction>) -> Tile {
         let mut possible_tiles = vec![];
         for i in 0..=68 {
             for rotation in Tile::ANGLES {
@@ -272,31 +278,44 @@ impl Map {
                     ..*tile
                 };
 
-                // The dug direction must have an opening
-                if new_t.border(&dir) == 0 {
+                // The excluded direction must have an opening
+                if exclude_dir.map_or(false, |d| new_t.border(d) == 0) {
                     continue;
                 }
 
-                // Check if the tile fits the surrounding tiles except in the direction that was dug
-                if Direction::iter().filter(|d| d != dir).all(|d| {
-                    new_t.border(&d)
-                        == self
-                            .adjacent_tile(tile, &d)
-                            .unwrap_or(&Tile::default())
-                            .border(&d.opposite())
-                }) {
+                // Check if the tile fits the surrounding tiles except in the excluded direction
+                if Direction::iter()
+                    .filter(|d| exclude_dir.map_or(true, |ex| d != ex))
+                    .all(|d| {
+                        new_t.border(&d)
+                            == self
+                                .adjacent_tile(tile, &d)
+                                .unwrap_or(&Tile::default())
+                                .border(&d.opposite())
+                    })
+                {
                     possible_tiles.push(new_t);
                 }
             }
         }
 
-        // Select a random tile from the possible options
-        let new_t = possible_tiles.choose(&mut rand::rng()).unwrap();
+        *possible_tiles.choose(&mut rand::rng()).unwrap()
+    }
 
-        // Replace the tile in the map
-        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = *new_t;
+    pub fn select_new_tiles(&mut self, tile: &Tile, dir: &Direction) -> Vec<Tile> {
+        let mut new_tiles = vec![];
 
-        new_tiles.push(*new_t);
+        // Replace tile that was dug
+        let new_t = self.find_tile(tile, Some(dir));
+        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
+        new_tiles.push(new_t);
+        println!("{:?}", new_t);
+
+        // Replace tile in the dug direction
+        let new_t = self.find_tile(self.adjacent_tile(tile, dir).unwrap(), None);
+        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
+        new_tiles.push(new_t);
+        println!("{:?}", new_t);
 
         new_tiles
     }

@@ -12,6 +12,7 @@ use crate::core::resources::GameSettings;
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
+use rand::Rng;
 use std::mem::discriminant;
 use strum::IntoEnumIterator;
 
@@ -61,15 +62,15 @@ pub fn animate_ants(
 pub fn tile_dig(
     mut commands: Commands,
     mut ant_q: Query<&mut AntCmp>,
-    mut tile_q: Query<(Entity, &Transform, &mut Tile)>,
+    mut tile_q: Query<(Entity, &mut Tile)>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    let tile_entities: Vec<_> = tile_q.iter().map(|(e, _, t)| (e, t.x, t.y)).collect();
+    let tile_entities: Vec<_> = tile_q.iter().map(|(e, t)| (e, t.x, t.y)).collect();
 
-    for (_, tile_t, mut tile) in tile_q.iter_mut() {
+    for (_, mut tile) in tile_q.iter_mut() {
         for (i, dir) in Direction::iter().enumerate() {
             // Select ants that were digging on that tile in the same direction
             let mut ants = ant_q
@@ -88,7 +89,8 @@ pub fn tile_dig(
                 // Direction is fully terraformed
                 tile.terraform[i] = 100.; // Reset terraform progress for the new tile
 
-                for new_t in map.select_new_tiles(&tile, &dir).iter_mut() {
+                let selection = map.select_new_tiles(&tile, &dir);
+                for new_t in selection.iter() {
                     commands
                         .entity(
                             tile_entities
@@ -102,14 +104,21 @@ pub fn tile_dig(
                     spawn_tile(
                         &mut commands,
                         &new_t,
-                        tile_t.translation.truncate(),
+                        Map::get_coord_from_xy(new_t.x, new_t.y),
                         &assets,
                     );
                 }
 
-                // Set digging ants back to idle
+                // Set digging ants onto new task
                 ants.iter_mut().for_each(|ant| {
-                    ant.action = Action::Idle;
+                    if rand::rng().random::<f32>() < 0.8 {
+                        // 80% of digging in the next tile
+                        ant.action = Action::Walk(
+                            map.random_dig_loc(Some(selection.last().unwrap())).unwrap(),
+                        );
+                    } else {
+                        ant.action = Action::Idle;
+                    }
                 });
             }
         }
@@ -165,7 +174,7 @@ pub fn resolve_action_ants(
             }
             Action::Idle => match ant.kind {
                 Ant::BlackAnt => {
-                    ant.action = Action::Walk(map.random_dig_loc().unwrap());
+                    ant.action = Action::Walk(map.random_dig_loc(None).unwrap());
                 }
                 Ant::BlackQueen => {
                     if let Some(ant_c) = player.queue.first() {

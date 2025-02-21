@@ -134,4 +134,8 @@ impl Tile {
             }
         }
     }
+
+    pub fn equals(&self, other: &Tile) -> bool {
+        self.x == other.x && self.y == other.y
+    }
 }
