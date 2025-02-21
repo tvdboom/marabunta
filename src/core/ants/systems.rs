@@ -61,7 +61,7 @@ pub fn animate_ants(
 
 pub fn tile_dig(
     mut commands: Commands,
-    mut ant_q: Query<&mut AntCmp>,
+    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut tile_q: Query<(Entity, &mut Tile)>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
@@ -75,10 +75,18 @@ pub fn tile_dig(
             // Select ants that were digging on that tile in the same direction
             let mut ants = ant_q
                 .iter_mut()
-                .filter(|ant| {
-                    matches!(ant.action, Action::Dig(l) if l.x == tile.x && l.y == tile.y && l.direction() == dir)
+                .filter(|(_, ant)| {
+                    matches!(ant.action, Action::Dig(l) if l.x == tile.x && l.y == tile.y && map.get_dig_direction(&l) == dir)
                 })
                 .collect::<Vec<_>>();
+
+            // Turn ants towards the direction they are digging
+            ants.iter_mut().for_each(|(t, _)| {
+                t.rotation = t.rotation.rotate_towards(
+                    Quat::from_rotation_z(dir.degrees()),
+                    2. * game_settings.speed * time.delta_secs(),
+                )
+            });
 
             // Calculate the aggregate terraform progress
             let terraform = ants.len() as f32 * 20. * game_settings.speed * time.delta_secs();
@@ -110,7 +118,7 @@ pub fn tile_dig(
                 }
 
                 // Set digging ants onto new task
-                ants.iter_mut().for_each(|ant| {
+                ants.iter_mut().for_each(|(_, ant)| {
                     if rand::rng().random::<f32>() < 0.8 {
                         // 80% of digging in the next tile
                         ant.action = Action::Walk(

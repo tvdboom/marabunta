@@ -250,21 +250,40 @@ impl Map {
         .expect(format!("No path found from {:?} to {:?}.", start, goal).as_str())
     }
 
-    pub fn adjacent_tile(&self, tile: &Tile, dir: &Direction) -> Option<&Tile> {
+    /// Determine the digging direction from a location
+    pub fn get_dig_direction(&self, loc: &Loc) -> Direction {
+        match loc.bit {
+            1 | 2 => Direction::North,
+            7 | 11 => Direction::East,
+            13 | 14  => Direction::South,
+            4 | 8 => Direction::West,
+            // For corners and inner bits, we must consider the surrounding tiles
+            0 | 5 => {
+                // Zero means dig North when the left tile has a wall at bit 15
+                // Else it means
+                if self.adjacent_tile(loc.x, loc.y, Direction::West)
+            },
+            3 | 6 => (),
+            12 | 9 => (),
+            15 | 10 => (),
+        }
+    }
+
+    pub fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Tile {
         let x = match dir {
-            Direction::East => tile.x + 1,
-            Direction::West => tile.x - 1,
-            _ => tile.x,
+            Direction::East => x + 1,
+            Direction::West => x - 1,
+            _ => x,
         };
 
         let y = match dir {
-            Direction::North => tile.y - 1,
-            Direction::South => tile.y + 1,
-            _ => tile.y,
+            Direction::North => y - 1,
+            Direction::South => y + 1,
+            _ => y,
         };
 
         self.tiles
-            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize).unwrap_or(&Tile::default())
     }
 
     /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
@@ -289,7 +308,7 @@ impl Map {
                     .all(|d| {
                         new_t.border(&d)
                             == self
-                                .adjacent_tile(tile, &d)
+                                .adjacent_tile(tile.x, tile.y, &d)
                                 .unwrap_or(&Tile::default())
                                 .border(&d.opposite())
                     })
@@ -312,7 +331,7 @@ impl Map {
         println!("{:?}", new_t);
 
         // Replace tile in the dug direction
-        let new_t = self.find_tile(self.adjacent_tile(tile, dir).unwrap(), None);
+        let new_t = self.find_tile(self.adjacent_tile(tile.x, tile.y, dir).unwrap(), None);
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);
         println!("{:?}", new_t);

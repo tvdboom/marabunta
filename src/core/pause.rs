@@ -20,6 +20,7 @@ pub fn spawn_pause_banner(mut commands: Commands, assets: Local<WorldAssets>) {
                 ..default()
             },
             Visibility::Hidden,
+            PickingBehavior::IGNORE,
             PauseCmp,
         ))
         .with_children(|parent| {

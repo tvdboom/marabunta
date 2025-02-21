@@ -1,4 +1,5 @@
 use crate::core::map::map::Map;
+use std::f32::consts::PI;
 use strum_macros::EnumIter;
 
 #[derive(EnumIter, Debug, Eq, PartialEq)]
@@ -18,6 +19,15 @@ impl Direction {
             Direction::West => Direction::East,
         }
     }
+
+    pub fn degrees(&self) -> f32 {
+        match self {
+            Direction::North => 0.,
+            Direction::East => -PI * 0.5,
+            Direction::South => PI,
+            Direction::West => PI * 0.5,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
@@ -33,15 +43,5 @@ impl Loc {
             || (self.x == Map::MAP_SIZE.x - 1 && [3, 7, 11, 15].contains(&self.bit))
             || (self.y == 0 && [0, 1, 2, 3].contains(&self.bit))
             || (self.y == Map::MAP_SIZE.y - 1 && [12, 13, 14, 15].contains(&self.bit))
-    }
-
-    pub fn direction(&self) -> Direction {
-        match self.bit {
-            0..4 => Direction::North,
-            6 | 7 | 10 | 11 => Direction::East,
-            12..16 => Direction::South,
-            4 | 5 | 8 | 9 => Direction::West,
-            _ => unreachable!(),
-        }
     }
 }
