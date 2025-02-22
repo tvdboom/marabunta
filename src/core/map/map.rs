@@ -239,19 +239,28 @@ impl Map {
         neighbors
     }
 
-    pub fn shortest_path(&self, start: &Loc, goal: &Loc) -> Vec<Loc> {
+    pub fn shortest_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
         // Allow the last loc to be a wall
         bfs(
             start,
             |loc| {
                 self.get_neighbors(loc)
                     .into_iter()
-                    .filter(|l| self.is_walkable(l) || l == goal)
+                    .filter(|l| self.is_walkable(l) || l == end)
                     .collect::<Vec<_>>()
             },
-            |loc| loc == goal,
+            |loc| loc == end,
         )
-        .expect(format!("No path found from {:?} to {:?}.", start, goal).as_str())
+        .expect(
+            format!(
+                "No path found from {:?} ({:016b}) to {:?} ({:016b}).",
+                start,
+                self.get_tile(start).bitmap(),
+                end,
+                self.get_tile(end).bitmap()
+            )
+            .as_str(),
+        )
     }
 
     /// Determine the digging direction from a location
@@ -291,7 +300,7 @@ impl Map {
     /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
     pub fn find_tile(&self, tile: &Tile, exclude_dir: Option<&Direction>) -> Tile {
         let mut possible_tiles = vec![];
-        for i in 0..=68 {
+        for i in 0..Tile::MASKS.len() {
             for rotation in Tile::ANGLES {
                 let new_t = Tile {
                     texture_index: i,
@@ -327,13 +336,11 @@ impl Map {
         let new_t = self.find_tile(tile, Some(dir));
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);
-        println!("{:?}", new_t);
 
         // Replace tile in the direction dug
         let new_t = self.find_tile(&self.adjacent_tile(tile.x, tile.y, dir), None);
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);
-        println!("{:?}", new_t);
 
         new_tiles
     }

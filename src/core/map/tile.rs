@@ -35,7 +35,7 @@ impl Tile {
 
     pub const ANGLES: [i32; 4] = [0, 90, 180, 270];
 
-    const TILE_MASKS: [u16; 69] = {
+    pub const MASKS: [u16; 69] = {
         let mut arr = [0; 69];
         arr[0] = 0b0000_0011_0111_0111;
         arr[1] = 0b0000_1111_1111_1111;
@@ -123,7 +123,7 @@ impl Tile {
 
     pub fn bitmap(&self) -> u16 {
         rotate_bitmap(
-            Self::TILE_MASKS
+            Self::MASKS
                 .get(self.texture_index)
                 .copied()
                 .unwrap_or_else(|| panic!("Invalid tile index: {}", self.texture_index)),

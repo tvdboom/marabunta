@@ -1,7 +1,9 @@
 use crate::core::ants::components::*;
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE};
+use crate::core::constants::{
+    ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE,
+};
 use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
