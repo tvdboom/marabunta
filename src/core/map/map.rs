@@ -145,10 +145,13 @@ impl Map {
         }
     }
 
-    pub fn random_base_loc(&self) -> Option<Loc> {
+    pub fn random_walk_loc(&self, in_base: bool) -> Option<Loc> {
         let mut locations = vec![];
+        for tile in self.tiles.iter() {
+            if in_base && !tile.is_base {
+                continue;
+            }
 
-        for tile in self.tiles.iter().filter(|t| t.is_base) {
             for bit in 0..16 {
                 let loc = Loc {
                     x: tile.x,
@@ -168,7 +171,8 @@ impl Map {
         let mut locations = vec![];
         for t in self.tiles.iter() {
             if tile.map_or(true, |c| c.equals(t)) {
-                for bit in 0..16 {
+                // Dig only at center edge bits
+                for bit in [1, 2, 7, 11, 13, 14, 4, 8] {
                     let loc = Loc {
                         x: t.x,
                         y: t.y,
@@ -255,21 +259,17 @@ impl Map {
         match loc.bit {
             1 | 2 => Direction::North,
             7 | 11 => Direction::East,
-            13 | 14  => Direction::South,
+            13 | 14 => Direction::South,
             4 | 8 => Direction::West,
-            // For corners and inner bits, we must consider the surrounding tiles
-            0 | 5 => {
-                // Zero means dig North when the left tile has a wall at bit 15
-                // Else it means
-                 self.adjacent_tile(loc.x, loc.y, &Direction::West).bitmap()
-            },
-            3 | 6 => (),
-            12 | 9 => (),
-            15 | 10 => (),
+            _ => unreachable!(),
         }
     }
 
     pub fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Tile {
+        if x == 0 || y == 0 {
+            return Tile::default();
+        }
+
         let x = match dir {
             Direction::East => x + 1,
             Direction::West => x - 1,
@@ -283,7 +283,9 @@ impl Map {
         };
 
         self.tiles
-            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize).unwrap_or(&Tile::default()).clone()
+            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+            .unwrap_or(&Tile::default())
+            .clone()
     }
 
     /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
@@ -307,9 +309,7 @@ impl Map {
                     .filter(|d| exclude_dir.map_or(true, |ex| d != ex))
                     .all(|d| {
                         new_t.border(&d)
-                            == self
-                                .adjacent_tile(tile.x, tile.y, &d)
-                                .border(&d.opposite())
+                            == self.adjacent_tile(tile.x, tile.y, &d).border(&d.opposite())
                     })
                 {
                     possible_tiles.push(new_t);
@@ -329,7 +329,7 @@ impl Map {
         new_tiles.push(new_t);
         println!("{:?}", new_t);
 
-        // Replace tile in the dug direction
+        // Replace tile in the direction dug
         let new_t = self.find_tile(&self.adjacent_tile(tile.x, tile.y, dir), None);
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);

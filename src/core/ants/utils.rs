@@ -99,7 +99,10 @@ pub fn walk(
         }
 
         let next_loc = map.get_loc(&next_pos);
-        if path.len() == 1 || next_loc == *target_loc || map.is_walkable(&next_loc) {
+        if path.len() == 1
+            || next_loc == *target_loc
+            || (map.is_walkable(&next_loc) || ant_t.rotation == rotate(ant_t.rotation))
+        {
             ant_t.translation = next_pos;
         } else {
             // At a wall, rotate faster towards the next location

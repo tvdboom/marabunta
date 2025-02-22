@@ -78,7 +78,7 @@ impl FromWorld for WorldAssets {
             ("mute", assets.load("images/icons/mute.png")),
             ("sound", assets.load("images/icons/sound.png")),
             // Map
-            ("tiles", assets.load("images/map/soil_tileset.png")),
+            ("tiles", assets.load("images/map/soil_tileset2.png")),
             ("hole1", assets.load("images/map/soil_hole_01.png")),
             ("hole2", assets.load("images/map/soil_hole_02.png")),
             ("seed1", assets.load("images/map/seed_01.png")),

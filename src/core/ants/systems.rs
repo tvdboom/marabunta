@@ -1,7 +1,7 @@
 use crate::core::ants::components::*;
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, EGG_Z_SCORE};
+use crate::core::constants::{ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE};
 use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
@@ -89,7 +89,7 @@ pub fn tile_dig(
             });
 
             // Calculate the aggregate terraform progress
-            let terraform = ants.len() as f32 * 20. * game_settings.speed * time.delta_secs();
+            let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
 
             if tile.terraform[i] > terraform {
                 tile.terraform[i] -= terraform;
@@ -119,10 +119,12 @@ pub fn tile_dig(
 
                 // Set digging ants onto a new task
                 ants.iter_mut().for_each(|(_, ant)| {
-                    if rand::rng().random::<f32>() < 0.8 {
+                    if rand::rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
                         // 80% of digging in the next tile
                         ant.action = Action::Walk(
-                            map.random_dig_loc(Some(selection.last().unwrap())).unwrap(),
+                            map.random_dig_loc(Some(selection.last().unwrap()))
+                                // If there are no more locations on the next tile, select a random one
+                                .unwrap_or(map.random_dig_loc(None).unwrap()),
                         );
                     } else {
                         ant.action = Action::Idle;
@@ -192,7 +194,7 @@ pub fn resolve_action_ants(
                             if timer.just_finished() {
                                 commands.spawn((
                                     Sprite {
-                                        image: assets.image("larva1"),
+                                        image: assets.image("larva2"),
                                         ..default()
                                     },
                                     Transform {
@@ -216,13 +218,13 @@ pub fn resolve_action_ants(
 
                                 player.queue.remove(0);
                                 ant.timer = None;
-                                ant.action = Action::Walk(map.random_base_loc().unwrap());
+                                ant.action = Action::Walk(map.random_walk_loc(true).unwrap());
                             }
                         } else {
-                            ant.timer = Some(Timer::from_seconds(2.5, TimerMode::Once));
+                            ant.timer = Some(Timer::from_seconds(BROODING_TIME, TimerMode::Once));
                         }
                     } else {
-                        ant.action = Action::Walk(map.random_base_loc().unwrap());
+                        ant.action = Action::Walk(map.random_walk_loc(true).unwrap());
                     }
                 }
             },
