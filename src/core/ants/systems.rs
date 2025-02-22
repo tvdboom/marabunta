@@ -189,7 +189,9 @@ pub fn resolve_action_ants(
                     ant.action = Action::Walk(map.random_dig_loc(None).unwrap());
                 }
                 Ant::BlackQueen => {
-                    if let Some(ant_c) = player.queue.first() {
+                    if let Some(ant_queue) = player.queue.first() {
+                        let ant_c = AntCmp::new(ant_queue.clone());
+
                         if let Some(timer) = ant.timer.as_mut() {
                             timer.tick(scale_duration(time.delta(), game_settings.speed));
 
@@ -293,6 +295,6 @@ pub fn update_ant_health_bars(
 
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
     if keyboard.just_pressed(KeyCode::KeyW) {
-        player.queue.push(AntCmp::new(Ant::BlackAnt));
+        player.queue.push(Ant::BlackAnt);
     }
 }

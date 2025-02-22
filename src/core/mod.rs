@@ -17,7 +17,7 @@ use crate::core::audio::*;
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
 use crate::core::map::systems::{draw_start_map, MapCmp};
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{setup_menu, spawn_menu_ants};
+use crate::core::menu::systems::{setup_menu};
 use crate::core::network::{client_receive_message, server_update};
 use crate::core::pause::{pause_game, spawn_pause_banner, toggle_pause_keyboard, unpause_game};
 use crate::core::player::Player;
@@ -94,7 +94,6 @@ impl Plugin for GamePlugin {
                 resolve_action_ants,
                 update_ant_health_bars,
                 tile_dig,
-                spawn_menu_ants.run_if(on_timer(Duration::from_millis(200))),
             )
                 .run_if(in_state(PauseState::Running)),
         );

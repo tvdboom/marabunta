@@ -1,10 +1,10 @@
-use crate::core::ants::components::AntCmp;
+use crate::core::ants::components::{Ant, AntCmp};
 use bevy::prelude::Resource;
 
 #[derive(Resource)]
 pub struct Player {
     pub id: usize,
-    pub queue: Vec<AntCmp>,
+    pub queue: Vec<Ant>,
 }
 
 impl Player {
@@ -13,8 +13,12 @@ impl Player {
     }
 }
 
+/// The default is used for the player in the menu
 impl Default for Player {
     fn default() -> Self {
-        Self::new(0)
+        Self {
+            id: 0,
+            queue: vec![Ant::BlackAnt; 10],
+        }
     }
 }
