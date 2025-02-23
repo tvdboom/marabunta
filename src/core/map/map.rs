@@ -1,6 +1,8 @@
+use crate::core::constants::MAX_TERRAFORM_POINTS;
 use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
+use bevy::utils::HashSet;
 use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
@@ -171,7 +173,7 @@ impl Map {
         let mut locations = vec![];
         for t in self.tiles.iter() {
             if tile.map_or(true, |c| c.equals(t)) {
-                // Dig only at center edge bits
+                // Dig only at the center-edge bits
                 for bit in [1, 2, 7, 11, 13, 14, 4, 8] {
                     let loc = Loc {
                         x: t.x,
@@ -219,6 +221,9 @@ impl Map {
             let ny = (bit / Tile::SIDE) as i8 + dy;
 
             (x, bit) = if nx < 0 {
+                if x == 0 {
+                    continue;
+                }
                 (x - 1, bit + (Tile::SIDE - 1)) // Move one tile left
             } else if nx >= Tile::SIDE as i8 {
                 (x + 1, bit - (Tile::SIDE - 1)) // Move one tile right
@@ -227,6 +232,9 @@ impl Map {
             };
 
             (y, bit) = if ny < 0 {
+                if y == 0 {
+                    continue;
+                }
                 (y - 1, bit + Tile::SIDE * (Tile::SIDE - 1)) // Move one tile up
             } else if ny >= Tile::SIDE as i8 {
                 (y + 1, bit - Tile::SIDE * (Tile::SIDE - 1)) // Move one tile down
@@ -264,30 +272,27 @@ impl Map {
         )
     }
 
-    /// Determine the digging direction from a location
-    pub fn get_dig_direction(&self, loc: &Loc) -> Direction {
-        match loc.bit {
-            1 | 2 => Direction::North,
-            7 | 11 => Direction::East,
-            13 | 14 => Direction::South,
-            4 | 8 => Direction::West,
-            _ => unreachable!(),
-        }
-    }
-
     pub fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Tile {
-        if x == 0 || y == 0 {
-            return Tile::default();
-        }
-
         let x = match dir {
             Direction::East => x + 1,
-            Direction::West => x - 1,
+            Direction::West => {
+                if x > 0 {
+                    x - 1
+                } else {
+                    return Tile::default();
+                }
+            }
             _ => x,
         };
 
         let y = match dir {
-            Direction::North => y - 1,
+            Direction::North => {
+                if y > 0 {
+                    y - 1
+                } else {
+                    return Tile::default();
+                }
+            }
             Direction::South => y + 1,
             _ => y,
         };
@@ -298,30 +303,28 @@ impl Map {
             .clone()
     }
 
-    /// Find a tile that can replace `tile` where all directions match except `exclude_dir`
-    pub fn find_tile(&self, tile: &Tile, exclude_dir: Option<&Direction>) -> Tile {
+    /// Find a tile that can replace `tile` where all directions match except those in `directions`
+    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>) -> Tile {
         let mut possible_tiles = vec![];
-        for i in 0..Tile::MASKS.len() {
-            for rotation in Tile::ANGLES {
+
+        for texture_index in 0..Tile::MASKS.len() {
+            for &rotation in &Tile::ANGLES {
                 let new_t = Tile {
-                    texture_index: i,
+                    texture_index,
                     rotation,
+                    terraform: MAX_TERRAFORM_POINTS,
                     ..*tile
                 };
 
-                // The excluded direction must have an opening
-                if exclude_dir.map_or(false, |d| new_t.border(d) == 0) {
-                    continue;
-                }
-
-                // Check if the tile fits the surrounding tiles except in the excluded direction
-                if Direction::iter()
-                    .filter(|d| exclude_dir.map_or(true, |ex| d != ex))
-                    .all(|d| {
-                        new_t.border(&d)
-                            == self.adjacent_tile(tile.x, tile.y, &d).border(&d.opposite())
-                    })
-                {
+                if Direction::iter().all(|dir| {
+                    let opposite = dir.opposite();
+                    if directions.contains(&opposite) {
+                        new_t.border(&dir) == 0b0110
+                    } else {
+                        new_t.border(&dir)
+                            == self.adjacent_tile(new_t.x, new_t.y, &dir).border(&opposite)
+                    }
+                }) {
                     possible_tiles.push(new_t);
                 }
             }
@@ -330,18 +333,23 @@ impl Map {
         *possible_tiles.choose(&mut rand::rng()).unwrap()
     }
 
-    pub fn select_new_tiles(&mut self, tile: &Tile, dir: &Direction) -> Vec<Tile> {
+    pub fn replace_tile(&mut self, tile: &Tile, directions: &HashSet<Direction>) -> Vec<Tile> {
         let mut new_tiles = vec![];
 
-        // Replace tile that was dug
-        let new_t = self.find_tile(tile, Some(dir));
+        // Replace the tile that was dug
+        let new_t = self.find_tile(tile, directions);
         self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
         new_tiles.push(new_t);
 
-        // Replace tile in the direction dug
-        let new_t = self.find_tile(&self.adjacent_tile(tile.x, tile.y, dir), None);
-        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
-        new_tiles.push(new_t);
+        // Replace tiles in the directions dug
+        for dir in directions.iter() {
+            let new_t = self.find_tile(
+                &self.adjacent_tile(tile.x, tile.y, &dir.opposite()),
+                &HashSet::new(),
+            );
+            self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
+            new_tiles.push(new_t);
+        }
 
         new_tiles
     }

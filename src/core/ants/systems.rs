@@ -4,7 +4,6 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::{
     ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE,
 };
-use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
@@ -14,9 +13,9 @@ use crate::core::resources::GameSettings;
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
+use bevy::utils::HashSet;
 use rand::Rng;
 use std::mem::discriminant;
-use strum::IntoEnumIterator;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -73,66 +72,60 @@ pub fn tile_dig(
     let tile_entities: Vec<_> = tile_q.iter().map(|(e, t)| (e, t.x, t.y)).collect();
 
     for (_, mut tile) in tile_q.iter_mut() {
-        for (i, dir) in Direction::iter().enumerate() {
-            // Select ants that were digging on that tile in the same direction
-            let mut ants = ant_q
-                .iter_mut()
-                .filter(|(_, ant)| {
-                    matches!(ant.action, Action::Dig(l) if l.x == tile.x && l.y == tile.y && map.get_dig_direction(&l) == dir)
-                })
-                .collect::<Vec<_>>();
+        // Select ants that were digging on that tile
+        let mut ants = ant_q
+            .iter_mut()
+            .filter(|(_, ant)| matches!(ant.action, Action::Dig(t) if t.equals(&tile)))
+            .collect::<Vec<_>>();
 
-            // Turn ants towards the direction they are digging
-            ants.iter_mut().for_each(|(t, _)| {
-                t.rotation = t.rotation.rotate_towards(
-                    Quat::from_rotation_z(dir.degrees()),
-                    2. * game_settings.speed * time.delta_secs(),
-                )
-            });
+        // Turn ants towards the direction they are digging
+        let mut directions = HashSet::new();
+        ants.iter_mut().for_each(|(t, _)| {
+            let d = map.get_loc(&t.translation).get_direction();
+            t.rotation = t.rotation.rotate_towards(
+                Quat::from_rotation_z(d.degrees()),
+                2. * game_settings.speed * time.delta_secs(),
+            );
+            directions.insert(d);
+        });
 
-            // Calculate the aggregate terraform progress
-            let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
+        // Calculate the aggregate terraform progress
+        let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
 
-            if tile.terraform[i] > terraform {
-                tile.terraform[i] -= terraform;
-            } else {
-                // Direction is fully terraformed
-                tile.terraform[i] = 100.; // Reset terraform progress for the new tile
+        if tile.terraform > terraform {
+            tile.terraform -= terraform;
+        } else {
+            for new_t in map.replace_tile(&tile, &directions).iter() {
+                commands
+                    .entity(
+                        tile_entities
+                            .iter()
+                            .find(|(_, x, y)| *x == new_t.x && *y == new_t.y)
+                            .unwrap()
+                            .0,
+                    )
+                    .try_despawn_recursive();
 
-                let selection = map.select_new_tiles(&tile, &dir);
-                for new_t in selection.iter() {
-                    commands
-                        .entity(
-                            tile_entities
-                                .iter()
-                                .find(|(_, x, y)| *x == new_t.x && *y == new_t.y)
-                                .unwrap()
-                                .0,
-                        )
-                        .despawn_recursive();
-
-                    spawn_tile(
-                        &mut commands,
-                        &new_t,
-                        Map::get_coord_from_xy(new_t.x, new_t.y),
-                        &assets,
-                    );
-                }
-
-                // Set digging ants onto a new task
-                ants.iter_mut().for_each(|(_, ant)| {
-                    if rand::rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
-                        // 80% of digging in the next tile
-                        ant.action = Action::Walk(
-                            map.random_dig_loc(Some(selection.last().unwrap()))
-                                // If there are no more locations on the next tile, select a random one
-                                .unwrap_or(map.random_dig_loc(None).unwrap()),
-                        );
-                    } else {
-                        ant.action = Action::Idle;
-                    }
-                });
+                spawn_tile(
+                    &mut commands,
+                    &new_t,
+                    Map::get_coord_from_xy(new_t.x, new_t.y),
+                    &assets,
+                );
             }
+
+            // Set digging ants onto a new task
+            ants.iter_mut().for_each(|(_, ant)| {
+                if rand::rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
+                    ant.action = Action::Walk(
+                        map.random_dig_loc(Some(&tile))
+                            // If there are no digging locations on the tile, select a random one
+                            .unwrap_or(map.random_dig_loc(None).unwrap()),
+                    );
+                } else {
+                    ant.action = Action::Idle;
+                }
+            });
         }
     }
 }
@@ -239,7 +232,11 @@ pub fn resolve_action_ants(
                 } else {
                     // Ant reached the target loc => continue with default action
                     ant.action = match ant.kind {
-                        Ant::BlackAnt => Action::Dig(current_loc),
+                        Ant::BlackAnt => Action::Dig(map.adjacent_tile(
+                            current_loc.x,
+                            current_loc.y,
+                            &current_loc.get_direction(),
+                        )),
                         Ant::BlackQueen => Action::Idle,
                     };
                 }
@@ -294,7 +291,7 @@ pub fn update_ant_health_bars(
 }
 
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
-    if keyboard.just_pressed(KeyCode::KeyW) {
+    if keyboard.just_pressed(KeyCode::Digit1) {
         player.queue.push(Ant::BlackAnt);
     }
 }

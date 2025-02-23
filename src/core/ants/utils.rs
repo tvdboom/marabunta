@@ -73,7 +73,6 @@ pub fn walk(
     time: &Res<Time>,
 ) {
     let current_loc = map.get_loc(&ant_t.translation);
-    println!("{:?}", map.get_tile(&current_loc));
     let path = map.shortest_path(&current_loc, target_loc).split_off(1);
 
     if let Some(next_loc) = path.first() {
@@ -100,8 +99,7 @@ pub fn walk(
         }
 
         let next_loc = map.get_loc(&next_pos);
-        if path.len() == 1
-            || next_loc == *target_loc
+        if next_loc == *target_loc
             || (map.is_walkable(&next_loc) || ant_t.rotation == rotate(ant_t.rotation))
         {
             ant_t.translation = next_pos;

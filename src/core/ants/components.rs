@@ -1,4 +1,5 @@
 use crate::core::map::loc::Loc;
+use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use strum_macros::EnumIter;
 
@@ -29,7 +30,7 @@ pub enum Action {
     Die,
     Idle,
     Walk(Loc), // Location to walk to
-    Dig(Loc),  // Loc to dig
+    Dig(Tile), // Tile to dig
 }
 
 impl Action {

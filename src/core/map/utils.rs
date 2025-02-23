@@ -22,12 +22,7 @@ pub fn rotate_bitmap(bitmap: u16, rotation: i32) -> u16 {
 }
 
 /// Spawn a tile on the map
-pub fn spawn_tile(
-    commands: &mut Commands,
-    tile: &Tile,
-    pos: Vec2,
-    assets: &Local<WorldAssets>,
-) {
+pub fn spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Local<WorldAssets>) {
     let texture = assets.texture("tiles");
     let tile_e = commands
         .spawn((
@@ -59,9 +54,7 @@ pub fn spawn_tile(
                 },
                 Transform {
                     translation: Vec3::new(0., 0., 0.1),
-                    rotation: Quat::from_rotation_z(
-                        rng().random_range(0.0_f32..360.).to_radians(),
-                    ),
+                    rotation: Quat::from_rotation_z(rng().random_range(0.0_f32..360.).to_radians()),
                     scale: Vec3::splat(rng().random_range(0.15..0.25)),
                     ..default()
                 },

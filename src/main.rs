@@ -1,8 +1,6 @@
 mod core;
 mod utils;
 
-use std::{panic, thread};
-use std::time::Duration;
 use crate::core::GamePlugin;
 use bevy::asset::AssetMetaCheck;
 use bevy::prelude::NonSend;
@@ -17,11 +15,6 @@ use winit::window::Icon;
 pub const TITLE: &str = "Marabunta";
 
 fn main() {
-    panic::set_hook(Box::new(|info| {
-        println!("Panic occurred: {info}");
-        loop {thread::sleep(Duration::from_secs(100))} // Loop to "freeze" instead of closing
-    }));
-
     let mut app = App::new();
 
     app.add_plugins(

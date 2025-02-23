@@ -2,7 +2,7 @@ use crate::core::map::map::Map;
 use std::f32::consts::PI;
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Debug, Eq, PartialEq)]
+#[derive(EnumIter, Debug, Eq, Hash, PartialEq)]
 pub enum Direction {
     North,
     East,
@@ -51,7 +51,7 @@ impl Loc {
             7 | 11 => Direction::East,
             13 | 14 => Direction::South,
             4 | 8 => Direction::West,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }

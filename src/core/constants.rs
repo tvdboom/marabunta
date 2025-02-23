@@ -21,7 +21,10 @@ pub const EGG_Z_SCORE: f32 = 1.;
 pub const ANT_Z_SCORE: f32 = 2.;
 pub const MAX_Z_SCORE: f32 = 10.;
 
+// Map
+pub const MAX_TERRAFORM_POINTS: f32 = 100.;
+
 // Ants
 pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg
 pub const DIG_SPEED: f32 = 50.; // Terraform points per ant per second
-pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.99; // Chance of continuing digging in the same tunnel
+pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel

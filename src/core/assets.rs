@@ -78,7 +78,7 @@ impl FromWorld for WorldAssets {
             ("mute", assets.load("images/icons/mute.png")),
             ("sound", assets.load("images/icons/sound.png")),
             // Map
-            ("tiles", assets.load("images/map/soil_tileset2.png")),
+            ("tiles", assets.load("images/map/soil_tileset.png")),
             ("hole1", assets.load("images/map/soil_hole_01.png")),
             ("hole2", assets.load("images/map/soil_hole_02.png")),
             ("seed1", assets.load("images/map/seed_01.png")),
@@ -141,8 +141,13 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for action in Action::iter() {
-                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
-                    .as_str();
+                let name = Box::leak(Box::new(format!(
+                    "{}/{}_{}",
+                    ant.to_snake(),
+                    ant.to_snake(),
+                    action.to_name()
+                )))
+                .as_str();
                 let layout =
                     TextureAtlasLayout::from_grid(ant.size(), action.frames(), 1, None, None);
                 atlas.insert(

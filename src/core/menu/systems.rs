@@ -6,7 +6,6 @@ use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
 
-
 pub fn setup_menu(
     mut commands: Commands,
     game_state: Res<State<GameState>>,
