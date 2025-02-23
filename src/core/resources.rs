@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 pub enum GameMode {
+    Spectator,
     SinglePlayer,
     MultiPlayer,
 }
@@ -14,7 +15,7 @@ pub struct GameSettings {
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
-            game_mode: GameMode::SinglePlayer,
+            game_mode: GameMode::Spectator,
             speed: 1.0,
         }
     }

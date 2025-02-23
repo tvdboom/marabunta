@@ -232,11 +232,18 @@ pub fn resolve_action_ants(
                 } else {
                     // Ant reached the target loc => continue with default action
                     ant.action = match ant.kind {
-                        Ant::BlackAnt => Action::Dig(map.adjacent_tile(
-                            current_loc.x,
-                            current_loc.y,
-                            &current_loc.get_direction(),
-                        )),
+                        Ant::BlackAnt => {
+                            if map.is_walkable(&current_loc) {
+                                // The tile could have been dug while it was getting there
+                                Action::Idle
+                            } else {
+                                Action::Dig(map.adjacent_tile(
+                                    current_loc.x,
+                                    current_loc.y,
+                                    &current_loc.get_direction(),
+                                ))
+                            }
+                        }
                         Ant::BlackQueen => Action::Idle,
                     };
                 }

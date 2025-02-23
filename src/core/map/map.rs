@@ -126,8 +126,9 @@ impl Map {
         )
     }
 
-    pub fn get_tile(&self, loc: &Loc) -> &Tile {
-        &self.tiles[(loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize]
+    pub fn get_tile(&self, loc: &Loc) -> Option<&Tile> {
+        self.tiles
+            .get((loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize)
     }
 
     pub fn get_loc(&self, coord: &Vec3) -> Loc {
@@ -196,7 +197,9 @@ impl Map {
     }
 
     pub fn is_walkable(&self, loc: &Loc) -> bool {
-        self.get_tile(loc).bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1) != 0
+        self.get_tile(loc).map_or(false, |tile| {
+            tile.bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1) != 0
+        })
     }
 
     pub fn get_neighbors(&self, loc: &Loc) -> Vec<Loc> {
@@ -260,16 +263,7 @@ impl Map {
             },
             |loc| loc == end,
         )
-        .expect(
-            format!(
-                "No path found from {:?} ({:016b}) to {:?} ({:016b}).",
-                start,
-                self.get_tile(start).bitmap(),
-                end,
-                self.get_tile(end).bitmap()
-            )
-            .as_str(),
-        )
+        .unwrap()
     }
 
     pub fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Tile {

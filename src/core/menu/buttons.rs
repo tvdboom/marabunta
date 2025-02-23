@@ -15,6 +15,7 @@ pub struct MenuCmp;
 
 #[derive(Component, Clone, Debug)]
 pub enum MenuBtn {
+    Singleplayer,
     Multiplayer,
     HostGame,
     FindGame,
@@ -59,28 +60,28 @@ pub fn on_click_menu_button(
 
             next_game_state.set(GameState::Lobby);
         }
+        MenuBtn::Singleplayer => {
+            commands.insert_resource(GameSettings {
+                game_mode: GameMode::SinglePlayer,
+                ..default()
+            });
+            commands.insert_resource(Player::new(0));
+            next_game_state.set(GameState::Game);
+        }
         MenuBtn::Play => {
-            if *game_state.get() != GameState::MainMenu {
-                // Multiplayer context
-                let mut server = server.unwrap();
+            // Multiplayer context
+            let mut server = server.unwrap();
 
-                // Send the start game signal to all clients with their player number
-                for (i, client) in server.clients_id().iter().enumerate() {
-                    let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
-                    server.send_message(*client, DefaultChannel::ReliableOrdered, message);
-                }
-
-                commands.insert_resource(GameSettings {
-                    game_mode: GameMode::MultiPlayer,
-                    ..default()
-                });
-            } else {
-                // Single player context
-                commands.insert_resource(GameSettings {
-                    game_mode: GameMode::SinglePlayer,
-                    ..default()
-                });
+            // Send the start game signal to all clients with their player number
+            for (i, client) in server.clients_id().iter().enumerate() {
+                let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
+                server.send_message(*client, DefaultChannel::ReliableOrdered, message);
             }
+
+            commands.insert_resource(GameSettings {
+                game_mode: GameMode::MultiPlayer,
+                ..default()
+            });
 
             commands.insert_resource(Player::new(0)); // Host is always player 0
             next_game_state.set(GameState::Game);

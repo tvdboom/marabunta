@@ -29,6 +29,9 @@ use bevy_renet::renet::{RenetClient, RenetServer};
 
 pub struct GamePlugin;
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct InGameSet;
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
@@ -41,9 +44,14 @@ impl Plugin for GamePlugin {
             //Resources
             .init_resource::<GameSettings>()
             .init_resource::<Player>()
+            //Sets
+            .configure_sets(Update, InGameSet.run_if(in_state(GameState::Game)))
             // Camera
             .add_systems(Startup, (setup_camera, draw_start_map).chain())
-            .add_systems(Update, (move_camera, move_camera_keyboard))
+            .add_systems(
+                Update,
+                (move_camera, move_camera_keyboard).in_set(InGameSet),
+            )
             // Audio
             .add_systems(Startup, setup_music_btn)
             .add_systems(OnEnter(MusicState::Playing), play_music)
@@ -78,10 +86,7 @@ impl Plugin for GamePlugin {
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(PauseState::Paused), pause_game)
         .add_systems(OnEnter(PauseState::Running), unpause_game)
-        .add_systems(
-            Update,
-            toggle_pause_keyboard, //.run_if(in_state(GameState::Game)),
-        )
+        .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(
             Update,

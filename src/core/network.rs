@@ -1,5 +1,6 @@
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
+use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::{GameState, PauseState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
@@ -98,6 +99,10 @@ pub fn client_receive_message(
                 }
             }
             ServerMessage::StartGame(i) => {
+                commands.insert_resource(GameSettings {
+                    game_mode: GameMode::MultiPlayer,
+                    ..default()
+                });
                 commands.insert_resource(Player::new(i));
                 next_game_state.set(GameState::Game);
             }

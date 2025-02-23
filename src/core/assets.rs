@@ -119,7 +119,11 @@ impl FromWorld for WorldAssets {
             for action in Action::iter() {
                 let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
                     .as_str();
-                images.insert(name, assets.load(&format!("images/ants/{name}.png")));
+
+                images.insert(
+                    name,
+                    assets.load(&format!("images/ants/{}/{}.png", ant.to_snake(), name)),
+                );
             }
         }
 
@@ -141,15 +145,12 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for action in Action::iter() {
-                let name = Box::leak(Box::new(format!(
-                    "{}/{}_{}",
-                    ant.to_snake(),
-                    ant.to_snake(),
-                    action.to_name()
-                )))
-                .as_str();
+                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
+                    .as_str();
+
                 let layout =
                     TextureAtlasLayout::from_grid(ant.size(), action.frames(), 1, None, None);
+
                 atlas.insert(
                     name,
                     AtlasInfo {

@@ -18,7 +18,7 @@ impl Default for Player {
     fn default() -> Self {
         Self {
             id: 0,
-            queue: vec![Ant::BlackAnt; 10],
+            queue: vec![Ant::BlackAnt; 5],
         }
     }
 }
