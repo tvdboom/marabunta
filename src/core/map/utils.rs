@@ -4,6 +4,7 @@ use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::*;
+use rand::{rng, Rng};
 
 /// Rotate a bitmap by `rotation` degrees
 pub fn rotate_bitmap(bitmap: u16, rotation: i32) -> u16 {
@@ -26,9 +27,9 @@ pub fn spawn_tile(
     tile: &Tile,
     pos: Vec2,
     assets: &Local<WorldAssets>,
-) -> Entity {
+) {
     let texture = assets.texture("tiles");
-    commands
+    let tile_e = commands
         .spawn((
             Sprite {
                 image: texture.image,
@@ -47,5 +48,24 @@ pub fn spawn_tile(
             *tile,
             MapCmp,
         ))
-        .id()
+        .id();
+
+    if tile.has_stone {
+        commands
+            .spawn((
+                Sprite {
+                    image: assets.image(&format!("stone{}", rng().random_range(1..=18))),
+                    ..default()
+                },
+                Transform {
+                    translation: Vec3::new(0., 0., 0.1),
+                    rotation: Quat::from_rotation_z(
+                        rng().random_range(0.0_f32..360.).to_radians(),
+                    ),
+                    scale: Vec3::splat(rng().random_range(0.15..0.25)),
+                    ..default()
+                },
+            ))
+            .set_parent(tile_e);
+    }
 }

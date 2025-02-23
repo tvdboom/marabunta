@@ -73,6 +73,7 @@ pub fn walk(
     time: &Res<Time>,
 ) {
     let current_loc = map.get_loc(&ant_t.translation);
+    println!("{:?}", map.get_tile(&current_loc));
     let path = map.shortest_path(&current_loc, target_loc).split_off(1);
 
     if let Some(next_loc) = path.first() {

@@ -10,6 +10,7 @@ pub struct Tile {
     pub texture_index: usize,
     pub rotation: i32,
     pub is_base: bool,
+    pub has_stone: bool,
     pub terraform: [f32; 4],
 }
 
@@ -21,6 +22,7 @@ impl Default for Tile {
             texture_index: Self::SOIL[0],
             rotation: 0,
             is_base: false,
+            has_stone: false,
             terraform: [100.; 4],
         }
     }
@@ -116,7 +118,7 @@ impl Tile {
             y,
             texture_index: *Self::SOIL.choose(&mut rand::rng()).unwrap(),
             rotation: *Self::ANGLES.choose(&mut rand::rng()).unwrap(),
-            is_base: false,
+            has_stone: rand::random::<f32>() < 0.1,
             ..default()
         }
     }

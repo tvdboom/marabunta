@@ -44,4 +44,14 @@ impl Loc {
             || (self.y == 0 && [0, 1, 2, 3].contains(&self.bit))
             || (self.y == Map::MAP_SIZE.y - 1 && [12, 13, 14, 15].contains(&self.bit))
     }
+
+    pub fn get_direction(&self) -> Direction {
+        match self.bit {
+            1 | 2 => Direction::North,
+            7 | 11 => Direction::East,
+            13 | 14 => Direction::South,
+            4 | 8 => Direction::West,
+            _ => unreachable!()
+        }
+    }
 }

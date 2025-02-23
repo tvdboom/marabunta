@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::ants::components::Ant;
 use bevy::prelude::Resource;
 
 #[derive(Resource)]

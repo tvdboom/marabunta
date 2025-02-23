@@ -181,6 +181,7 @@ impl Map {
 
                     if !self.is_walkable(&loc)
                         && !loc.is_map_edge()
+                        && !self.adjacent_tile(t.x, t.y, &loc.get_direction()).has_stone
                         && self.get_neighbors(&loc).iter().any(|l| self.is_walkable(l))
                     {
                         locations.push(loc);
