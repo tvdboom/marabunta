@@ -1,6 +1,7 @@
+use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
-use crate::core::resources::{GameMode, GameSettings};
+use crate::core::resources::GameSettings;
 use crate::core::states::{GameState, PauseState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
@@ -14,7 +15,11 @@ const PROTOCOL_ID: u64 = 7;
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
     NPlayers(usize),
-    StartGame(usize),
+    StartGame {
+        id: usize,
+        settings: GameSettings,
+        map: Map,
+    },
     PauseGame,
     ResumeGame,
 }
@@ -98,12 +103,10 @@ pub fn client_receive_message(
                     text.0 = format!("There are {i} players in the lobby.\nWaiting for the host to start the game...");
                 }
             }
-            ServerMessage::StartGame(i) => {
-                commands.insert_resource(GameSettings {
-                    game_mode: GameMode::MultiPlayer,
-                    ..default()
-                });
-                commands.insert_resource(Player::new(i));
+            ServerMessage::StartGame { id, settings, map } => {
+                commands.insert_resource(settings);
+                commands.insert_resource(Player::new(id));
+                commands.insert_resource(map);
                 next_game_state.set(GameState::Game);
             }
             ServerMessage::PauseGame => {

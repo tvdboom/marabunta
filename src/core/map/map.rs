@@ -6,11 +6,23 @@ use bevy::utils::HashSet;
 use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Map {
     pub tiles: Vec<Tile>,
+}
+
+/// The default implementation is used as starting
+/// resource to draw the map seen during the menu
+impl Default for Map {
+    fn default() -> Self {
+        Self::from_base(UVec2::new(
+            Map::MAP_SIZE.x / 2 - 16,
+            Map::MAP_SIZE.y / 2 - 6,
+        ))
+    }
 }
 
 impl Map {
@@ -66,7 +78,11 @@ impl Map {
         Self { tiles }
     }
 
-    pub fn world(&self) -> Vec<Tile> {
+    pub fn from_base(pos: UVec2) -> Self {
+        Self::new().insert_base(&pos).clone()
+    }
+
+    pub fn world(&self, player: usize) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
             .map(|y| {
                 (0..Self::WORLD_SIZE.x)
@@ -78,6 +94,7 @@ impl Map {
                         {
                             Tile::soil(0, 0)
                         } else {
+                            
                             *self
                                 .tiles
                                 .iter()
@@ -93,7 +110,7 @@ impl Map {
             .collect()
     }
 
-    pub fn insert_base(&mut self, pos: UVec2) {
+    pub fn insert_base(&mut self, pos: &UVec2) -> &mut Self {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
                 if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
@@ -107,6 +124,8 @@ impl Map {
                 }
             }
         }
+
+        self
     }
 
     pub fn get_coord_from_xy(x: u32, y: u32) -> Vec2 {

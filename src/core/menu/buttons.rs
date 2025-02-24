@@ -1,5 +1,6 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::core::map::systems::create_map;
 use crate::core::menu::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::player::Player;
@@ -61,29 +62,44 @@ pub fn on_click_menu_button(
             next_game_state.set(GameState::Lobby);
         }
         MenuBtn::Singleplayer => {
-            commands.insert_resource(GameSettings {
-                game_mode: GameMode::SinglePlayer,
+            let game_settings = GameSettings {
+                mode: GameMode::SinglePlayer,
                 ..default()
-            });
+            };
+            let map = create_map(&game_settings);
+
+            commands.insert_resource(game_settings);
             commands.insert_resource(Player::new(0));
+            commands.insert_resource(map);
+
             next_game_state.set(GameState::Game);
         }
         MenuBtn::Play => {
             // Multiplayer context
             let mut server = server.unwrap();
+            let n_players = server.clients_id().len() + 1;
 
-            // Send the start game signal to all clients with their player number
+            let game_settings = GameSettings {
+                mode: GameMode::MultiPlayer(n_players),
+                ..default()
+            };
+            let map = create_map(&game_settings);
+
+            // Send the start game signal to all clients with their player id
             for (i, client) in server.clients_id().iter().enumerate() {
-                let message = bincode::serialize(&ServerMessage::StartGame(i + 1)).unwrap();
+                let message = bincode::serialize(&ServerMessage::StartGame {
+                    id: i + 1,
+                    settings: game_settings.clone(),
+                    map: map.clone(),
+                })
+                .unwrap();
                 server.send_message(*client, DefaultChannel::ReliableOrdered, message);
             }
 
-            commands.insert_resource(GameSettings {
-                game_mode: GameMode::MultiPlayer,
-                ..default()
-            });
+            commands.insert_resource(game_settings);
+            commands.insert_resource(Player::new(0)); // The host is player 0
+            commands.insert_resource(map);
 
-            commands.insert_resource(Player::new(0)); // Host is always player 0
             next_game_state.set(GameState::Game);
         }
         MenuBtn::Back => {

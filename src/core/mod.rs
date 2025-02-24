@@ -15,7 +15,7 @@ mod utils;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
-use crate::core::map::systems::{draw_start_map, MapCmp};
+use crate::core::map::systems::{draw_map, MapCmp};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::setup_menu;
 use crate::core::network::{client_receive_message, server_update};
@@ -26,6 +26,7 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::utils::despawn;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use crate::core::map::map::Map;
 
 pub struct GamePlugin;
 
@@ -44,10 +45,11 @@ impl Plugin for GamePlugin {
             //Resources
             .init_resource::<GameSettings>()
             .init_resource::<Player>()
+            .init_resource::<Map>()
             //Sets
             .configure_sets(Update, InGameSet.run_if(in_state(GameState::Game)))
             // Camera
-            .add_systems(Startup, (setup_camera, draw_start_map).chain())
+            .add_systems(Startup, (setup_camera, draw_map).chain())
             .add_systems(
                 Update,
                 (move_camera, move_camera_keyboard).in_set(InGameSet),
@@ -59,7 +61,7 @@ impl Plugin for GamePlugin {
             .add_systems(Update, (toggle_music, toggle_music_keyboard))
             //Networking
             .add_systems(
-                Update,
+                PreUpdate,
                 (
                     server_update.run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
@@ -80,7 +82,7 @@ impl Plugin for GamePlugin {
         // Map
         app.add_systems(
             OnEnter(GameState::Game),
-            (despawn::<MapCmp>, draw_start_map).chain(),
+            (despawn::<MapCmp>, draw_map).chain(),
         )
         // Pause
         .add_systems(Startup, spawn_pause_banner)

@@ -3,8 +3,9 @@ use crate::core::map::loc::Direction;
 use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
 use rand::prelude::IndexedRandom;
+use serde::{Deserialize, Serialize};
 
-#[derive(Component, Clone, Copy, Debug, PartialEq)]
+#[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Tile {
     pub x: u32,
     pub y: u32,
@@ -13,6 +14,7 @@ pub struct Tile {
     pub is_base: bool,
     pub has_stone: bool,
     pub terraform: f32,
+    pub visible: Vec<usize>,
 }
 
 impl Default for Tile {
@@ -25,6 +27,7 @@ impl Default for Tile {
             is_base: false,
             has_stone: false,
             terraform: MAX_TERRAFORM_POINTS,
+            visible: Vec::new(),
         }
     }
 }

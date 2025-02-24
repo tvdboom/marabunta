@@ -1,21 +1,22 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Serialize, Deserialize)]
 pub enum GameMode {
-    Spectator,
     SinglePlayer,
-    MultiPlayer,
+    MultiPlayer(usize),
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct GameSettings {
-    pub game_mode: GameMode,
+    pub mode: GameMode,
     pub speed: f32,
 }
 
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
-            game_mode: GameMode::Spectator,
+            mode: GameMode::SinglePlayer,
             speed: 1.0,
         }
     }
