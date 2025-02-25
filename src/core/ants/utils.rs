@@ -12,8 +12,8 @@ use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
 
-pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<WorldAssets>) {
-    let ant = AntCmp::new(kind);
+pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, id: usize, assets: &Local<WorldAssets>) {
+    let ant = AntCmp::new(kind, id);
 
     let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
@@ -40,7 +40,7 @@ pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<W
         ))
         .id();
 
-    // Spawn health bars
+    // Spawn health bar
     commands
         .spawn((
             Sprite {
@@ -49,6 +49,7 @@ pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, assets: &Local<W
                 ..default()
             },
             AntHealthWrapper(id),
+            Visibility::Hidden,
             MapCmp,
         ))
         .with_children(|parent| {

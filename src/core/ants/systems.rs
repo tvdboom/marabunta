@@ -60,12 +60,13 @@ pub fn animate_ants(
     }
 }
 
-pub fn tile_dig(
+pub fn resolve_digging(
     mut commands: Commands,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut tile_q: Query<(Entity, &mut Tile)>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
+    player: Res<Player>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
@@ -73,10 +74,10 @@ pub fn tile_dig(
 
     for (_, mut tile) in tile_q.iter_mut() {
         // Select ants that were digging on that tile
-        let mut ants = ant_q
+        let mut ants: Vec<_> = ant_q
             .iter_mut()
-            .filter(|(_, ant)| matches!(ant.action, Action::Dig(t) if t.equals(&tile)))
-            .collect::<Vec<_>>();
+            .filter(|(_, ant)| ant.owner == player.id && matches!(&ant.action, Action::Dig(t) if t.equals(&tile)))
+            .collect();
 
         // Turn ants towards the direction they are digging
         let mut directions = HashSet::new();
@@ -95,7 +96,7 @@ pub fn tile_dig(
         if tile.terraform > terraform {
             tile.terraform -= terraform;
         } else {
-            for new_t in map.replace_tile(&tile, &directions).iter() {
+            for new_t in map.replace_tile(&tile, &directions, player.id).iter() {
                 commands
                     .entity(
                         tile_entities
@@ -108,7 +109,7 @@ pub fn tile_dig(
 
                 spawn_tile(
                     &mut commands,
-                    &new_t,
+                    new_t,
                     Map::get_coord_from_xy(new_t.x, new_t.y),
                     &assets,
                 );
@@ -118,9 +119,9 @@ pub fn tile_dig(
             ants.iter_mut().for_each(|(_, ant)| {
                 if rand::rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
                     ant.action = Action::Walk(
-                        map.random_dig_loc(Some(&tile))
+                        map.random_dig_loc(Some(&tile), player.id)
                             // If there are no digging locations on the tile, select a random one
-                            .unwrap_or(map.random_dig_loc(None).unwrap()),
+                            .unwrap_or(map.random_dig_loc(None, player.id).unwrap()),
                     );
                 } else {
                     ant.action = Action::Idle;
@@ -134,10 +135,11 @@ pub fn hatch_eggs(
     mut commands: Commands,
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
     game_settings: Res<GameSettings>,
+    player: Res<Player>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (egg_e, mut egg, egg_t) in egg_q.iter_mut() {
+    for (egg_e, mut egg, egg_t) in egg_q.iter_mut().filter(|(_, egg, _)| egg.owner == player.id) {
         egg.timer
             .tick(scale_duration(time.delta(), game_settings.speed));
 
@@ -146,6 +148,7 @@ pub fn hatch_eggs(
                 &mut commands,
                 egg.ant.clone(),
                 egg_t.translation.truncate(),
+                player.id,
                 &assets,
             );
             commands.entity(egg_e).despawn();
@@ -157,9 +160,9 @@ pub fn resolve_action_ants(
     mut commands: Commands,
     mut ant_q: Query<(Entity, &mut AntCmp, &mut Transform)>,
     wrapper_q: Query<(Entity, &AntHealthWrapper)>,
-    mut player: ResMut<Player>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
+    mut player: ResMut<Player>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
@@ -177,13 +180,10 @@ pub fn resolve_action_ants(
                     }
                 }
             }
-            Action::Idle => match ant.kind {
-                Ant::BlackAnt => {
-                    ant.action = Action::Walk(map.random_dig_loc(None).unwrap());
-                }
-                Ant::BlackQueen => {
+            Action::Idle => match ant.behavior {
+                Behavior::Brood => {
                     if let Some(ant_queue) = player.queue.first() {
-                        let ant_c = AntCmp::new(ant_queue.clone());
+                        let ant_c = AntCmp::new(ant_queue.clone(), player.id);
 
                         if let Some(timer) = ant.timer.as_mut() {
                             timer.tick(scale_duration(time.delta(), game_settings.speed));
@@ -205,6 +205,7 @@ pub fn resolve_action_ants(
                                     },
                                     Egg {
                                         ant: ant_c.kind.clone(),
+                                        owner: player.id,
                                         timer: Timer::from_seconds(
                                             ant_c.hatch_time,
                                             TimerMode::Once,
@@ -215,14 +216,22 @@ pub fn resolve_action_ants(
 
                                 player.queue.remove(0);
                                 ant.timer = None;
-                                ant.action = Action::Walk(map.random_walk_loc(true).unwrap());
+                                ant.action =
+                                    Action::Walk(map.random_walk_loc(player.id, true).unwrap());
                             }
                         } else {
                             ant.timer = Some(Timer::from_seconds(BROODING_TIME, TimerMode::Once));
                         }
                     } else {
-                        ant.action = Action::Walk(map.random_walk_loc(true).unwrap());
+                        // If nothing in the queue, wander around through the base
+                        ant.action = Action::Walk(map.random_walk_loc(player.id, true).unwrap());
                     }
+                }
+                Behavior::Dig => {
+                    ant.action = Action::Walk(map.random_dig_loc(None, player.id).unwrap());
+                }
+                Behavior::Wander => {
+                    ant.action = Action::Walk(map.random_walk_loc(player.id, false).unwrap());
                 }
             },
             Action::Walk(target_loc) => {
@@ -231,8 +240,8 @@ pub fn resolve_action_ants(
                     walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
                 } else {
                     // Ant reached the target loc => continue with default action
-                    ant.action = match ant.kind {
-                        Ant::BlackAnt => {
+                    ant.action = match ant.behavior {
+                        Behavior::Dig => {
                             if map.is_walkable(&current_loc) {
                                 // The tile could have been dug while it was getting there
                                 Action::Idle
@@ -244,7 +253,7 @@ pub fn resolve_action_ants(
                                 ))
                             }
                         }
-                        Ant::BlackQueen => Action::Idle,
+                        _ => Action::Idle,
                     };
                 }
             }
@@ -300,5 +309,14 @@ pub fn update_ant_health_bars(
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
     if keyboard.just_pressed(KeyCode::Digit1) {
         player.queue.push(Ant::BlackAnt);
+    }
+    if keyboard.just_pressed(KeyCode::Digit2) {
+        player.queue.push(Ant::BlackBullet);
+    }
+    if keyboard.just_pressed(KeyCode::Digit3) {
+        player.queue.push(Ant::BlackSoldier);
+    }
+    if keyboard.just_pressed(KeyCode::Digit4) {
+        player.queue.push(Ant::GoldTail);
     }
 }

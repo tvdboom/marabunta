@@ -12,16 +12,29 @@ pub struct AntHealth;
 #[derive(EnumIter, Clone, Debug)]
 pub enum Ant {
     BlackAnt,
+    BlackBullet,
+    BlackSoldier,
     BlackQueen,
+    GoldTail,
 }
 
 impl Ant {
     pub fn size(&self) -> UVec2 {
         match self {
             Ant::BlackAnt => UVec2::new(307, 438),
+            Ant::BlackBullet => UVec2::new(307, 474),
+            Ant::BlackSoldier => UVec2::new(367, 508),
             Ant::BlackQueen => UVec2::new(307, 525),
+            Ant::GoldTail => UVec2::new(466, 623),
         }
     }
+}
+
+#[derive(Clone)]
+pub enum Behavior {
+    Brood,
+    Wander,
+    Dig,
 }
 
 #[derive(EnumIter, Clone, Debug, PartialEq)]
@@ -66,6 +79,9 @@ pub struct AntCmp {
     /// Ant type
     pub kind: Ant,
 
+    /// Player id of the ant's owner
+    pub owner: usize,
+
     /// Scale factor of `Transform`
     /// Determines the size of the ant's sprite
     pub scale: f32,
@@ -82,6 +98,9 @@ pub struct AntCmp {
     /// Speed in pixels per second
     pub speed: f32,
 
+    /// Default behavior of the ant
+    pub behavior: Behavior,
+
     /// Current action performed by the ant
     pub action: Action,
 
@@ -93,28 +112,71 @@ pub struct AntCmp {
 }
 
 impl AntCmp {
-    pub fn new(kind: Ant) -> Self {
+    pub fn new(kind: Ant, id: usize) -> Self {
         match kind {
             Ant::BlackAnt => Self {
                 kind: Ant::BlackAnt,
+                owner: id,
                 scale: 0.03,
                 z_score: 0.1,
                 health: 10.,
                 max_health: 10.,
                 speed: 20.,
+                behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 5.,
                 timer: None,
             },
+            Ant::BlackBullet => Self {
+                kind: Ant::BlackBullet,
+                owner: id,
+                scale: 0.03,
+                z_score: 0.2,
+                health: 10.,
+                max_health: 10.,
+                speed: 30.,
+                behavior: Behavior::Wander,
+                action: Action::Idle,
+                hatch_time: 10.,
+                timer: None,
+            },
+            Ant::BlackSoldier => Self {
+                kind: Ant::BlackSoldier,
+                owner: id,
+                scale: 0.04,
+                z_score: 0.6,
+                health: 50.,
+                max_health: 50.,
+                speed: 15.,
+                behavior: Behavior::Wander,
+                action: Action::Idle,
+                hatch_time: 15.,
+                timer: None,
+            },
             Ant::BlackQueen => Self {
                 kind: Ant::BlackQueen,
+                owner: id,
                 scale: 0.05,
                 z_score: 0.9,
                 health: 1000.,
                 max_health: 1000.,
                 speed: 20.,
+                behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
+                timer: None,
+            },
+            Ant::GoldTail => Self {
+                kind: Ant::GoldTail,
+                owner: id,
+                scale: 0.04,
+                z_score: 0.7,
+                health: 50.,
+                max_health: 50.,
+                speed: 20.,
+                behavior: Behavior::Wander,
+                action: Action::Idle,
+                hatch_time: 12.,
                 timer: None,
             },
         }
@@ -129,6 +191,9 @@ impl AntCmp {
 pub struct Egg {
     /// Type of ant in the egg
     pub ant: Ant,
+
+    /// Player id of the egg's owner
+    pub owner: usize,
 
     /// Time to hatch
     pub timer: Timer,

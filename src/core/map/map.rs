@@ -18,10 +18,10 @@ pub struct Map {
 /// resource to draw the map seen during the menu
 impl Default for Map {
     fn default() -> Self {
-        Self::from_base(UVec2::new(
-            Map::MAP_SIZE.x / 2 - 16,
-            Map::MAP_SIZE.y / 2 - 6,
-        ))
+        Self::from_base(
+            UVec2::new(Map::MAP_SIZE.x / 2 - 16, Map::MAP_SIZE.y / 2 - 6),
+            0,
+        )
     }
 }
 
@@ -66,51 +66,43 @@ impl Map {
     pub const TEXTURE_SIZE: UVec2 = UVec2::new(8, 9);
 
     pub fn new() -> Self {
-        let tiles: Vec<Tile> = (0..Self::MAP_SIZE.y)
-            .map(|y| {
-                (0..Self::MAP_SIZE.x)
-                    .map(|x| Tile::soil(x, y))
-                    .collect::<Vec<_>>()
-            })
-            .flatten()
-            .collect();
-
-        Self { tiles }
+        Self {
+            tiles: (0..Self::MAP_SIZE.y)
+                .flat_map(|y| (0..Self::MAP_SIZE.x).map(move |x| Tile::soil(x, y)))
+                .collect(),
+        }
     }
 
-    pub fn from_base(pos: UVec2) -> Self {
-        Self::new().insert_base(&pos).clone()
+    pub fn from_base(pos: UVec2, id: usize) -> Self {
+        Self::new().insert_base(&pos, id).clone()
     }
 
-    pub fn world(&self, player: usize) -> Vec<Tile> {
+    pub fn world(&self, id: usize) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
-            .map(|y| {
-                (0..Self::WORLD_SIZE.x)
-                    .map(|x| {
-                        if y < Self::OFFSET.y
-                            || y >= Self::MAP_SIZE.y + Self::OFFSET.y
-                            || x < Self::OFFSET.x
-                            || x >= Self::MAP_SIZE.x + Self::OFFSET.x
-                        {
-                            Tile::soil(0, 0)
-                        } else {
-                            
-                            *self
-                                .tiles
-                                .iter()
-                                .find(|t| {
-                                    t.x == (x - Self::OFFSET.x) && t.y == (y - Self::OFFSET.y)
-                                })
-                                .unwrap()
-                        }
-                    })
-                    .collect::<Vec<_>>()
+            .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                if !(Self::OFFSET.x..Self::OFFSET.x + Self::MAP_SIZE.x).contains(&x)
+                    || !(Self::OFFSET.y..Self::OFFSET.y + Self::MAP_SIZE.y).contains(&y)
+                {
+                    Tile::soil(9999, 9999)
+                } else {
+                    let tile = self.tiles
+                        .iter()
+                        .find(|t| t.x == x - Self::OFFSET.x && t.y == y - Self::OFFSET.y)
+                        .cloned()
+                        .unwrap();
+
+                    if tile.visible.contains(&id) {
+                        tile
+                    } else {
+                        Tile::soil(tile.x, tile.y).with_stone(tile.has_stone)
+                    }
+                }
             })
-            .flatten()
-            .collect()
+            .collect::<Vec<_>>()
     }
 
-    pub fn insert_base(&mut self, pos: &UVec2) -> &mut Self {
+    pub fn insert_base(&mut self, pos: &UVec2, id: usize) -> &mut Self {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
                 if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
@@ -119,6 +111,7 @@ impl Map {
                         y,
                         texture_index: i * Map::TEXTURE_SIZE.x as usize + j,
                         is_base: true,
+                        visible: HashSet::from([id]),
                         ..default()
                     };
                 }
@@ -167,50 +160,45 @@ impl Map {
         }
     }
 
-    pub fn random_walk_loc(&self, in_base: bool) -> Option<Loc> {
-        let mut locations = vec![];
-        for tile in self.tiles.iter() {
-            if in_base && !tile.is_base {
-                continue;
-            }
-
-            for bit in 0..16 {
-                let loc = Loc {
+    pub fn random_walk_loc(&self, id: usize, in_base: bool) -> Option<Loc> {
+        let locations: Vec<_> = self
+            .tiles
+            .iter()
+            .filter(|tile| tile.visible.contains(&id) && (!in_base || tile.is_base))
+            .flat_map(|tile| {
+                (0..16).map(move |bit| Loc {
                     x: tile.x,
                     y: tile.y,
                     bit,
-                };
-                if self.is_walkable(&loc) {
-                    locations.push(loc);
-                }
-            }
-        }
+                })
+            })
+            .filter(|loc| self.is_walkable(loc))
+            .collect();
 
         locations.choose(&mut rand::rng()).copied()
     }
 
-    pub fn random_dig_loc(&self, tile: Option<&Tile>) -> Option<Loc> {
-        let mut locations = vec![];
-        for t in self.tiles.iter() {
-            if tile.map_or(true, |c| c.equals(t)) {
-                // Dig only at the center-edge bits
-                for bit in [1, 2, 7, 11, 13, 14, 4, 8] {
-                    let loc = Loc {
-                        x: t.x,
-                        y: t.y,
-                        bit,
-                    };
-
-                    if !self.is_walkable(&loc)
-                        && !loc.is_map_edge()
-                        && !self.adjacent_tile(t.x, t.y, &loc.get_direction()).has_stone
-                        && self.get_neighbors(&loc).iter().any(|l| self.is_walkable(l))
-                    {
-                        locations.push(loc);
-                    }
-                }
-            }
-        }
+    pub fn random_dig_loc(&self, tile: Option<&Tile>, id: usize) -> Option<Loc> {
+        let locations: Vec<_> = self
+            .tiles
+            .iter()
+            .filter(|t| t.visible.contains(&id) && tile.map_or(true, |c| c.equals(t)))
+            .flat_map(|t| {
+                [1, 2, 7, 11, 13, 14, 4, 8].iter().map(move |&bit| Loc {
+                    x: t.x,
+                    y: t.y,
+                    bit,
+                })
+            })
+            .filter(|loc| {
+                !self.is_walkable(loc)
+                    && !loc.is_map_edge()
+                    && !self
+                        .adjacent_tile(loc.x, loc.y, &loc.get_direction())
+                        .has_stone
+                    && self.get_neighbors(loc).iter().any(|l| self.is_walkable(l))
+            })
+            .collect();
 
         locations.choose(&mut rand::rng()).copied()
     }
@@ -222,8 +210,6 @@ impl Map {
     }
 
     pub fn get_neighbors(&self, loc: &Loc) -> Vec<Loc> {
-        let mut neighbors = vec![];
-
         let moves = [
             (-1, 0),
             (1, 0),
@@ -235,39 +221,50 @@ impl Map {
             (1, 1),
         ];
 
-        for (dx, dy) in moves {
-            let (mut x, mut y, mut bit) = (loc.x, loc.y, loc.bit);
+        moves
+            .iter()
+            .filter_map(|&(dx, dy)| {
+                let (mut x, mut y, mut bit) = (loc.x, loc.y, loc.bit);
 
-            // Bit positions on the tile
-            let nx = (bit % Tile::SIDE) as i8 + dx;
-            let ny = (bit / Tile::SIDE) as i8 + dy;
+                // Bit positions on the tile
+                let nx = (bit % Tile::SIDE) as i8 + dx;
+                let ny = (bit / Tile::SIDE) as i8 + dy;
 
-            (x, bit) = if nx < 0 {
-                if x == 0 {
-                    continue;
+                if nx < 0 {
+                    if x == 0 {
+                        return None;
+                    }
+                    x -= 1;
+                    bit += Tile::SIDE - 1; // Move one tile left
+                } else if nx >= Tile::SIDE as i8 {
+                    if x + 1 >= Self::WORLD_SIZE.x {
+                        return None;
+                    }
+                    x += 1;
+                    bit -= Tile::SIDE - 1; // Move one tile right
+                } else {
+                    bit = (bit as i8 + dx) as u8;
                 }
-                (x - 1, bit + (Tile::SIDE - 1)) // Move one tile left
-            } else if nx >= Tile::SIDE as i8 {
-                (x + 1, bit - (Tile::SIDE - 1)) // Move one tile right
-            } else {
-                (x, (bit as i8 + dx) as u8)
-            };
 
-            (y, bit) = if ny < 0 {
-                if y == 0 {
-                    continue;
+                if ny < 0 {
+                    if y == 0 {
+                        return None;
+                    }
+                    y -= 1;
+                    bit += Tile::SIDE * (Tile::SIDE - 1); // Move one tile up
+                } else if ny >= Tile::SIDE as i8 {
+                    if y + 1 >= Self::WORLD_SIZE.y {
+                        return None;
+                    }
+                    y += 1;
+                    bit -= Tile::SIDE * (Tile::SIDE - 1); // Move one tile down
+                } else {
+                    bit = (bit as i8 + 4 * dy) as u8;
                 }
-                (y - 1, bit + Tile::SIDE * (Tile::SIDE - 1)) // Move one tile up
-            } else if ny >= Tile::SIDE as i8 {
-                (y + 1, bit - Tile::SIDE * (Tile::SIDE - 1)) // Move one tile down
-            } else {
-                (y, (bit as i8 + 4 * dy) as u8)
-            };
 
-            neighbors.push(Loc { x, y, bit });
-        }
-
-        neighbors
+                Some(Loc { x, y, bit })
+            })
+            .collect()
     }
 
     pub fn shortest_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
@@ -317,16 +314,20 @@ impl Map {
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
-    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>) -> Tile {
+    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>, id: usize) -> Tile {
         let mut possible_tiles = vec![];
 
         for texture_index in 0..Tile::MASKS.len() {
             for &rotation in &Tile::ANGLES {
+                let mut tile_clone = tile.clone();
+                tile_clone.visible.insert(id);
+
                 let new_t = Tile {
                     texture_index,
                     rotation,
                     terraform: MAX_TERRAFORM_POINTS,
-                    ..*tile
+                    has_stone: false,
+                    ..tile_clone
                 };
 
                 if Direction::iter().all(|dir| {
@@ -343,15 +344,16 @@ impl Map {
             }
         }
 
-        *possible_tiles.choose(&mut rand::rng()).unwrap()
+        possible_tiles.choose(&mut rand::rng()).unwrap().clone()
     }
 
-    pub fn replace_tile(&mut self, tile: &Tile, directions: &HashSet<Direction>) -> Vec<Tile> {
+    pub fn replace_tile(&mut self, tile: &Tile, directions: &HashSet<Direction>, id: usize) -> Vec<Tile> {
         let mut new_tiles = vec![];
 
         // Replace the tile that was dug
-        let new_t = self.find_tile(tile, directions);
-        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
+        let new_t = self.find_tile(tile, directions, id);
+        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] =
+            new_t.clone();
         new_tiles.push(new_t);
 
         // Replace tiles in the directions dug
@@ -359,8 +361,10 @@ impl Map {
             let new_t = self.find_tile(
                 &self.adjacent_tile(tile.x, tile.y, &dir.opposite()),
                 &HashSet::new(),
+                id,
             );
-            self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] = new_t;
+            self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] =
+                new_t.clone();
             new_tiles.push(new_t);
         }
 

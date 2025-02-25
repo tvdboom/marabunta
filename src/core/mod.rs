@@ -15,6 +15,7 @@ mod utils;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
+use crate::core::map::map::Map;
 use crate::core::map::systems::{draw_map, MapCmp};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::setup_menu;
@@ -26,7 +27,6 @@ use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::utils::despawn;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
-use crate::core::map::map::Map;
 
 pub struct GamePlugin;
 
@@ -98,7 +98,7 @@ impl Plugin for GamePlugin {
                 animate_ants,
                 resolve_action_ants,
                 update_ant_health_bars,
-                tile_dig,
+                resolve_digging,
             )
                 .run_if(in_state(PauseState::Running)),
         );

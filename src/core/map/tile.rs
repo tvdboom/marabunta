@@ -2,6 +2,7 @@ use crate::core::constants::MAX_TERRAFORM_POINTS;
 use crate::core::map::loc::Direction;
 use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashSet;
 use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +15,7 @@ pub struct Tile {
     pub is_base: bool,
     pub has_stone: bool,
     pub terraform: f32,
-    pub visible: Vec<usize>,
+    pub visible: HashSet<usize>,
 }
 
 impl Default for Tile {
@@ -27,7 +28,7 @@ impl Default for Tile {
             is_base: false,
             has_stone: false,
             terraform: MAX_TERRAFORM_POINTS,
-            visible: Vec::new(),
+            visible: HashSet::new(),
         }
     }
 }
@@ -125,6 +126,10 @@ impl Tile {
             has_stone: rand::random::<f32>() < 0.1,
             ..default()
         }
+    }
+
+    pub fn with_stone(&self, has_stone: bool) -> Self {
+        Tile { has_stone, ..self.clone() }
     }
 
     pub fn bitmap(&self) -> u16 {

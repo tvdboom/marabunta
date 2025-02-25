@@ -40,7 +40,7 @@ pub fn spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loca
                 rotation: Quat::from_rotation_z((-tile.rotation as f32).to_radians()),
                 ..default()
             },
-            *tile,
+            tile.clone(),
             MapCmp,
         ))
         .id();
