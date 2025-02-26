@@ -1,5 +1,6 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::TILE_Z_SCORE;
+use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use bevy::math::{Quat, Vec2};
@@ -60,5 +61,29 @@ pub fn spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loca
                 },
             ))
             .set_parent(tile_e);
+    }
+}
+
+/// Replace a tile with a new one
+pub fn replace_tile(
+    commands: &mut Commands,
+    tile: &Tile,
+    tile_q: &Query<(Entity, &Tile)>,
+    assets: &Local<WorldAssets>,
+) {
+    let (tile_e, tile_c) = tile_q
+        .iter()
+        .find(|(_, t)| t.x == tile.x && t.y == tile.y)
+        .unwrap();
+
+    if tile_c.texture_index != tile.texture_index || tile_c.rotation != tile.rotation {
+        commands.entity(tile_e).try_despawn_recursive();
+
+        spawn_tile(
+            commands,
+            &tile,
+            Map::get_coord_from_xy(tile.x, tile.y),
+            &assets,
+        );
     }
 }

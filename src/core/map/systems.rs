@@ -14,9 +14,6 @@ use rand::Rng;
 #[derive(Component)]
 pub struct MapCmp;
 
-#[derive(Event)]
-pub struct SwapTileEv(pub Tile);
-
 pub fn create_map(game_settings: &GameSettings) -> Map {
     match game_settings.mode {
         GameMode::SinglePlayer => {
@@ -41,7 +38,7 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
 
                 if bases
                     .iter()
-                    .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) >= 10.)
+                    .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 5.)
                 {
                     bases.push(candidate);
                 }
@@ -89,44 +86,4 @@ pub fn draw_map(
             }
         }
     }
-}
-
-pub fn swap_tile_event(
-    mut commands: Commands,
-    tile_q: Query<(Entity, &Tile)>,
-    mut swap_tile_ev: EventReader<SwapTileEv>,
-    assets: Local<WorldAssets>,
-) {
-    for ev in swap_tile_ev.read() {
-        let new_t = ev.0.clone();
-        commands
-            .entity(
-                tile_q
-                    .iter()
-                    .find(|(_, t)| t.x == new_t.x && t.y == new_t.y)
-                    .unwrap()
-                    .0,
-            )
-            .try_despawn_recursive();
-
-        spawn_tile(
-            &mut commands,
-            &new_t,
-            Map::get_coord_from_xy(new_t.x, new_t.y),
-            &assets,
-        );
-    }
-}
-
-pub fn update_map(
-    tile_q: Query<&Tile>,
-    mut swap_tile_ev: EventWriter<SwapTileEv>,
-    player: Res<Player>,
-) {
-    tile_q
-        .iter()
-        .filter(|t| t.visible.contains(&player.id) && t.is_soil())
-        .for_each(|tile| {
-            swap_tile_ev.send(SwapTileEv(tile.clone()));
-        });
 }

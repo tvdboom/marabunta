@@ -2,7 +2,7 @@ use crate::core::map::map::Map;
 use std::f32::consts::PI;
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Debug, Eq, Hash, PartialEq)]
+#[derive(EnumIter, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Direction {
     North,
     East,
@@ -11,6 +11,15 @@ pub enum Direction {
 }
 
 impl Direction {
+    pub fn rotate(&self) -> Direction {
+        match self {
+            Direction::North => Direction::East,
+            Direction::East => Direction::South,
+            Direction::South => Direction::West,
+            Direction::West => Direction::North,
+        }
+    }
+
     pub fn opposite(&self) -> Direction {
         match self {
             Direction::North => Direction::South,

@@ -1,10 +1,11 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
-use crate::core::resources::GameSettings;
+use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::PauseState;
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
+use bevy_renet::renet::RenetServer;
 
 #[derive(Component)]
 pub struct PauseCmp;
@@ -61,27 +62,31 @@ pub fn unpause_game(
 pub fn toggle_pause_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
     pause_state: Res<State<PauseState>>,
+    server: Option<Res<RenetServer>>,
     mut next_pause_state: ResMut<NextState<PauseState>>,
     mut game_settings: ResMut<GameSettings>,
 ) {
-    if keyboard.just_pressed(KeyCode::Space) {
-        match pause_state.get() {
-            PauseState::Running => next_pause_state.set(PauseState::Paused),
-            PauseState::Paused => next_pause_state.set(PauseState::Running),
-        }
-    }
-
-    if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-        if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
-            game_settings.speed -= GAME_SPEED_STEP;
-            if game_settings.speed == 0. {
-                next_pause_state.set(PauseState::Paused);
+    // Only the host can pause the game in multiplayer mode
+    if game_settings.mode == GameMode::SinglePlayer || server.is_some() {
+        if keyboard.just_pressed(KeyCode::Space) {
+            match pause_state.get() {
+                PauseState::Running => next_pause_state.set(PauseState::Paused),
+                PauseState::Paused => next_pause_state.set(PauseState::Running),
             }
         }
-        if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
-            game_settings.speed += GAME_SPEED_STEP;
-            if game_settings.speed == GAME_SPEED_STEP {
-                next_pause_state.set(PauseState::Running);
+
+        if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+            if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
+                game_settings.speed -= GAME_SPEED_STEP;
+                if game_settings.speed == 0. {
+                    next_pause_state.set(PauseState::Paused);
+                }
+            }
+            if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
+                game_settings.speed += GAME_SPEED_STEP;
+                if game_settings.speed == GAME_SPEED_STEP {
+                    next_pause_state.set(PauseState::Running);
+                }
             }
         }
     }

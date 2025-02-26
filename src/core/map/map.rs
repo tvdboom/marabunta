@@ -89,7 +89,7 @@ impl Map {
                         x,
                         y,
                         texture_index: i * Map::TEXTURE_SIZE.x as usize + j,
-                        is_base: true,
+                        base: Some(id),
                         visible: HashSet::from([id]),
                         ..default()
                     };
@@ -150,11 +150,6 @@ impl Map {
             .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
     }
 
-    pub fn get_tile_mut(&mut self, x: u32, y: u32) -> Option<&mut Tile> {
-        self.tiles
-            .get_mut((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
-    }
-
     fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<usize> {
         let new_x = match dir {
             Direction::East => x + 1,
@@ -204,7 +199,7 @@ impl Map {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|tile| tile.visible.contains(&id) && (!in_base || tile.is_base))
+            .filter(|tile| tile.visible.contains(&id) && (!in_base || tile.base == Some(id)))
             .flat_map(|tile| {
                 (0..16).map(move |bit| Loc {
                     x: tile.x,
@@ -332,13 +327,12 @@ impl Map {
 
     /// Update the map with another map
     pub fn update(&mut self, new_map: Map) {
-        new_map
-            .tiles
-            .iter()
-            .zip(&mut self.tiles)
-            .filter(|(new_t, t)| !new_t.is_soil() && t.is_soil())
-            .for_each(|(new_t, t)| {
-                *t = new_t.clone();
+        self.tiles
+            .iter_mut()
+            .zip(new_map.tiles)
+            .filter(|(_, new_t)| !new_t.is_soil())
+            .for_each(|(t, new_t)| {
+                *t = new_t;
             });
     }
 
@@ -384,23 +378,17 @@ impl Map {
         tile: &Tile,
         directions: &HashSet<Direction>,
         id: usize,
-    ) -> Vec<Tile> {
-        let mut new_tiles = vec![];
-
+    ) {
         // Replace the tile
         let new_t = self.find_tile(tile, directions, id);
         self.replace_tile(&new_t);
-        new_tiles.push(new_t);
 
         // Replace tiles in the provided directions
         for dir in directions.iter() {
             if let Some(t) = self.get_adjacent_tile(tile.x, tile.y, &dir.opposite()) {
                 let new_t = self.find_tile(t, &HashSet::new(), id);
                 self.replace_tile(&new_t);
-                new_tiles.push(new_t);
             }
         }
-
-        new_tiles
     }
 }

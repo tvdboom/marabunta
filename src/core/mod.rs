@@ -42,13 +42,14 @@ impl Plugin for GamePlugin {
             .init_state::<MusicState>()
             //Events
             .add_event::<ToggleMusicEv>()
-            .add_event::<SwapTileEv>()
             //Resources
             .init_resource::<GameSettings>()
             .init_resource::<Player>()
             .init_resource::<Map>()
             //Sets
             .configure_sets(Update, InGameSet.run_if(in_state(GameState::Game)))
+            .configure_sets(PreUpdate, InGameSet.run_if(in_state(GameState::Game)))
+            .configure_sets(PostUpdate, InGameSet.run_if(in_state(GameState::Game)))
             // Camera
             .add_systems(Startup, (setup_camera, draw_map).chain())
             .add_systems(
@@ -65,8 +66,8 @@ impl Plugin for GamePlugin {
                 PreUpdate,
                 (
                     (
+                        server_receive_status.in_set(InGameSet),
                         server_update.run_if(not(in_state(GameState::Game))),
-                        server_send_status.run_if(in_state(GameState::Game)),
                     )
                         .run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
@@ -75,10 +76,10 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    server_receive_status.run_if(resource_exists::<RenetServer>),
+                    server_send_status.run_if(resource_exists::<RenetServer>),
                     client_send_status.run_if(resource_exists::<RenetClient>),
                 )
-                    .run_if(in_state(GameState::Game)),
+                    .in_set(InGameSet),
             );
 
         // Menu
@@ -97,7 +98,6 @@ impl Plugin for GamePlugin {
             OnEnter(GameState::Game),
             (despawn::<MapCmp>, draw_map).chain(),
         )
-        .add_systems(Update, (update_map, swap_tile_event).in_set(InGameSet))
         // Pause
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(PauseState::Paused), pause_game)

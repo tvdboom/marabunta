@@ -1,13 +1,12 @@
 use crate::core::ants::components::*;
 use crate::core::ants::utils::{spawn_ant, walk};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{
-    ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE,
-};
+use crate::core::constants::*;
 use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
-use crate::core::map::systems::{MapCmp, SwapTileEv};
+use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
+use crate::core::map::utils::replace_tile;
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
 use crate::core::utils::scale_duration;
@@ -65,7 +64,6 @@ pub fn resolve_digging(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut tile_q: Query<&mut Tile>,
     mut map: ResMut<Map>,
-    mut swap_tile_ev: EventWriter<SwapTileEv>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
@@ -96,12 +94,7 @@ pub fn resolve_digging(
         if tile.terraform > terraform {
             tile.terraform -= terraform;
         } else {
-            for new_t in map
-                .find_and_replace_tile(&tile, &directions, player.id)
-                .iter()
-            {
-                swap_tile_ev.send(SwapTileEv(new_t.clone()));
-            }
+            map.find_and_replace_tile(&tile, &directions, player.id);
 
             // Set digging ants onto a new task
             ants.iter_mut().for_each(|(_, ant)| {
@@ -302,9 +295,12 @@ pub fn update_ant_health_bars(
 }
 
 pub fn update_vision(
+    mut commands: Commands,
     ant_q: Query<(&Transform, &AntCmp)>,
+    tile_q: Query<(Entity, &Tile)>,
     player: Res<Player>,
     mut map: ResMut<Map>,
+    assets: Local<WorldAssets>,
 ) {
     ant_q
         .iter()
@@ -312,14 +308,31 @@ pub fn update_vision(
         .for_each(|(ant_t, _)| {
             let loc = map.get_loc(&ant_t.translation);
             let tile = map.get_tile(loc.x, loc.y).unwrap().clone();
+            replace_tile(&mut commands, &tile, &tile_q, &assets);
 
+            let mut to_update = Vec::new();
             for dir in Direction::iter() {
-                if tile.border(&dir) == 0b0110 {
-                    if let Some(tile) = map.get_adjacent_tile_mut(loc.x, loc.y, &dir) {
-                        tile.visible.insert(player.id);
+                if tile.border(&dir) != 0 {
+                    if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
+                        to_update.push((tile.x, tile.y, dir.clone()));
+
+                        // Also update tiles in corners (north-west, south-east, etc...)
+                        // if the corner bit is walkable
+                        if tile.border(&dir.rotate()) & 1 != 0 {
+                            if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate()) {
+                                to_update.push((tile.x, tile.y, dir.rotate()));
+                            }
+                        }
                     }
                 }
             }
+
+            to_update.iter().for_each(|(x, y, dir)| {
+                if let Some(tile) = map.get_adjacent_tile_mut(*x, *y, dir) {
+                    tile.visible.insert(player.id);
+                    replace_tile(&mut commands, &tile, &tile_q, &assets);
+                }
+            });
         });
 }
 

@@ -118,7 +118,7 @@ pub fn server_receive_status(mut server: ResMut<RenetServer>, mut map: ResMut<Ma
         {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::Status { map: new_map } => {
-                    map.update(new_map);
+                    // map.update(new_map);
                 }
             }
         }
@@ -157,7 +157,7 @@ pub fn client_receive_message(
                 map: new_map,
             } => {
                 commands.insert_resource(settings);
-                map.update(new_map);
+                // map.update(new_map);
                 next_pause_state.set(pause);
             }
         }
