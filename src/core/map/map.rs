@@ -65,6 +65,8 @@ impl Map {
     /// Number of tiles in the texture
     pub const TEXTURE_SIZE: UVec2 = UVec2::new(8, 9);
 
+    // Constructors ===========================================================
+
     pub fn new() -> Self {
         Self {
             tiles: (0..Self::MAP_SIZE.y)
@@ -77,30 +79,7 @@ impl Map {
         Self::new().insert_base(&pos, id).clone()
     }
 
-    pub fn world(&self, id: usize) -> Vec<Tile> {
-        (0..Self::WORLD_SIZE.y)
-            .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
-            .map(|(x, y)| {
-                if !(Self::OFFSET.x..Self::OFFSET.x + Self::MAP_SIZE.x).contains(&x)
-                    || !(Self::OFFSET.y..Self::OFFSET.y + Self::MAP_SIZE.y).contains(&y)
-                {
-                    Tile::soil(9999, 9999)
-                } else {
-                    let tile = self.tiles
-                        .iter()
-                        .find(|t| t.x == x - Self::OFFSET.x && t.y == y - Self::OFFSET.y)
-                        .cloned()
-                        .unwrap();
-
-                    if tile.visible.contains(&id) {
-                        tile
-                    } else {
-                        Tile::soil(tile.x, tile.y).with_stone(tile.has_stone)
-                    }
-                }
-            })
-            .collect::<Vec<_>>()
-    }
+    // Building methods =======================================================
 
     pub fn insert_base(&mut self, pos: &UVec2, id: usize) -> &mut Self {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
@@ -121,6 +100,34 @@ impl Map {
         self
     }
 
+    pub fn world(&self, id: usize) -> Vec<Tile> {
+        (0..Self::WORLD_SIZE.y)
+            .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
+            .map(|(x, y)| {
+                if !(Self::OFFSET.x..Self::OFFSET.x + Self::MAP_SIZE.x).contains(&x)
+                    || !(Self::OFFSET.y..Self::OFFSET.y + Self::MAP_SIZE.y).contains(&y)
+                {
+                    Tile::soil(9999, 9999)
+                } else {
+                    let tile = self
+                        .tiles
+                        .iter()
+                        .find(|t| t.x == x - Self::OFFSET.x && t.y == y - Self::OFFSET.y)
+                        .cloned()
+                        .unwrap();
+
+                    if tile.visible.contains(&id) {
+                        tile
+                    } else {
+                        Tile::soil(tile.x, tile.y).with_stone(tile.has_stone)
+                    }
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
+    // Getters ================================================================
+
     pub fn get_coord_from_xy(x: u32, y: u32) -> Vec2 {
         Vec2::new(
             Map::MAP_VIEW.min.x + Tile::SIZE * (x as f32 + 0.5),
@@ -128,7 +135,7 @@ impl Map {
         )
     }
 
-    pub fn get_coord(loc: &Loc) -> Vec2 {
+    pub fn get_coord_from_loc(loc: &Loc) -> Vec2 {
         let step = 1. / (Tile::SIDE as f32 + 1.); // Steps within a tile (=0.2)
         Vec2::new(
             Self::MAP_VIEW.min.x
@@ -138,9 +145,40 @@ impl Map {
         )
     }
 
-    pub fn get_tile(&self, loc: &Loc) -> Option<&Tile> {
+    pub fn get_tile(&self, x: u32, y: u32) -> Option<&Tile> {
         self.tiles
-            .get((loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize)
+            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+    }
+
+    pub fn get_tile_mut(&mut self, x: u32, y: u32) -> Option<&mut Tile> {
+        self.tiles
+            .get_mut((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+    }
+
+    fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<usize> {
+        let new_x = match dir {
+            Direction::East => x + 1,
+            Direction::West => x.checked_sub(1)?,
+            _ => x,
+        };
+
+        let new_y = match dir {
+            Direction::North => y.checked_sub(1)?,
+            Direction::South => y + 1,
+            _ => y,
+        };
+
+        Some((new_x % Self::MAP_SIZE.x + new_y * Self::MAP_SIZE.x) as usize)
+    }
+
+    pub fn get_adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<&Tile> {
+        self.adjacent_tile(x, y, dir)
+            .and_then(|i| self.tiles.get(i))
+    }
+
+    pub fn get_adjacent_tile_mut(&mut self, x: u32, y: u32, dir: &Direction) -> Option<&mut Tile> {
+        self.adjacent_tile(x, y, dir)
+            .and_then(|i| self.tiles.get_mut(i))
     }
 
     pub fn get_loc(&self, coord: &Vec3) -> Loc {
@@ -159,6 +197,8 @@ impl Map {
             bit: bit_y * Tile::SIDE + bit_x,
         }
     }
+
+    // Location finding =======================================================
 
     pub fn random_walk_loc(&self, id: usize, in_base: bool) -> Option<Loc> {
         let locations: Vec<_> = self
@@ -193,9 +233,9 @@ impl Map {
             .filter(|loc| {
                 !self.is_walkable(loc)
                     && !loc.is_map_edge()
-                    && !self
-                        .adjacent_tile(loc.x, loc.y, &loc.get_direction())
-                        .has_stone
+                    && self
+                        .get_adjacent_tile(loc.x, loc.y, &loc.get_direction())
+                        .map_or(false, |t| !t.has_stone)
                     && self.get_neighbors(loc).iter().any(|l| self.is_walkable(l))
             })
             .collect();
@@ -203,8 +243,10 @@ impl Map {
         locations.choose(&mut rand::rng()).copied()
     }
 
+    // Pathing ================================================================
+
     pub fn is_walkable(&self, loc: &Loc) -> bool {
-        self.get_tile(loc).map_or(false, |tile| {
+        self.get_tile(loc.x, loc.y).map_or(false, |tile| {
             tile.bitmap() & (1 << Tile::SIDE.pow(2) - loc.bit - 1) != 0
         })
     }
@@ -282,35 +324,22 @@ impl Map {
         .unwrap()
     }
 
-    pub fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Tile {
-        let x = match dir {
-            Direction::East => x + 1,
-            Direction::West => {
-                if x > 0 {
-                    x - 1
-                } else {
-                    return Tile::default();
-                }
-            }
-            _ => x,
-        };
+    // Map updates ============================================================
 
-        let y = match dir {
-            Direction::North => {
-                if y > 0 {
-                    y - 1
-                } else {
-                    return Tile::default();
-                }
-            }
-            Direction::South => y + 1,
-            _ => y,
-        };
+    pub fn replace_tile(&mut self, tile: &Tile) {
+        self.tiles[(tile.x % Self::MAP_SIZE.x + tile.y * Self::MAP_SIZE.x) as usize] = tile.clone();
+    }
 
-        self.tiles
-            .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
-            .unwrap_or(&Tile::default())
-            .clone()
+    /// Update the map with another map
+    pub fn update(&mut self, new_map: Map) {
+        new_map
+            .tiles
+            .iter()
+            .zip(&mut self.tiles)
+            .filter(|(new_t, t)| !new_t.is_soil() && t.is_soil())
+            .for_each(|(new_t, t)| {
+                *t = new_t.clone();
+            });
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
@@ -336,7 +365,10 @@ impl Map {
                         new_t.border(&dir) == 0b0110
                     } else {
                         new_t.border(&dir)
-                            == self.adjacent_tile(new_t.x, new_t.y, &dir).border(&opposite)
+                            == self
+                                .get_adjacent_tile(new_t.x, new_t.y, &dir)
+                                .unwrap_or(&Tile::default())
+                                .border(&opposite)
                     }
                 }) {
                     possible_tiles.push(new_t);
@@ -347,25 +379,26 @@ impl Map {
         possible_tiles.choose(&mut rand::rng()).unwrap().clone()
     }
 
-    pub fn replace_tile(&mut self, tile: &Tile, directions: &HashSet<Direction>, id: usize) -> Vec<Tile> {
+    pub fn find_and_replace_tile(
+        &mut self,
+        tile: &Tile,
+        directions: &HashSet<Direction>,
+        id: usize,
+    ) -> Vec<Tile> {
         let mut new_tiles = vec![];
 
-        // Replace the tile that was dug
+        // Replace the tile
         let new_t = self.find_tile(tile, directions, id);
-        self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] =
-            new_t.clone();
+        self.replace_tile(&new_t);
         new_tiles.push(new_t);
 
-        // Replace tiles in the directions dug
+        // Replace tiles in the provided directions
         for dir in directions.iter() {
-            let new_t = self.find_tile(
-                &self.adjacent_tile(tile.x, tile.y, &dir.opposite()),
-                &HashSet::new(),
-                id,
-            );
-            self.tiles[(new_t.x % Self::MAP_SIZE.x + new_t.y * Self::MAP_SIZE.x) as usize] =
-                new_t.clone();
-            new_tiles.push(new_t);
+            if let Some(t) = self.get_adjacent_tile(tile.x, tile.y, &dir.opposite()) {
+                let new_t = self.find_tile(t, &HashSet::new(), id);
+                self.replace_tile(&new_t);
+                new_tiles.push(new_t);
+            }
         }
 
         new_tiles

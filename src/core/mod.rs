@@ -14,13 +14,13 @@ mod utils;
 
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
-use crate::core::camera::{move_camera, move_camera_keyboard, setup_camera};
+use crate::core::camera::*;
 use crate::core::map::map::Map;
-use crate::core::map::systems::{draw_map, MapCmp};
+use crate::core::map::systems::*;
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::setup_menu;
-use crate::core::network::{client_receive_message, server_update};
-use crate::core::pause::{pause_game, spawn_pause_banner, toggle_pause_keyboard, unpause_game};
+use crate::core::network::*;
+use crate::core::pause::*;
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
 use crate::core::states::{GameState, MusicState, PauseState};
@@ -42,6 +42,7 @@ impl Plugin for GamePlugin {
             .init_state::<MusicState>()
             //Events
             .add_event::<ToggleMusicEv>()
+            .add_event::<SwapTileEv>()
             //Resources
             .init_resource::<GameSettings>()
             .init_resource::<Player>()
@@ -63,9 +64,21 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PreUpdate,
                 (
-                    server_update.run_if(resource_exists::<RenetServer>),
+                    (
+                        server_update.run_if(not(in_state(GameState::Game))),
+                        server_send_status.run_if(in_state(GameState::Game)),
+                    )
+                        .run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
                 ),
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    server_receive_status.run_if(resource_exists::<RenetServer>),
+                    client_send_status.run_if(resource_exists::<RenetClient>),
+                )
+                    .run_if(in_state(GameState::Game)),
             );
 
         // Menu
@@ -84,6 +97,7 @@ impl Plugin for GamePlugin {
             OnEnter(GameState::Game),
             (despawn::<MapCmp>, draw_map).chain(),
         )
+        .add_systems(Update, (update_map, swap_tile_event).in_set(InGameSet))
         // Pause
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(PauseState::Paused), pause_game)
@@ -98,6 +112,7 @@ impl Plugin for GamePlugin {
                 animate_ants,
                 resolve_action_ants,
                 update_ant_health_bars,
+                update_vision,
                 resolve_digging,
             )
                 .run_if(in_state(PauseState::Running)),

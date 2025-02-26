@@ -4,10 +4,10 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::{
     ANT_Z_SCORE, BROODING_TIME, DIG_SPEED, EGG_Z_SCORE, SAME_TUNNEL_DIG_CHANCE,
 };
+use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
-use crate::core::map::systems::MapCmp;
+use crate::core::map::systems::{MapCmp, SwapTileEv};
 use crate::core::map::tile::Tile;
-use crate::core::map::utils::spawn_tile;
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
 use crate::core::utils::scale_duration;
@@ -16,6 +16,7 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use rand::Rng;
 use std::mem::discriminant;
+use strum::IntoEnumIterator;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -61,22 +62,21 @@ pub fn animate_ants(
 }
 
 pub fn resolve_digging(
-    mut commands: Commands,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
-    mut tile_q: Query<(Entity, &mut Tile)>,
+    mut tile_q: Query<&mut Tile>,
     mut map: ResMut<Map>,
+    mut swap_tile_ev: EventWriter<SwapTileEv>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
-    assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    let tile_entities: Vec<_> = tile_q.iter().map(|(e, t)| (e, t.x, t.y)).collect();
-
-    for (_, mut tile) in tile_q.iter_mut() {
+    for mut tile in tile_q.iter_mut() {
         // Select ants that were digging on that tile
         let mut ants: Vec<_> = ant_q
             .iter_mut()
-            .filter(|(_, ant)| ant.owner == player.id && matches!(&ant.action, Action::Dig(t) if t.equals(&tile)))
+            .filter(|(_, ant)| {
+                ant.owner == player.id && matches!(&ant.action, Action::Dig(t) if t.equals(&tile))
+            })
             .collect();
 
         // Turn ants towards the direction they are digging
@@ -96,23 +96,11 @@ pub fn resolve_digging(
         if tile.terraform > terraform {
             tile.terraform -= terraform;
         } else {
-            for new_t in map.replace_tile(&tile, &directions, player.id).iter() {
-                commands
-                    .entity(
-                        tile_entities
-                            .iter()
-                            .find(|(_, x, y)| *x == new_t.x && *y == new_t.y)
-                            .unwrap()
-                            .0,
-                    )
-                    .try_despawn_recursive();
-
-                spawn_tile(
-                    &mut commands,
-                    new_t,
-                    Map::get_coord_from_xy(new_t.x, new_t.y),
-                    &assets,
-                );
+            for new_t in map
+                .find_and_replace_tile(&tile, &directions, player.id)
+                .iter()
+            {
+                swap_tile_ev.send(SwapTileEv(new_t.clone()));
             }
 
             // Set digging ants onto a new task
@@ -139,7 +127,10 @@ pub fn hatch_eggs(
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (egg_e, mut egg, egg_t) in egg_q.iter_mut().filter(|(_, egg, _)| egg.owner == player.id) {
+    for (egg_e, mut egg, egg_t) in egg_q
+        .iter_mut()
+        .filter(|(_, egg, _)| egg.owner == player.id)
+    {
         egg.timer
             .tick(scale_duration(time.delta(), game_settings.speed));
 
@@ -246,11 +237,15 @@ pub fn resolve_action_ants(
                                 // The tile could have been dug while it was getting there
                                 Action::Idle
                             } else {
-                                Action::Dig(map.adjacent_tile(
-                                    current_loc.x,
-                                    current_loc.y,
-                                    &current_loc.get_direction(),
-                                ))
+                                Action::Dig(
+                                    map.get_adjacent_tile(
+                                        current_loc.x,
+                                        current_loc.y,
+                                        &current_loc.get_direction(),
+                                    )
+                                    .unwrap()
+                                    .clone(),
+                                )
                             }
                         }
                         _ => Action::Idle,
@@ -304,6 +299,28 @@ pub fn update_ant_health_bars(
             *wrapper_v = Visibility::Hidden;
         }
     }
+}
+
+pub fn update_vision(
+    ant_q: Query<(&Transform, &AntCmp)>,
+    player: Res<Player>,
+    mut map: ResMut<Map>,
+) {
+    ant_q
+        .iter()
+        .filter(|(_, a)| a.owner == player.id)
+        .for_each(|(ant_t, _)| {
+            let loc = map.get_loc(&ant_t.translation);
+            let tile = map.get_tile(loc.x, loc.y).unwrap().clone();
+
+            for dir in Direction::iter() {
+                if tile.border(&dir) == 0b0110 {
+                    if let Some(tile) = map.get_adjacent_tile_mut(loc.x, loc.y, &dir) {
+                        tile.visible.insert(player.id);
+                    }
+                }
+            }
+        });
 }
 
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {

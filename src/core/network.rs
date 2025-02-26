@@ -20,8 +20,16 @@ pub enum ServerMessage {
         settings: GameSettings,
         map: Map,
     },
-    PauseGame,
-    ResumeGame,
+    Status {
+        settings: GameSettings,
+        pause: PauseState,
+        map: Map,
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum ClientMessage {
+    Status { map: Map },
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
@@ -89,10 +97,44 @@ pub fn server_update(
     }
 }
 
+pub fn server_send_status(
+    mut server: ResMut<RenetServer>,
+    game_settings: Res<GameSettings>,
+    map: Res<Map>,
+    pause_state: Res<State<PauseState>>,
+) {
+    let status = bincode::serialize(&ServerMessage::Status {
+        settings: game_settings.clone(),
+        pause: *pause_state.get(),
+        map: map.clone(),
+    });
+
+    server.broadcast_message(DefaultChannel::ReliableOrdered, status.unwrap());
+}
+
+pub fn server_receive_status(mut server: ResMut<RenetServer>, mut map: ResMut<Map>) {
+    for client_id in server.clients_id() {
+        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
+        {
+            match bincode::deserialize(&message).unwrap() {
+                ClientMessage::Status { map: new_map } => {
+                    map.update(new_map);
+                }
+            }
+        }
+    }
+}
+
+pub fn client_send_status(mut client: ResMut<RenetClient>, map: Res<Map>) {
+    let status = bincode::serialize(&ClientMessage::Status { map: map.clone() });
+    client.send_message(DefaultChannel::ReliableOrdered, status.unwrap());
+}
+
 pub fn client_receive_message(
     mut commands: Commands,
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut client: ResMut<RenetClient>,
+    mut map: ResMut<Map>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
@@ -104,16 +146,19 @@ pub fn client_receive_message(
                 }
             }
             ServerMessage::StartGame { id, settings, map } => {
-                commands.insert_resource(settings);
                 commands.insert_resource(Player::new(id));
+                commands.insert_resource(settings);
                 commands.insert_resource(map);
                 next_game_state.set(GameState::Game);
             }
-            ServerMessage::PauseGame => {
-                next_pause_state.set(PauseState::Paused);
-            }
-            ServerMessage::ResumeGame => {
-                next_pause_state.set(PauseState::Running);
+            ServerMessage::Status {
+                settings,
+                pause,
+                map: new_map,
+            } => {
+                commands.insert_resource(settings);
+                map.update(new_map);
+                next_pause_state.set(pause);
             }
         }
     }

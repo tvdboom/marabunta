@@ -12,7 +12,13 @@ use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
 
-pub fn spawn_ant(commands: &mut Commands, kind: Ant, pos: Vec2, id: usize, assets: &Local<WorldAssets>) {
+pub fn spawn_ant(
+    commands: &mut Commands,
+    kind: Ant,
+    pos: Vec2,
+    id: usize,
+    assets: &Local<WorldAssets>,
+) {
     let ant = AntCmp::new(kind, id);
 
     let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
@@ -78,7 +84,7 @@ pub fn walk(
 
     if let Some(next_loc) = path.first() {
         // Calculate the distance vector to the next location
-        let target_pos = Map::get_coord(next_loc).extend(ant_t.translation.z);
+        let target_pos = Map::get_coord_from_loc(next_loc).extend(ant_t.translation.z);
         let d = -ant_t.translation + target_pos;
 
         let rotate = |r: Quat| {

@@ -8,7 +8,7 @@ use bevy::winit::cursor::CursorIcon;
 #[derive(Component)]
 pub struct MainCamera;
 
-fn clamp_to_rect(pos: Vec2, view_size: Vec2, bounds: Rect) -> Vec2 {
+pub fn clamp_to_rect(pos: Vec2, view_size: Vec2, bounds: Rect) -> Vec2 {
     let min_x = bounds.min.x + view_size.x * 0.5;
     let min_y = bounds.min.y + view_size.y * 0.5;
     let max_x = bounds.max.x - view_size.x * 0.5;
@@ -95,12 +95,12 @@ pub fn move_camera(
             .insert(Into::<CursorIcon>::into(SystemCursorIcon::Default));
     }
 
-    // Clamp camera position within bounds
     let mut position = camera_t.translation.truncate();
 
     // Compute the camera's current view size based on projection
     let view_size = projection.area.max - projection.area.min;
 
+    // Clamp camera position within bounds
     let target_pos = clamp_to_rect(position, view_size, Map::MAP_VIEW);
     position = position.lerp(target_pos, LERP_FACTOR);
 

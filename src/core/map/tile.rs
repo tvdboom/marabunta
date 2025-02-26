@@ -129,7 +129,10 @@ impl Tile {
     }
 
     pub fn with_stone(&self, has_stone: bool) -> Self {
-        Tile { has_stone, ..self.clone() }
+        Tile {
+            has_stone,
+            ..self.clone()
+        }
     }
 
     pub fn bitmap(&self) -> u16 {
@@ -164,5 +167,9 @@ impl Tile {
 
     pub fn equals(&self, other: &Tile) -> bool {
         self.x == other.x && self.y == other.y
+    }
+
+    pub fn is_soil(&self) -> bool {
+        Self::SOIL.contains(&self.texture_index)
     }
 }

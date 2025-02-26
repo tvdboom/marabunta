@@ -156,7 +156,7 @@ impl AntCmp {
             Ant::BlackQueen => Self {
                 kind: Ant::BlackQueen,
                 owner: id,
-                scale: 0.05,
+                scale: 0.06,
                 z_score: 0.9,
                 health: 1000.,
                 max_health: 1000.,
