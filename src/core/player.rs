@@ -1,14 +1,15 @@
 use crate::core::ants::components::Ant;
 use bevy::prelude::Resource;
+use bevy_renet::renet::ClientId;
 
 #[derive(Resource)]
 pub struct Player {
-    pub id: usize,
+    pub id: ClientId,
     pub queue: Vec<Ant>,
 }
 
 impl Player {
-    pub fn new(id: usize) -> Self {
+    pub fn new(id: ClientId) -> Self {
         Self { id, queue: vec![] }
     }
 }

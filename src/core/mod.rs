@@ -12,6 +12,7 @@ mod resources;
 mod states;
 mod utils;
 
+use crate::core::ants::events::{despawn_ants, spawn_ants, DespawnAntEv, SpawnAntEv};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
@@ -22,7 +23,7 @@ use crate::core::menu::systems::setup_menu;
 use crate::core::network::*;
 use crate::core::pause::*;
 use crate::core::player::Player;
-use crate::core::resources::GameSettings;
+use crate::core::resources::{GameSettings, Population};
 use crate::core::states::{GameState, MusicState, PauseState};
 use crate::core::utils::despawn;
 use bevy::prelude::*;
@@ -42,10 +43,13 @@ impl Plugin for GamePlugin {
             .init_state::<MusicState>()
             //Events
             .add_event::<ToggleMusicEv>()
+            .add_event::<SpawnAntEv>()
+            .add_event::<DespawnAntEv>()
             //Resources
             .init_resource::<GameSettings>()
             .init_resource::<Player>()
             .init_resource::<Map>()
+            .init_resource::<Population>()
             //Sets
             .configure_sets(Update, InGameSet.run_if(in_state(GameState::Game)))
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(GameState::Game)))
@@ -107,6 +111,8 @@ impl Plugin for GamePlugin {
         .add_systems(
             Update,
             (
+                spawn_ants,
+                despawn_ants,
                 check_keys,
                 hatch_eggs,
                 animate_ants,

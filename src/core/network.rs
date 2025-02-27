@@ -1,11 +1,14 @@
+use crate::core::ants::components::AntCmp;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
-use crate::core::resources::GameSettings;
+use crate::core::resources::{GameSettings, Population, PopulationT};
 use crate::core::states::{GameState, PauseState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
-use bevy_renet::renet::{ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent};
+use bevy_renet::renet::{
+    ClientId, ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent,
+};
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
@@ -16,7 +19,7 @@ const PROTOCOL_ID: u64 = 7;
 pub enum ServerMessage {
     NPlayers(usize),
     StartGame {
-        id: usize,
+        id: ClientId,
         settings: GameSettings,
         map: Map,
     },
@@ -24,12 +27,13 @@ pub enum ServerMessage {
         settings: GameSettings,
         pause: PauseState,
         map: Map,
+        population: PopulationT,
     },
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
-    Status { map: Map },
+    Status { map: Map, population: PopulationT },
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
@@ -99,6 +103,7 @@ pub fn server_update(
 
 pub fn server_send_status(
     mut server: ResMut<RenetServer>,
+    ant_q: Query<(&AntCmp, &Transform)>,
     game_settings: Res<GameSettings>,
     map: Res<Map>,
     pause_state: Res<State<PauseState>>,
@@ -107,26 +112,58 @@ pub fn server_send_status(
         settings: game_settings.clone(),
         pause: *pause_state.get(),
         map: map.clone(),
+        population: ant_q
+            .iter()
+            .map(|(a, t)| (a.id, (t.clone(), a.clone())))
+            .collect(),
     });
 
     server.broadcast_message(DefaultChannel::ReliableOrdered, status.unwrap());
 }
 
-pub fn server_receive_status(mut server: ResMut<RenetServer>, mut map: ResMut<Map>) {
+pub fn server_receive_status(
+    mut server: ResMut<RenetServer>,
+    mut map: ResMut<Map>,
+    mut population: ResMut<Population>,
+) {
     for client_id in server.clients_id() {
         while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
         {
             match bincode::deserialize(&message).unwrap() {
-                ClientMessage::Status { map: new_map } => {
-                    // map.update(new_map);
+                ClientMessage::Status {
+                    map: new_map,
+                    population: new_population,
+                } => {
+                    map.update(new_map);
+
+                    // The server takes all population send by client and removes existing ones
+                    population.0.retain(|_, (_, a)| a.owner != client_id);
+                    population.0.extend(new_population);
                 }
             }
         }
     }
 }
 
-pub fn client_send_status(mut client: ResMut<RenetClient>, map: Res<Map>) {
-    let status = bincode::serialize(&ClientMessage::Status { map: map.clone() });
+pub fn client_send_status(
+    mut client: ResMut<RenetClient>,
+    ant_q: Query<(&Transform, &AntCmp)>,
+    player: Res<Player>,
+    map: Res<Map>,
+) {
+    let status = bincode::serialize(&ClientMessage::Status {
+        map: map.clone(),
+        population: ant_q
+            .iter()
+            .filter_map(|(t, a)| {
+                if a.owner == player.id {
+                    Some((a.id, (t.clone(), a.clone())))
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    });
     client.send_message(DefaultChannel::ReliableOrdered, status.unwrap());
 }
 
@@ -134,7 +171,9 @@ pub fn client_receive_message(
     mut commands: Commands,
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut client: ResMut<RenetClient>,
+    player: Res<Player>,
     mut map: ResMut<Map>,
+    mut population: ResMut<Population>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
@@ -155,10 +194,17 @@ pub fn client_receive_message(
                 settings,
                 pause,
                 map: new_map,
+                population: new_population,
             } => {
                 commands.insert_resource(settings);
-                // map.update(new_map);
+                map.update(new_map);
                 next_pause_state.set(pause);
+
+                // The client takes all population not owned by self
+                population.0 = new_population
+                    .into_iter()
+                    .filter(|(_, (_, a))| a.owner != player.id)
+                    .collect();
             }
         }
     }

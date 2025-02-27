@@ -1,4 +1,5 @@
 use crate::core::map::map::Map;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 use strum_macros::EnumIter;
 
@@ -39,7 +40,7 @@ impl Direction {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub struct Loc {
     pub x: u32,
     pub y: u32,

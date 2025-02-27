@@ -1,10 +1,16 @@
+use crate::core::ants::components::AntCmp;
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
+use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+pub type PopulationT = HashMap<Uuid, (Transform, AntCmp)>;
 
 #[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub enum GameMode {
     SinglePlayer,
-    MultiPlayer(usize),
+    MultiPlayer(Vec<ClientId>),
 }
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
@@ -19,5 +25,14 @@ impl Default for GameSettings {
             mode: GameMode::SinglePlayer,
             speed: 1.0,
         }
+    }
+}
+
+#[derive(Resource)]
+pub struct Population(pub PopulationT);
+
+impl Default for Population {
+    fn default() -> Self {
+        Self(HashMap::new())
     }
 }

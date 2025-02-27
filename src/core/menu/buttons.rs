@@ -77,18 +77,20 @@ pub fn on_click_menu_button(
         MenuBtn::Play => {
             // Multiplayer context
             let mut server = server.unwrap();
-            let n_players = server.clients_id().len() + 1;
+
+            let mut ids = vec![0];
+            ids.extend(server.clients_id());
 
             let game_settings = GameSettings {
-                mode: GameMode::MultiPlayer(n_players),
+                mode: GameMode::MultiPlayer(ids),
                 ..default()
             };
             let map = create_map(&game_settings);
 
             // Send the start game signal to all clients with their player id
-            for (i, client) in server.clients_id().iter().enumerate() {
+            for client in server.clients_id().iter() {
                 let message = bincode::serialize(&ServerMessage::StartGame {
-                    id: i + 1,
+                    id: *client,
                     settings: game_settings.clone(),
                     map: map.clone(),
                 })

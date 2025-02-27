@@ -1,5 +1,4 @@
-use crate::core::ants::components::Ant;
-use crate::core::ants::utils::spawn_ant;
+use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
 use crate::core::map::map::Map;
@@ -10,12 +9,14 @@ use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::GameState;
 use bevy::prelude::*;
 use rand::Rng;
+use std::f32::consts::PI;
+use crate::core::ants::events::SpawnAntEv;
 
 #[derive(Component)]
 pub struct MapCmp;
 
 pub fn create_map(game_settings: &GameSettings) -> Map {
-    match game_settings.mode {
+    match &game_settings.mode {
         GameMode::SinglePlayer => {
             // Insert base in the center of the map
             Map::from_base(
@@ -23,14 +24,14 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
                 0,
             )
         }
-        GameMode::MultiPlayer(n_players) => {
+        GameMode::MultiPlayer(ids) => {
             let mut map = Map::new();
 
             // Insert bases at random locations
             let mut rng = rand::rng();
             let mut bases: Vec<UVec2> = Vec::new();
 
-            while bases.len() < n_players {
+            while bases.len() < ids.len() {
                 let candidate = UVec2 {
                     x: rng.random_range(5..Map::MAP_SIZE.x - 5),
                     y: rng.random_range(5..Map::MAP_SIZE.y - 5),
@@ -44,8 +45,8 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
                 }
             }
 
-            for (i, base) in bases.iter().enumerate() {
-                map.insert_base(base, i);
+            for (id, base) in ids.iter().zip(bases) {
+                map.insert_base(&base, *id);
             }
 
             map
@@ -56,6 +57,7 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
 pub fn draw_map(
     mut commands: Commands,
     mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     map: Res<Map>,
     player: Res<Player>,
     game_state: Res<State<GameState>>,
@@ -71,7 +73,16 @@ pub fn draw_map(
 
         // Spawn queen
         if tile.texture_index == 9 {
-            spawn_ant(&mut commands, Ant::BlackQueen, pos, player.id, &assets);
+            let transform = Transform {
+                translation: pos.extend(0.),
+                rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
+                ..default()
+            };
+
+            spawn_ant_ev.send(SpawnAntEv {
+                ant: AntCmp::new(&Ant::BlackQueen, player.id),
+                transform,
+            });
 
             // If in-game -> place camera on top of base
             if *game_state.get() == GameState::Game {

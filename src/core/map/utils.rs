@@ -76,13 +76,15 @@ pub fn replace_tile(
         .find(|(_, t)| t.x == tile.x && t.y == tile.y)
         .unwrap();
 
-    if tile_c.texture_index != tile.texture_index || tile_c.rotation != tile.rotation {
-        commands.entity(tile_e).try_despawn_recursive();
+    if !tile.is_soil()
+        && (tile_c.texture_index != tile.texture_index || tile_c.rotation != tile.rotation)
+    {
+        commands.entity(tile_e).despawn_recursive();
 
         spawn_tile(
             commands,
             &tile,
-            Map::get_coord_from_xy(tile.x, tile.y),
+            Map::get_coord_from_xy(tile_c.x, tile_c.y),
             &assets,
         );
     }

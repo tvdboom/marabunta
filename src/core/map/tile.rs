@@ -3,6 +3,7 @@ use crate::core::map::loc::Direction;
 use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
+use bevy_renet::renet::ClientId;
 use rand::prelude::IndexedRandom;
 use serde::{Deserialize, Serialize};
 
@@ -12,10 +13,10 @@ pub struct Tile {
     pub y: u32,
     pub texture_index: usize,
     pub rotation: i32,
-    pub base: Option<usize>,
+    pub base: Option<ClientId>,
     pub has_stone: bool,
     pub terraform: f32,
-    pub visible: HashSet<usize>,
+    pub visible: HashSet<ClientId>,
 }
 
 impl Default for Tile {

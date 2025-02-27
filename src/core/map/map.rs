@@ -3,6 +3,7 @@ use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
+use bevy_renet::renet::ClientId;
 use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
@@ -75,13 +76,13 @@ impl Map {
         }
     }
 
-    pub fn from_base(pos: UVec2, id: usize) -> Self {
+    pub fn from_base(pos: UVec2, id: ClientId) -> Self {
         Self::new().insert_base(&pos, id).clone()
     }
 
     // Building methods =======================================================
 
-    pub fn insert_base(&mut self, pos: &UVec2, id: usize) -> &mut Self {
+    pub fn insert_base(&mut self, pos: &UVec2, id: ClientId) -> &mut Self {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
                 if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
@@ -100,7 +101,7 @@ impl Map {
         self
     }
 
-    pub fn world(&self, id: usize) -> Vec<Tile> {
+    pub fn world(&self, id: ClientId) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
             .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
             .map(|(x, y)| {
@@ -150,6 +151,17 @@ impl Map {
             .get((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
     }
 
+    pub fn get_tile_mut(&mut self, x: u32, y: u32) -> Option<&mut Tile> {
+        self.tiles
+            .get_mut((x % Self::MAP_SIZE.x + y * Self::MAP_SIZE.x) as usize)
+    }
+
+    pub fn get_tile_from_coord(&self, coord: &Vec3) -> Option<&Tile> {
+        let loc = self.get_loc(coord);
+        self.tiles
+            .get((loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize)
+    }
+
     fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<usize> {
         let new_x = match dir {
             Direction::East => x + 1,
@@ -171,11 +183,6 @@ impl Map {
             .and_then(|i| self.tiles.get(i))
     }
 
-    pub fn get_adjacent_tile_mut(&mut self, x: u32, y: u32, dir: &Direction) -> Option<&mut Tile> {
-        self.adjacent_tile(x, y, dir)
-            .and_then(|i| self.tiles.get_mut(i))
-    }
-
     pub fn get_loc(&self, coord: &Vec3) -> Loc {
         let pos_x = (coord.x - Self::MAP_VIEW.min.x) / Tile::SIZE;
         let pos_y = (Self::MAP_VIEW.max.y - coord.y) / Tile::SIZE;
@@ -195,7 +202,7 @@ impl Map {
 
     // Location finding =======================================================
 
-    pub fn random_walk_loc(&self, id: usize, in_base: bool) -> Option<Loc> {
+    pub fn random_walk_loc(&self, id: ClientId, in_base: bool) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
             .iter()
@@ -213,7 +220,7 @@ impl Map {
         locations.choose(&mut rand::rng()).copied()
     }
 
-    pub fn random_dig_loc(&self, tile: Option<&Tile>, id: usize) -> Option<Loc> {
+    pub fn random_dig_loc(&self, tile: Option<&Tile>, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
             .iter()
@@ -304,7 +311,7 @@ impl Map {
             .collect()
     }
 
-    pub fn shortest_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
+    pub fn shortest_path(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
         // Allow the last loc to be a wall
         bfs(
             start,
@@ -316,7 +323,6 @@ impl Map {
             },
             |loc| loc == end,
         )
-        .unwrap()
     }
 
     // Map updates ============================================================
@@ -330,14 +336,16 @@ impl Map {
         self.tiles
             .iter_mut()
             .zip(new_map.tiles)
-            .filter(|(_, new_t)| !new_t.is_soil())
+            .filter(|(t, new_t)| {
+                !new_t.is_soil() && new_t.bitmap().count_ones() >= t.bitmap().count_ones()
+            })
             .for_each(|(t, new_t)| {
                 *t = new_t;
             });
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
-    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>, id: usize) -> Tile {
+    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>, id: ClientId) -> Tile {
         let mut possible_tiles = vec![];
 
         for texture_index in 0..Tile::MASKS.len() {
@@ -377,7 +385,7 @@ impl Map {
         &mut self,
         tile: &Tile,
         directions: &HashSet<Direction>,
-        id: usize,
+        id: ClientId,
     ) {
         // Replace the tile
         let new_t = self.find_tile(tile, directions, id);

@@ -1,7 +1,10 @@
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
+use bevy_renet::renet::ClientId;
+use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
+use uuid::Uuid;
 
 #[derive(Component)]
 pub struct AntHealthWrapper(pub Entity);
@@ -9,7 +12,7 @@ pub struct AntHealthWrapper(pub Entity);
 #[derive(Component)]
 pub struct AntHealth;
 
-#[derive(EnumIter, Clone, Debug)]
+#[derive(EnumIter, Clone, Debug, Serialize, Deserialize)]
 pub enum Ant {
     BlackAnt,
     BlackBullet,
@@ -30,14 +33,14 @@ impl Ant {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Behavior {
     Brood,
     Wander,
     Dig,
 }
 
-#[derive(EnumIter, Clone, Debug, PartialEq)]
+#[derive(EnumIter, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Action {
     Bite,
     Die,
@@ -74,13 +77,16 @@ pub struct AnimationCmp {
     pub last_index: usize,
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 pub struct AntCmp {
+    /// Unique id across players
+    pub id: Uuid,
+
     /// Ant type
     pub kind: Ant,
 
     /// Player id of the ant's owner
-    pub owner: usize,
+    pub owner: ClientId,
 
     /// Scale factor of `Transform`
     /// Determines the size of the ant's sprite
@@ -112,9 +118,10 @@ pub struct AntCmp {
 }
 
 impl AntCmp {
-    pub fn new(kind: Ant, id: usize) -> Self {
+    pub fn new(kind: &Ant, id: ClientId) -> Self {
         match kind {
             Ant::BlackAnt => Self {
+                id: Uuid::new_v4(),
                 kind: Ant::BlackAnt,
                 owner: id,
                 scale: 0.03,
@@ -128,6 +135,7 @@ impl AntCmp {
                 timer: None,
             },
             Ant::BlackBullet => Self {
+                id: Uuid::new_v4(),
                 kind: Ant::BlackBullet,
                 owner: id,
                 scale: 0.03,
@@ -141,6 +149,7 @@ impl AntCmp {
                 timer: None,
             },
             Ant::BlackSoldier => Self {
+                id: Uuid::new_v4(),
                 kind: Ant::BlackSoldier,
                 owner: id,
                 scale: 0.04,
@@ -154,6 +163,7 @@ impl AntCmp {
                 timer: None,
             },
             Ant::BlackQueen => Self {
+                id: Uuid::new_v4(),
                 kind: Ant::BlackQueen,
                 owner: id,
                 scale: 0.06,
@@ -167,6 +177,7 @@ impl AntCmp {
                 timer: None,
             },
             Ant::GoldTail => Self {
+                id: Uuid::new_v4(),
                 kind: Ant::GoldTail,
                 owner: id,
                 scale: 0.04,
@@ -193,7 +204,7 @@ pub struct Egg {
     pub ant: Ant,
 
     /// Player id of the egg's owner
-    pub owner: usize,
+    pub owner: ClientId,
 
     /// Time to hatch
     pub timer: Timer,

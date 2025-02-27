@@ -1,5 +1,6 @@
 use crate::core::ants::components::*;
-use crate::core::ants::utils::{spawn_ant, walk};
+use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
+use crate::core::ants::utils::{walk};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
 use crate::core::map::loc::Direction;
@@ -8,7 +9,7 @@ use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::map::utils::replace_tile;
 use crate::core::player::Player;
-use crate::core::resources::GameSettings;
+use crate::core::resources::{GameSettings, Population};
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -115,9 +116,9 @@ pub fn resolve_digging(
 pub fn hatch_eggs(
     mut commands: Commands,
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
-    assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
     for (egg_e, mut egg, egg_t) in egg_q
@@ -128,13 +129,10 @@ pub fn hatch_eggs(
             .tick(scale_duration(time.delta(), game_settings.speed));
 
         if egg.timer.just_finished() {
-            spawn_ant(
-                &mut commands,
-                egg.ant.clone(),
-                egg_t.translation.truncate(),
-                player.id,
-                &assets,
-            );
+            spawn_ant_ev.send(SpawnAntEv {
+                ant: AntCmp::new(&egg.ant, player.id),
+                transform: egg_t.clone(),
+            });
             commands.entity(egg_e).despawn();
         }
     }
@@ -143,31 +141,30 @@ pub fn hatch_eggs(
 pub fn resolve_action_ants(
     mut commands: Commands,
     mut ant_q: Query<(Entity, &mut AntCmp, &mut Transform)>,
-    wrapper_q: Query<(Entity, &AntHealthWrapper)>,
+    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
     mut player: ResMut<Player>,
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (ant_e, mut ant, mut ant_t) in ant_q.iter_mut() {
+    let id = player.id;
+
+    for (ant_e, mut ant, mut ant_t) in ant_q.iter_mut().filter(|(_, ant, _)| ant.owner == id) {
         match ant.action {
             Action::Die => {
                 if let Some(timer) = ant.timer.as_mut() {
                     timer.tick(scale_duration(time.delta(), game_settings.speed));
 
                     if timer.just_finished() {
-                        commands
-                            .entity(wrapper_q.iter().find(|(_, w)| w.0 == ant_e).unwrap().0)
-                            .despawn_recursive();
-                        commands.entity(ant_e).despawn();
+                        despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
                     }
                 }
             }
             Action::Idle => match ant.behavior {
                 Behavior::Brood => {
                     if let Some(ant_queue) = player.queue.first() {
-                        let ant_c = AntCmp::new(ant_queue.clone(), player.id);
+                        let ant_c = AntCmp::new(ant_queue, player.id);
 
                         if let Some(timer) = ant.timer.as_mut() {
                             timer.tick(scale_duration(time.delta(), game_settings.speed));
@@ -296,44 +293,84 @@ pub fn update_ant_health_bars(
 
 pub fn update_vision(
     mut commands: Commands,
-    ant_q: Query<(&Transform, &AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &AntCmp)>,
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     tile_q: Query<(Entity, &Tile)>,
     player: Res<Player>,
     mut map: ResMut<Map>,
+    population: Res<Population>,
     assets: Local<WorldAssets>,
 ) {
+    let mut visible_tiles = HashSet::new();
+
     ant_q
         .iter()
-        .filter(|(_, a)| a.owner == player.id)
-        .for_each(|(ant_t, _)| {
-            let loc = map.get_loc(&ant_t.translation);
-            let tile = map.get_tile(loc.x, loc.y).unwrap().clone();
-            replace_tile(&mut commands, &tile, &tile_q, &assets);
+        .filter(|(_, _, a)| a.owner == player.id)
+        .for_each(|(_, ant_t, _)| {
+            let tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
+            visible_tiles.insert((tile.x, tile.y));
 
-            let mut to_update = Vec::new();
             for dir in Direction::iter() {
                 if tile.border(&dir) != 0 {
                     if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
-                        to_update.push((tile.x, tile.y, dir.clone()));
+                        visible_tiles.insert((tile.x, tile.y));
 
                         // Also update tiles in corners (north-west, south-east, etc...)
                         // if the corner bit is walkable
                         if tile.border(&dir.rotate()) & 1 != 0 {
-                            if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate()) {
-                                to_update.push((tile.x, tile.y, dir.rotate()));
+                            if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate())
+                            {
+                                visible_tiles.insert((tile.x, tile.y));
                             }
                         }
                     }
                 }
             }
-
-            to_update.iter().for_each(|(x, y, dir)| {
-                if let Some(tile) = map.get_adjacent_tile_mut(*x, *y, dir) {
-                    tile.visible.insert(player.id);
-                    replace_tile(&mut commands, &tile, &tile_q, &assets);
-                }
-            });
         });
+
+    visible_tiles.iter().for_each(|(x, y)| {
+        let tile = map.get_tile_mut(*x, *y).unwrap();
+
+        tile.visible.insert(player.id);
+        replace_tile(&mut commands, &tile, &tile_q, &assets);
+    });
+
+    // Show/hide enemies on the map
+    let mut current_population = vec![];
+    for (ant_e, mut ant_t, ant) in ant_q.iter_mut().filter(|(_, _, a)| a.owner != player.id) {
+        current_population.push(ant.id);
+        if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
+            // The ant is already on the map
+            if map
+                .get_tile_from_coord(&t.translation)
+                .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
+            {
+                // The ant is visible, reposition it
+                *ant_t = *t;
+            } else {
+                // The ant is no longer visible, despawn it
+                commands.entity(ant_e).try_despawn_recursive();
+            }
+        } else {
+            // The ant is no longer in the population, despawn it
+            commands.entity(ant_e).try_despawn_recursive();
+        }
+    }
+
+    // Spawn new ants if they are on a visible tile
+    for (ant_t, ant) in population.0.values() {
+        // If the ant is new in the population, spawn it if it's visible
+        if !current_population.contains(&ant.id)
+            && map
+                .get_tile_from_coord(&ant_t.translation)
+                .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
+        {
+            spawn_ant_ev.send(SpawnAntEv {
+                ant: ant.clone(),
+                transform: ant_t.clone(),
+            });
+        }
+    }
 }
 
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
