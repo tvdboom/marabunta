@@ -1,4 +1,4 @@
-use crate::core::ants::components::{AntCmp};
+use crate::core::ants::components::AntCmp;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::resources::GameSettings;

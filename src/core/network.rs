@@ -3,7 +3,7 @@ use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population, PopulationT};
-use crate::core::states::{GameState, PauseState};
+use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::{
@@ -25,7 +25,7 @@ pub enum ServerMessage {
     },
     Status {
         settings: GameSettings,
-        pause: PauseState,
+        pause: GameState,
         map: Map,
         population: PopulationT,
     },
@@ -80,22 +80,34 @@ pub fn server_update(
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut server: ResMut<RenetServer>,
     mut server_ev: EventReader<ServerEvent>,
-    mut next_game_state: ResMut<NextState<GameState>>,
+    app_state: Res<State<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
 ) {
-    for _ in server_ev.read() {
-        let n_players = server.clients_id().len() + 1;
+    for ev in server_ev.read() {
+        if *app_state != AppState::Game {
+            let n_players = server.clients_id().len() + 1;
 
-        // Update the number of players in the lobby
-        let message = bincode::serialize(&ServerMessage::NPlayers(n_players)).unwrap();
-        server.broadcast_message(DefaultChannel::ReliableOrdered, message);
+            // Update the number of players in the lobby
+            let message = bincode::serialize(&ServerMessage::NPlayers(n_players)).unwrap();
+            server.broadcast_message(DefaultChannel::ReliableOrdered, message);
 
-        if let Ok(mut text) = n_players_q.get_single_mut() {
-            if n_players > 1 {
-                text.0 = format!("There are {n_players} players in the lobby...");
-                next_game_state.set(GameState::ConnectedLobby);
-            } else {
-                text.0 = "Waiting for other players to join...".to_string();
-                next_game_state.set(GameState::Lobby);
+            if let Ok(mut text) = n_players_q.get_single_mut() {
+                if n_players > 1 {
+                    text.0 = format!("There are {n_players} players in the lobby...");
+                    next_app_state.set(AppState::ConnectedLobby);
+                } else {
+                    text.0 = "Waiting for other players to join...".to_string();
+                    next_app_state.set(AppState::Lobby);
+                }
+            }
+        } else {
+            match ev {
+                ServerEvent::ClientConnected { client_id } => {
+                    println!("Client {client_id} connected");
+                }
+                ServerEvent::ClientDisconnected { client_id, reason } => {
+                    println!("Client {client_id} disconnected: {reason}");
+                }
             }
         }
     }
@@ -106,11 +118,11 @@ pub fn server_send_status(
     ant_q: Query<(&AntCmp, &Transform)>,
     game_settings: Res<GameSettings>,
     map: Res<Map>,
-    pause_state: Res<State<PauseState>>,
+    game_state: Res<State<GameState>>,
 ) {
     let status = bincode::serialize(&ServerMessage::Status {
         settings: game_settings.clone(),
-        pause: *pause_state.get(),
+        pause: *game_state.get(),
         map: map.clone(),
         population: ant_q
             .iter()
@@ -174,8 +186,8 @@ pub fn client_receive_message(
     player: Res<Player>,
     mut map: ResMut<Map>,
     mut population: ResMut<Population>,
+    mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    mut next_pause_state: ResMut<NextState<PauseState>>,
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         match bincode::deserialize(&message).unwrap() {
@@ -188,7 +200,7 @@ pub fn client_receive_message(
                 commands.insert_resource(Player::new(id));
                 commands.insert_resource(settings);
                 commands.insert_resource(map);
-                next_game_state.set(GameState::Game);
+                next_app_state.set(AppState::Game);
             }
             ServerMessage::Status {
                 settings,
@@ -198,7 +210,7 @@ pub fn client_receive_message(
             } => {
                 commands.insert_resource(settings);
                 map.update(new_map);
-                next_pause_state.set(pause);
+                next_game_state.set(pause);
 
                 // The client takes all population not owned by self
                 population.0 = new_population

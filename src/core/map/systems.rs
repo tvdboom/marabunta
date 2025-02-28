@@ -1,4 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::ants::events::SpawnAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
 use crate::core::map::map::Map;
@@ -6,11 +7,10 @@ use crate::core::map::tile::Tile;
 use crate::core::map::utils::spawn_tile;
 use crate::core::player::Player;
 use crate::core::resources::{GameMode, GameSettings};
-use crate::core::states::GameState;
+use crate::core::states::AppState;
 use bevy::prelude::*;
 use rand::Rng;
 use std::f32::consts::PI;
-use crate::core::ants::events::SpawnAntEv;
 
 #[derive(Component)]
 pub struct MapCmp;
@@ -60,7 +60,7 @@ pub fn draw_map(
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     map: Res<Map>,
     player: Res<Player>,
-    game_state: Res<State<GameState>>,
+    app_state: Res<State<AppState>>,
     assets: Local<WorldAssets>,
 ) {
     for (i, tile) in map.world(player.id).iter_mut().enumerate() {
@@ -85,14 +85,12 @@ pub fn draw_map(
             });
 
             // If in-game -> place camera on top of base
-            if *game_state.get() == GameState::Game {
+            if *app_state.get() == AppState::Game {
                 let (mut camera_t, projection) = camera_q.single_mut();
-
-                let position = camera_t.translation.truncate();
                 let view_size = projection.area.max - projection.area.min;
 
                 // Clamp camera position within bounds
-                let target_pos = clamp_to_rect(position, view_size, Map::MAP_VIEW);
+                let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
                 camera_t.translation = target_pos.extend(camera_t.translation.z);
             }
         }

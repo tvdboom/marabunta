@@ -10,21 +10,20 @@ mod pause;
 mod player;
 mod resources;
 mod states;
+mod systems;
 mod utils;
 
 use crate::core::ants::events::{despawn_ants, spawn_ants, DespawnAntEv, SpawnAntEv};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
-use crate::core::map::map::Map;
 use crate::core::map::systems::*;
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::setup_menu;
+use crate::core::menu::systems::{setup_in_game_menu, setup_menu};
 use crate::core::network::*;
 use crate::core::pause::*;
-use crate::core::player::Player;
-use crate::core::resources::{GameSettings, Population};
-use crate::core::states::{GameState, MusicState, PauseState};
+use crate::core::states::{AppState, AudioState, GameState};
+use crate::core::systems::initialize_game;
 use crate::core::utils::despawn;
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
@@ -38,41 +37,35 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
             // States
+            .init_state::<AppState>()
             .init_state::<GameState>()
-            .init_state::<PauseState>()
-            .init_state::<MusicState>()
-            //Events
+            .init_state::<AudioState>()
+            // Events
             .add_event::<ToggleMusicEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
-            //Resources
-            .init_resource::<GameSettings>()
-            .init_resource::<Player>()
-            .init_resource::<Map>()
-            .init_resource::<Population>()
-            //Sets
-            .configure_sets(Update, InGameSet.run_if(in_state(GameState::Game)))
-            .configure_sets(PreUpdate, InGameSet.run_if(in_state(GameState::Game)))
-            .configure_sets(PostUpdate, InGameSet.run_if(in_state(GameState::Game)))
+            // Sets
+            .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
+            .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
+            .configure_sets(PostUpdate, InGameSet.run_if(in_state(AppState::Game)))
             // Camera
-            .add_systems(Startup, (setup_camera, draw_map).chain())
+            .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
                 Update,
-                (move_camera, move_camera_keyboard).in_set(InGameSet),
+                (move_camera, move_camera_keyboard)
+                    .run_if(not(in_state(GameState::InGameMenu)))
+                    .in_set(InGameSet),
             )
             // Audio
             .add_systems(Startup, setup_music_btn)
-            .add_systems(OnEnter(MusicState::Playing), play_music)
-            .add_systems(OnEnter(MusicState::Stopped), stop_music)
+            .add_systems(OnEnter(AudioState::Playing), play_music)
+            .add_systems(OnEnter(AudioState::Stopped), stop_music)
             .add_systems(Update, (toggle_music, toggle_music_keyboard))
             //Networking
             .add_systems(
                 PreUpdate,
                 (
-                    (
-                        server_receive_status.in_set(InGameSet),
-                        server_update.run_if(not(in_state(GameState::Game))),
-                    )
+                    (server_update, server_receive_status.in_set(InGameSet))
                         .run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
                 ),
@@ -88,10 +81,10 @@ impl Plugin for GamePlugin {
 
         // Menu
         for state in [
-            GameState::MainMenu,
-            GameState::MultiPlayerMenu,
-            GameState::Lobby,
-            GameState::ConnectedLobby,
+            AppState::MainMenu,
+            AppState::MultiPlayerMenu,
+            AppState::Lobby,
+            AppState::ConnectedLobby,
         ] {
             app.add_systems(OnEnter(state), setup_menu)
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
@@ -99,13 +92,19 @@ impl Plugin for GamePlugin {
 
         // Map
         app.add_systems(
-            OnEnter(GameState::Game),
+            OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map).chain(),
+        )
+        .add_systems(
+            OnExit(AppState::Game),
+            (despawn::<MapCmp>, initialize_game, draw_map).chain(),
         )
         // Pause
         .add_systems(Startup, spawn_pause_banner)
-        .add_systems(OnEnter(PauseState::Paused), pause_game)
-        .add_systems(OnEnter(PauseState::Running), unpause_game)
+        .add_systems(OnEnter(GameState::Paused), pause_game)
+        .add_systems(OnExit(GameState::Paused), unpause_game)
+        .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
+        .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(
@@ -121,7 +120,7 @@ impl Plugin for GamePlugin {
                 update_vision,
                 resolve_digging,
             )
-                .run_if(in_state(PauseState::Running)),
+                .run_if(in_state(GameState::Running)),
         );
     }
 }

@@ -1,14 +1,14 @@
 use crate::core::assets::WorldAssets;
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::utils::{add_root_node, add_text};
-use crate::core::states::GameState;
+use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
 
 pub fn setup_menu(
     mut commands: Commands,
-    game_state: Res<State<GameState>>,
+    app_state: Res<State<AppState>>,
     server: Option<Res<RenetServer>>,
     assets: Local<WorldAssets>,
 ) {
@@ -34,8 +34,8 @@ pub fn setup_menu(
                     ));
                 });
 
-            match game_state.get() {
-                GameState::MainMenu => {
+            match app_state.get() {
+                AppState::MainMenu => {
                     spawn_menu_button(parent, MenuBtn::Singleplayer, &assets);
                     #[cfg(not(target_arch = "wasm32"))]
                     {
@@ -43,12 +43,12 @@ pub fn setup_menu(
                         spawn_menu_button(parent, MenuBtn::Quit, &assets);
                     }
                 }
-                GameState::MultiPlayerMenu => {
+                AppState::MultiPlayerMenu => {
                     spawn_menu_button(parent, MenuBtn::HostGame, &assets);
                     spawn_menu_button(parent, MenuBtn::FindGame, &assets);
                     spawn_menu_button(parent, MenuBtn::Back, &assets);
                 }
-                GameState::Lobby | GameState::ConnectedLobby => {
+                AppState::Lobby | AppState::ConnectedLobby => {
                     if let Some(server) = server {
                         let n_players = server.clients_id().len() + 1;
 
@@ -93,5 +93,14 @@ pub fn setup_menu(
                         },
                     ));
                 });
+        });
+}
+
+pub fn setup_in_game_menu(mut commands: Commands, assets: Local<WorldAssets>) {
+    commands
+        .spawn((add_root_node(), MenuCmp))
+        .with_children(|parent| {
+            spawn_menu_button(parent, MenuBtn::Continue, &assets);
+            spawn_menu_button(parent, MenuBtn::Quit, &assets);
         });
 }

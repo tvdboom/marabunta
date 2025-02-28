@@ -1,6 +1,6 @@
 use crate::core::ants::components::*;
 use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
-use crate::core::ants::utils::{walk};
+use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
 use crate::core::map::loc::Direction;
@@ -162,6 +162,13 @@ pub fn resolve_action_ants(
                 }
             }
             Action::Idle => match ant.behavior {
+                Behavior::Attack => {
+                    if let Some(loc) = map.random_enemy_walk_loc(player.id) {
+                        ant.action = Action::Walk(loc);
+                    } else {
+                        ant.action = Action::Walk(map.random_enemy_walk_loc(player.id).unwrap());
+                    }
+                }
                 Behavior::Brood => {
                     if let Some(ant_queue) = player.queue.first() {
                         let ant_c = AntCmp::new(ant_queue, player.id);
@@ -295,6 +302,7 @@ pub fn update_vision(
     mut commands: Commands,
     mut ant_q: Query<(Entity, &mut Transform, &AntCmp)>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     tile_q: Query<(Entity, &Tile)>,
     player: Res<Player>,
     mut map: ResMut<Map>,
@@ -349,11 +357,11 @@ pub fn update_vision(
                 *ant_t = *t;
             } else {
                 // The ant is no longer visible, despawn it
-                commands.entity(ant_e).try_despawn_recursive();
+                despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
         } else {
             // The ant is no longer in the population, despawn it
-            commands.entity(ant_e).try_despawn_recursive();
+            despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
         }
     }
 

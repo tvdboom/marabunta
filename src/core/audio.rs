@@ -1,5 +1,5 @@
 use crate::core::assets::WorldAssets;
-use crate::core::states::MusicState;
+use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
 use std::time::Duration;
@@ -64,13 +64,13 @@ pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
 
 pub fn toggle_music(
     mut toggle_music_ev: EventReader<ToggleMusicEv>,
-    music_state: Res<State<MusicState>>,
-    mut next_music_state: ResMut<NextState<MusicState>>,
+    audio_state: Res<State<AudioState>>,
+    mut next_audio_state: ResMut<NextState<AudioState>>,
 ) {
     for _ in toggle_music_ev.read() {
-        match *music_state.get() {
-            MusicState::Playing => next_music_state.set(MusicState::Stopped),
-            MusicState::Stopped => next_music_state.set(MusicState::Playing),
+        match *audio_state.get() {
+            AudioState::Playing => next_audio_state.set(AudioState::Stopped),
+            AudioState::Stopped => next_audio_state.set(AudioState::Playing),
         }
     }
 }

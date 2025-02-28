@@ -7,7 +7,6 @@ use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
-use crate::core::resources::Population;
 
 #[derive(Event)]
 pub struct SpawnAntEv {
@@ -82,14 +81,10 @@ pub fn spawn_ants(
 
 pub fn despawn_ants(
     mut commands: Commands,
-    ant_q: Query<&AntCmp>,
     wrapper_q: Query<(Entity, &AntHealthWrapper)>,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
-    mut population: ResMut<Population>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        population.0.remove(&ant_q.get(*entity).unwrap().id);
-
         commands
             .entity(wrapper_q.iter().find(|(_, w)| w.0 == *entity).unwrap().0)
             .despawn_recursive();

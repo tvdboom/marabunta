@@ -35,6 +35,7 @@ impl Ant {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub enum Behavior {
+    Attack,
     Brood,
     Wander,
     Dig,
@@ -79,7 +80,7 @@ pub struct AnimationCmp {
 
 #[derive(Component, Clone, Serialize, Deserialize)]
 pub struct AntCmp {
-    /// Unique id across players
+    /// Unique id across players (not entity)
     pub id: Uuid,
 
     /// Ant type
@@ -143,7 +144,7 @@ impl AntCmp {
                 health: 10.,
                 max_health: 10.,
                 speed: 30.,
-                behavior: Behavior::Wander,
+                behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 10.,
                 timer: None,
@@ -157,7 +158,7 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: 15.,
-                behavior: Behavior::Wander,
+                behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 15.,
                 timer: None,
@@ -185,7 +186,7 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: 20.,
-                behavior: Behavior::Wander,
+                behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 12.,
                 timer: None,

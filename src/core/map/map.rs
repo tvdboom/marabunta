@@ -220,6 +220,24 @@ impl Map {
         locations.choose(&mut rand::rng()).copied()
     }
 
+    pub fn random_enemy_walk_loc(&self, id: ClientId) -> Option<Loc> {
+        let locations: Vec<_> = self
+            .tiles
+            .iter()
+            .filter(|tile| tile.visible.contains(&id) && tile.visible.len() > 1)
+            .flat_map(|tile| {
+                (0..16).map(move |bit| Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit,
+                })
+            })
+            .filter(|loc| self.is_walkable(loc))
+            .collect();
+
+        locations.choose(&mut rand::rng()).copied()
+    }
+
     pub fn random_dig_loc(&self, tile: Option<&Tile>, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles

@@ -5,7 +5,7 @@ use crate::core::menu::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::player::Player;
 use crate::core::resources::{GameMode, GameSettings};
-use crate::core::states::GameState;
+use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
@@ -22,6 +22,7 @@ pub enum MenuBtn {
     FindGame,
     Play,
     Back,
+    Continue,
     Quit,
 }
 
@@ -32,14 +33,15 @@ pub fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     btn_q: Query<&MenuBtn>,
-    game_state: Res<State<GameState>>,
+    app_state: Res<State<AppState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
 ) {
     match btn_q.get(click.entity()).unwrap() {
         MenuBtn::Multiplayer => {
-            next_game_state.set(GameState::MultiPlayerMenu);
+            next_app_state.set(AppState::MultiPlayerMenu);
         }
         MenuBtn::HostGame => {
             // Remove client resources if they exist
@@ -52,14 +54,14 @@ pub fn on_click_menu_button(
             commands.insert_resource(server);
             commands.insert_resource(transport);
 
-            next_game_state.set(GameState::Lobby);
+            next_app_state.set(AppState::Lobby);
         }
         MenuBtn::FindGame => {
             let (server, transport) = new_renet_client();
             commands.insert_resource(server);
             commands.insert_resource(transport);
 
-            next_game_state.set(GameState::Lobby);
+            next_app_state.set(AppState::Lobby);
         }
         MenuBtn::Singleplayer => {
             let game_settings = GameSettings {
@@ -72,7 +74,7 @@ pub fn on_click_menu_button(
             commands.insert_resource(Player::new(0));
             commands.insert_resource(map);
 
-            next_game_state.set(GameState::Game);
+            next_app_state.set(AppState::Game);
         }
         MenuBtn::Play => {
             // Multiplayer context
@@ -102,11 +104,11 @@ pub fn on_click_menu_button(
             commands.insert_resource(Player::new(0)); // The host is player 0
             commands.insert_resource(map);
 
-            next_game_state.set(GameState::Game);
+            next_app_state.set(AppState::Game);
         }
         MenuBtn::Back => {
-            if *game_state.get() == GameState::MultiPlayerMenu {
-                next_game_state.set(GameState::MainMenu);
+            if *app_state.get() == AppState::MultiPlayerMenu {
+                next_app_state.set(AppState::MainMenu);
             } else {
                 if let Some(client) = client.as_mut() {
                     client.disconnect();
@@ -116,10 +118,20 @@ pub fn on_click_menu_button(
                     commands.remove_resource::<NetcodeServerTransport>();
                 }
 
-                next_game_state.set(GameState::MultiPlayerMenu);
+                next_app_state.set(AppState::MultiPlayerMenu);
             }
         }
-        MenuBtn::Quit => std::process::exit(0),
+        MenuBtn::Continue => {
+            next_game_state.set(GameState::Running);
+        }
+        MenuBtn::Quit => match *app_state.get() {
+            AppState::Game => {
+                next_game_state.set(GameState::default());
+                next_app_state.set(AppState::MainMenu)
+            }
+            AppState::MainMenu => std::process::exit(0),
+            _ => unreachable!(),
+        },
     }
 }
 

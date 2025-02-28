@@ -2,7 +2,7 @@ use bevy::prelude::States;
 use serde::{Deserialize, Serialize};
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
-pub enum GameState {
+pub enum AppState {
     #[default]
     MainMenu,
     MultiPlayerMenu,
@@ -12,14 +12,15 @@ pub enum GameState {
 }
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
-pub enum PauseState {
+pub enum GameState {
     #[default]
     Running,
     Paused,
+    InGameMenu,
 }
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
-pub enum MusicState {
+pub enum AudioState {
     #[default]
     Playing,
     Stopped,
