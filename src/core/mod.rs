@@ -104,10 +104,7 @@ impl Plugin for GamePlugin {
             update_transform_no_rotation.before(TransformSystem::TransformPropagate),
         )
         // Map
-        .add_systems(
-            OnEnter(AppState::Game),
-            (despawn::<MapCmp>, draw_map).chain(),
-        )
+        .add_systems(OnEnter(AppState::Game), (despawn::<MapCmp>, draw_map))
         .add_systems(
             OnExit(AppState::Game),
             (despawn::<MapCmp>, initialize_game, draw_map).chain(),
@@ -121,21 +118,21 @@ impl Plugin for GamePlugin {
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(
-            PreUpdate,
-            (spawn_tile, spawn_ants, despawn_ants).in_set(RunningSet),
-        )
-        .add_systems(
             Update,
             (
                 check_keys,
                 hatch_eggs,
                 animate_ants,
                 resolve_action_ants,
-                update_ant_health_bars,
+                update_ant_components,
                 update_vision,
                 resolve_digging,
             )
                 .in_set(RunningSet),
+        )
+        .add_systems(
+            PostUpdate,
+            (spawn_tile, spawn_ants, despawn_ants).in_set(RunningSet),
         );
     }
 }

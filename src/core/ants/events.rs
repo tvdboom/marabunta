@@ -1,4 +1,6 @@
-use crate::core::ants::components::{AnimationCmp, AntCmp, AntHealthCmp, AntHealthWrapperCmp};
+use crate::core::ants::components::{
+    AnimationCmp, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp,
+};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::systems::MapCmp;
@@ -90,6 +92,21 @@ pub fn spawn_ants(
                             AntHealthCmp,
                         ));
                     });
+
+                parent.spawn((
+                    Sprite {
+                        image: assets.image("leaf2"),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(0., 5., 0.1),
+                        scale: Vec3::splat(3.),
+                        ..default()
+                    },
+                    LeafCarryCmp,
+                    Visibility::Hidden,
+                    MapCmp,
+                ));
             });
     }
 }

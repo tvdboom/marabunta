@@ -14,9 +14,9 @@ pub fn scale_duration(duration: Duration, scale: f32) -> Duration {
 }
 
 /// Generic system that despawns all entities with a specific component
-pub fn despawn<T: Component>(mut commands: Commands, component: Query<Entity, With<T>>) {
-    for entity in &component {
-        commands.entity(entity).despawn_recursive();
+pub fn despawn<T: Component>(mut commands: Commands, query_c: Query<Entity, With<T>>) {
+    for entity in &query_c {
+        commands.entity(entity).try_despawn_recursive();
     }
 }
 

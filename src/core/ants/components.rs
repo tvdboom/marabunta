@@ -12,6 +12,9 @@ pub struct AntHealthWrapperCmp;
 #[derive(Component)]
 pub struct AntHealthCmp;
 
+#[derive(Component)]
+pub struct LeafCarryCmp;
+
 #[derive(EnumIter, Clone, Debug, Serialize, Deserialize)]
 pub enum Ant {
     BlackAnt,
@@ -183,13 +186,13 @@ impl AntCmp {
                 owner: id,
                 scale: 0.06,
                 z_score: 0.9,
-                health: 300.,
+                health: 1000.,
                 max_health: 1000.,
                 speed: 20.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
-                carry: 0.,
+                carry: 10.,
                 max_carry: 0.,
                 timer: None,
             },
@@ -229,7 +232,7 @@ impl AntCmp {
     }
 
     pub fn size(&self) -> Vec2 {
-        self.kind.size().as_vec2() * self.scale
+        self.kind.size().as_vec2()
     }
 }
 

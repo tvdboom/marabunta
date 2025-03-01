@@ -254,29 +254,44 @@ pub fn resolve_action_ants(
     }
 }
 
-pub fn update_ant_health_bars(
+pub fn update_ant_components(
     ant_q: Query<
         (Entity, &Transform, &AntCmp),
-        (With<AntCmp>, Without<AntHealthWrapperCmp>, Without<AntHealthCmp>),
+        (
+            With<AntCmp>,
+            Without<AntHealthWrapperCmp>,
+            Without<AntHealthCmp>,
+        ),
     >,
     mut wrapper_q: Query<
         (Entity, &mut Transform, &mut Visibility),
         (With<AntHealthWrapperCmp>, Without<AntHealthCmp>),
     >,
     mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealthCmp>>,
+    mut leaf_q: Query<&mut Visibility, (With<LeafCarryCmp>, Without<AntHealthWrapperCmp>)>,
     children_q: Query<&Children>,
 ) {
     for (ant_e, ant_t, ant) in ant_q.iter() {
         for child in children_q.iter_descendants(ant_e) {
+            if let Ok(mut leaf_v) = leaf_q.get_mut(child) {
+                *leaf_v = if ant.carry > 0. {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                };
+            }
+
             if let Ok((wrapper_e, mut wrapper_t, mut wrapper_v)) = wrapper_q.get_mut(child) {
                 // Show the health bar when the ant is damaged
                 if ant.health > 0. && ant.health < ant.max_health {
                     *wrapper_v = Visibility::Visible;
 
                     // Place the health bar on top of the ant on a distance dependent on the ant's rotation
-                    wrapper_t.translation.y = ant.size().y
-                        * 0.5
-                        * (ant_t.rotation.to_euler(EulerRot::ZXY).0.cos().abs() * 0.5 + 0.5);
+                    wrapper_t.translation = Vec3::new(
+                        ant.size().x * 0.5 * ant_t.rotation.to_euler(EulerRot::ZXY).0.sin(),
+                        ant.size().y * 0.5 * ant_t.rotation.to_euler(EulerRot::ZXY).0.cos(),
+                        0.1,
+                    );
 
                     for child in children_q.iter_descendants(wrapper_e) {
                         if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
