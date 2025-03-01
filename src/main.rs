@@ -34,7 +34,7 @@ fn main() {
                 }),
                 ..default()
             })
-            // Disable asset meta loading since that fails on itch.io
+            // Disable loading of asset meta since that fails on itch.io
             .set(AssetPlugin {
                 meta_check: AssetMetaCheck::Never,
                 ..default()

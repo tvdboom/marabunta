@@ -1,12 +1,13 @@
-use crate::core::constants::MAX_TERRAFORM_POINTS;
+use crate::core::constants::{MAX_TERRAFORM_POINTS, TILE_LEAF_CHANCE};
 use crate::core::map::loc::{Direction, Loc};
-use crate::core::map::tile::Tile;
+use crate::core::map::tile::{Leaf, Tile};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use bevy_renet::renet::ClientId;
 use pathfinding::prelude::bfs;
 use rand;
 use rand::prelude::IndexedRandom;
+use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
@@ -217,7 +218,7 @@ impl Map {
             .filter(|loc| self.is_walkable(loc))
             .collect();
 
-        locations.choose(&mut rand::rng()).copied()
+        locations.choose(&mut rng()).copied()
     }
 
     pub fn random_enemy_walk_loc(&self, id: ClientId) -> Option<Loc> {
@@ -235,7 +236,7 @@ impl Map {
             .filter(|loc| self.is_walkable(loc))
             .collect();
 
-        locations.choose(&mut rand::rng()).copied()
+        locations.choose(&mut rng()).copied()
     }
 
     pub fn random_dig_loc(&self, tile: Option<&Tile>, id: ClientId) -> Option<Loc> {
@@ -260,7 +261,7 @@ impl Map {
             })
             .collect();
 
-        locations.choose(&mut rand::rng()).copied()
+        locations.choose(&mut rng()).copied()
     }
 
     // Pathing ================================================================
@@ -396,7 +397,7 @@ impl Map {
             }
         }
 
-        possible_tiles.choose(&mut rand::rng()).unwrap().clone()
+        possible_tiles.choose(&mut rng()).unwrap().clone()
     }
 
     pub fn find_and_replace_tile(
@@ -405,8 +406,17 @@ impl Map {
         directions: &HashSet<Direction>,
         id: ClientId,
     ) {
-        // Replace the tile
-        let new_t = self.find_tile(tile, directions, id);
+        // Replace the tile dug
+        let mut new_t = self.find_tile(tile, directions, id);
+
+        // Add (possibly) a leaf on newly dug tiles
+        if new_t.has_leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
+            new_t.has_leaf = Some(Leaf {
+                image: format!("leaf{}", rng().random_range(1..=5)),
+                quantity: rng().random_range(100.0..300.),
+            })
+        }
+
         self.replace_tile(&new_t);
 
         // Replace tiles in the provided directions

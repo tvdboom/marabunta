@@ -5,7 +5,14 @@ use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 use bevy_renet::renet::ClientId;
 use rand::prelude::IndexedRandom;
+use rand::rng;
 use serde::{Deserialize, Serialize};
+
+#[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Leaf {
+    pub image: String,
+    pub quantity: f32,
+}
 
 #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Tile {
@@ -15,6 +22,7 @@ pub struct Tile {
     pub rotation: i32,
     pub base: Option<ClientId>,
     pub has_stone: bool,
+    pub has_leaf: Option<Leaf>,
     pub terraform: f32,
     pub visible: HashSet<ClientId>,
 }
@@ -28,6 +36,7 @@ impl Default for Tile {
             rotation: 0,
             base: None,
             has_stone: false,
+            has_leaf: None,
             terraform: MAX_TERRAFORM_POINTS,
             visible: HashSet::new(),
         }
@@ -122,8 +131,8 @@ impl Tile {
         Tile {
             x,
             y,
-            texture_index: *Self::SOIL.choose(&mut rand::rng()).unwrap(),
-            rotation: *Self::ANGLES.choose(&mut rand::rng()).unwrap(),
+            texture_index: *Self::SOIL.choose(&mut rng()).unwrap(),
+            rotation: *Self::ANGLES.choose(&mut rng()).unwrap(),
             has_stone: rand::random::<f32>() < 0.1,
             ..default()
         }

@@ -3,18 +3,18 @@ use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
 use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
+use crate::core::map::events::SpawnTileEv;
 use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
-use crate::core::map::utils::replace_tile;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
 use crate::core::utils::scale_duration;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
-use rand::Rng;
+use rand::{rng, Rng};
 use std::mem::discriminant;
 use strum::IntoEnumIterator;
 
@@ -99,7 +99,7 @@ pub fn resolve_digging(
 
             // Set digging ants onto a new task
             ants.iter_mut().for_each(|(_, ant)| {
-                if rand::rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
+                if rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
                     ant.action = Action::Walk(
                         map.random_dig_loc(Some(&tile), player.id)
                             // If there are no digging locations on the tile, select a random one
@@ -256,58 +256,53 @@ pub fn resolve_action_ants(
 
 pub fn update_ant_health_bars(
     ant_q: Query<
-        (&Transform, &AntCmp),
-        (With<AntCmp>, Without<AntHealthWrapper>, Without<AntHealth>),
+        (Entity, &Transform, &AntCmp),
+        (With<AntCmp>, Without<AntHealthWrapperCmp>, Without<AntHealthCmp>),
     >,
     mut wrapper_q: Query<
-        (Entity, &mut Transform, &mut Visibility, &AntHealthWrapper),
-        (With<AntHealthWrapper>, Without<AntHealth>),
+        (Entity, &mut Transform, &mut Visibility),
+        (With<AntHealthWrapperCmp>, Without<AntHealthCmp>),
     >,
-    mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealth>>,
+    mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealthCmp>>,
     children_q: Query<&Children>,
 ) {
-    for (wrapper_e, mut wrapper_t, mut wrapper_v, wrapper) in wrapper_q.iter_mut() {
-        let (ant_t, ant) = ant_q.get(wrapper.0).unwrap();
+    for (ant_e, ant_t, ant) in ant_q.iter() {
+        for child in children_q.iter_descendants(ant_e) {
+            if let Ok((wrapper_e, mut wrapper_t, mut wrapper_v)) = wrapper_q.get_mut(child) {
+                // Show the health bar when the ant is damaged
+                if ant.health > 0. && ant.health < ant.max_health {
+                    *wrapper_v = Visibility::Visible;
 
-        // Show the health bar when the ant is damaged
-        if ant.health > 0. && ant.health < ant.max_health {
-            *wrapper_v = Visibility::Visible;
-
-            // Place the health bar on top of the ant on a distance dependent on the ant's rotation
-            wrapper_t.translation = (ant_t.translation.truncate()
-                + Vec2::new(
-                    0.,
-                    ant.size().y
+                    // Place the health bar on top of the ant on a distance dependent on the ant's rotation
+                    wrapper_t.translation.y = ant.size().y
                         * 0.5
-                        * (ant_t.rotation.to_euler(EulerRot::ZXY).0.cos().abs() * 0.5 + 0.5),
-                ))
-            .extend(ANT_Z_SCORE + 0.1);
+                        * (ant_t.rotation.to_euler(EulerRot::ZXY).0.cos().abs() * 0.5 + 0.5);
 
-            for child in children_q.iter_descendants(wrapper_e) {
-                if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
-                    if let Some(size) = health_s.custom_size.as_mut() {
-                        let full_size = ant.size().x * 0.77;
-                        size.x = full_size * ant.health / ant.max_health;
-                        health_t.translation.x = (size.x - full_size) * 0.5;
+                    for child in children_q.iter_descendants(wrapper_e) {
+                        if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
+                            if let Some(size) = health_s.custom_size.as_mut() {
+                                let full_size = ant.size().x * 0.77;
+                                size.x = full_size * ant.health / ant.max_health;
+                                health_t.translation.x = (size.x - full_size) * 0.5;
+                            }
+                        }
                     }
+                } else {
+                    *wrapper_v = Visibility::Hidden;
                 }
             }
-        } else {
-            *wrapper_v = Visibility::Hidden;
         }
     }
 }
 
 pub fn update_vision(
-    mut commands: Commands,
     mut ant_q: Query<(Entity, &mut Transform, &AntCmp)>,
+    mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-    tile_q: Query<(Entity, &Tile)>,
     player: Res<Player>,
     mut map: ResMut<Map>,
     population: Res<Population>,
-    assets: Local<WorldAssets>,
 ) {
     let mut visible_tiles = HashSet::new();
 
@@ -340,13 +335,14 @@ pub fn update_vision(
         let tile = map.get_tile_mut(*x, *y).unwrap();
 
         tile.visible.insert(player.id);
-        replace_tile(&mut commands, &tile, &tile_q, &assets);
+        spawn_tile_ev.send(SpawnTileEv {
+            tile: tile.clone(),
+            pos: None,
+        });
     });
 
     // Show/hide enemies on the map
     let mut current_population = vec![];
-    println!("pop: {:?}", population.0);
-    println!("{:?}", ant_q.iter().filter(|(_, _, a)| a.owner != player.id).map(|(e, _, a)|(e, a.kind.to_name(), a.id)).collect::<Vec<_>>());
     for (ant_e, mut ant_t, ant) in ant_q.iter_mut().filter(|(_, _, a)| a.owner != player.id) {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
@@ -359,7 +355,6 @@ pub fn update_vision(
                 *ant_t = *t;
             } else {
                 // The ant is no longer visible, despawn it
-                println!("despawn!");
                 despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
         } else {
@@ -381,20 +376,5 @@ pub fn update_vision(
                 transform: ant_t.clone(),
             });
         }
-    }
-}
-
-pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
-    if keyboard.just_pressed(KeyCode::Digit1) {
-        player.queue.push(Ant::BlackAnt);
-    }
-    if keyboard.just_pressed(KeyCode::Digit2) {
-        player.queue.push(Ant::BlackBullet);
-    }
-    if keyboard.just_pressed(KeyCode::Digit3) {
-        player.queue.push(Ant::BlackSoldier);
-    }
-    if keyboard.just_pressed(KeyCode::Digit4) {
-        player.queue.push(Ant::GoldTail);
     }
 }

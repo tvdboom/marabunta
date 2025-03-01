@@ -1,11 +1,11 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
-use crate::core::resources::{GameMode, GameSettings};
+use crate::core::player::Player;
+use crate::core::resources::GameSettings;
 use crate::core::states::GameState;
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
-use bevy_renet::renet::RenetServer;
 
 #[derive(Component)]
 pub struct PauseCmp;
@@ -61,13 +61,21 @@ pub fn unpause_game(
 
 pub fn toggle_pause_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
+    player: Res<Player>,
     game_state: Res<State<GameState>>,
-    server: Option<Res<RenetServer>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut game_settings: ResMut<GameSettings>,
 ) {
     // Only the host can pause the game in multiplayer mode
-    if game_settings.mode == GameMode::SinglePlayer || server.is_some() {
+    if player.id == 0 {
+        if keyboard.just_pressed(KeyCode::Escape) {
+            match game_state.get() {
+                GameState::Running => next_game_state.set(GameState::InGameMenu),
+                GameState::Paused => next_game_state.set(GameState::InGameMenu),
+                GameState::InGameMenu => next_game_state.set(GameState::Running),
+            }
+        }
+
         if keyboard.just_pressed(KeyCode::Space) {
             match game_state.get() {
                 GameState::Running => next_game_state.set(GameState::Paused),
@@ -89,14 +97,6 @@ pub fn toggle_pause_keyboard(
                     next_game_state.set(GameState::Running);
                 }
             }
-        }
-    }
-
-    if keyboard.just_pressed(KeyCode::Escape) {
-        match game_state.get() {
-            GameState::Running => next_game_state.set(GameState::InGameMenu),
-            GameState::Paused => next_game_state.set(GameState::InGameMenu),
-            GameState::InGameMenu => next_game_state.set(GameState::Running),
         }
     }
 }

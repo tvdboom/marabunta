@@ -204,12 +204,16 @@ pub fn client_receive_message(
             }
             ServerMessage::Status {
                 settings,
-                pause,
+                mut pause,
                 map: new_map,
                 population: new_population,
             } => {
                 commands.insert_resource(settings);
                 map.update(new_map);
+
+                if pause == GameState::InGameMenu {
+                    pause = GameState::Paused;
+                }
                 next_game_state.set(pause);
 
                 // The client takes all population not owned by self

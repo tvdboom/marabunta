@@ -1,15 +1,14 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
-use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
+use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
-use crate::core::map::utils::spawn_tile;
 use crate::core::player::Player;
 use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::AppState;
 use bevy::prelude::*;
-use rand::Rng;
+use rand::{rng, Rng};
 use std::f32::consts::PI;
 
 #[derive(Component)]
@@ -28,18 +27,17 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
             let mut map = Map::new();
 
             // Insert bases at random locations
-            let mut rng = rand::rng();
             let mut bases: Vec<UVec2> = Vec::new();
 
             while bases.len() < ids.len() {
                 let candidate = UVec2 {
-                    x: rng.random_range(5..Map::MAP_SIZE.x - 5),
-                    y: rng.random_range(5..Map::MAP_SIZE.y - 5),
+                    x: rng().random_range(5..Map::MAP_SIZE.x - 5),
+                    y: rng().random_range(5..Map::MAP_SIZE.y - 5),
                 };
 
                 if bases
                     .iter()
-                    .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 5.)
+                    .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 4.)
                 {
                     bases.push(candidate);
                 }
@@ -55,13 +53,12 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
 }
 
 pub fn draw_map(
-    mut commands: Commands,
     mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
+    mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     map: Res<Map>,
     player: Res<Player>,
     app_state: Res<State<AppState>>,
-    assets: Local<WorldAssets>,
 ) {
     for (i, tile) in map.world(player.id).iter_mut().enumerate() {
         let pos = Vec2::new(
@@ -69,19 +66,20 @@ pub fn draw_map(
             Map::WORLD_VIEW.max.y - Tile::SIZE * ((i as u32 / Map::WORLD_SIZE.x) as f32 + 0.5),
         );
 
-        spawn_tile(&mut commands, tile, pos, &assets);
+        spawn_tile_ev.send(SpawnTileEv {
+            tile: tile.clone(),
+            pos: Some(pos),
+        });
 
         // Spawn queen
         if tile.texture_index == 9 {
-            let transform = Transform {
-                translation: pos.extend(0.),
-                rotation: Quat::from_rotation_z(rand::rng().random_range(0.0..2. * PI)),
-                ..default()
-            };
-
             spawn_ant_ev.send(SpawnAntEv {
                 ant: AntCmp::new(&Ant::BlackQueen, player.id),
-                transform,
+                transform: Transform {
+                    translation: pos.extend(0.),
+                    rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                    ..default()
+                },
             });
 
             // If in-game -> place camera on top of base

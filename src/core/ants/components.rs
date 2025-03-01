@@ -7,10 +7,10 @@ use strum_macros::EnumIter;
 use uuid::Uuid;
 
 #[derive(Component)]
-pub struct AntHealthWrapper(pub Entity);
+pub struct AntHealthWrapperCmp;
 
 #[derive(Component)]
-pub struct AntHealth;
+pub struct AntHealthCmp;
 
 #[derive(EnumIter, Clone, Debug, Serialize, Deserialize)]
 pub enum Ant {
@@ -19,6 +19,7 @@ pub enum Ant {
     BlackSoldier,
     BlackQueen,
     GoldTail,
+    TrapJaw,
 }
 
 impl Ant {
@@ -29,6 +30,7 @@ impl Ant {
             Ant::BlackSoldier => UVec2::new(367, 508),
             Ant::BlackQueen => UVec2::new(307, 525),
             Ant::GoldTail => UVec2::new(466, 623),
+            Ant::TrapJaw => UVec2::new(513, 577),
         }
     }
 }
@@ -114,6 +116,12 @@ pub struct AntCmp {
     /// Time to hatch from an egg
     pub hatch_time: f32,
 
+    /// Current resource carry capacity
+    pub carry: f32,
+
+    /// Maximum resource carry capacity
+    pub max_carry: f32,
+
     /// General purpose timer used for brooding, death, etc...
     pub timer: Option<Timer>,
 }
@@ -133,6 +141,8 @@ impl AntCmp {
                 behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 5.,
+                carry: 10.,
+                max_carry: 10.,
                 timer: None,
             },
             Ant::BlackBullet => Self {
@@ -147,6 +157,8 @@ impl AntCmp {
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 10.,
+                carry: 0.,
+                max_carry: 0.,
                 timer: None,
             },
             Ant::BlackSoldier => Self {
@@ -154,13 +166,15 @@ impl AntCmp {
                 kind: Ant::BlackSoldier,
                 owner: id,
                 scale: 0.04,
-                z_score: 0.6,
+                z_score: 0.5,
                 health: 50.,
                 max_health: 50.,
                 speed: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 15.,
+                carry: 0.,
+                max_carry: 0.,
                 timer: None,
             },
             Ant::BlackQueen => Self {
@@ -169,12 +183,14 @@ impl AntCmp {
                 owner: id,
                 scale: 0.06,
                 z_score: 0.9,
-                health: 1000.,
+                health: 300.,
                 max_health: 1000.,
                 speed: 20.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
+                carry: 0.,
+                max_carry: 0.,
                 timer: None,
             },
             Ant::GoldTail => Self {
@@ -182,13 +198,31 @@ impl AntCmp {
                 kind: Ant::GoldTail,
                 owner: id,
                 scale: 0.04,
-                z_score: 0.7,
+                z_score: 0.6,
                 health: 50.,
                 max_health: 50.,
                 speed: 20.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 12.,
+                carry: 0.,
+                max_carry: 0.,
+                timer: None,
+            },
+            Ant::TrapJaw => Self {
+                id: Uuid::new_v4(),
+                kind: Ant::TrapJaw,
+                owner: id,
+                scale: 0.05,
+                z_score: 0.7,
+                health: 100.,
+                max_health: 100.,
+                speed: 15.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                hatch_time: 20.,
+                carry: 0.,
+                max_carry: 0.,
                 timer: None,
             },
         }

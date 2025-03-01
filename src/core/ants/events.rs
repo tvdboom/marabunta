@@ -1,7 +1,8 @@
-use crate::core::ants::components::{AnimationCmp, AntCmp, AntHealth, AntHealthWrapper};
+use crate::core::ants::components::{AnimationCmp, AntCmp, AntHealthCmp, AntHealthWrapperCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::systems::MapCmp;
+use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
 use crate::utils::NameFromEnum;
 use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
@@ -19,6 +20,16 @@ pub struct DespawnAntEv {
     pub entity: Entity,
 }
 
+#[derive(Event)]
+pub struct CarryLeafEv {
+    pub entity: Entity,
+}
+
+#[derive(Event)]
+pub struct UncarryLeafEv {
+    pub entity: Entity,
+}
+
 pub fn spawn_ants(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
@@ -27,7 +38,7 @@ pub fn spawn_ants(
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
         let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
-        let id = commands
+        commands
             .spawn((
                 Sprite {
                     image: atlas.image,
@@ -49,45 +60,42 @@ pub fn spawn_ants(
                     last_index: atlas.last_index,
                 },
                 ant.clone(),
-                MapCmp,
-            ))
-            .id();
-
-        // Spawn health bar
-        commands
-            .spawn((
-                Sprite {
-                    color: Color::from(BLACK),
-                    custom_size: Some(Vec2::new(ant.size().x * 0.8, ant.size().y * 0.1)),
-                    ..default()
-                },
-                AntHealthWrapper(id),
-                Visibility::Hidden,
+                NoRotationParentCmp,
                 MapCmp,
             ))
             .with_children(|parent| {
-                parent.spawn((
-                    Sprite {
-                        color: Color::from(LIME),
-                        custom_size: Some(Vec2::new(ant.size().x * 0.77, ant.size().y * 0.08)),
-                        ..default()
-                    },
-                    Transform::from_xyz(0., 0., 0.1),
-                    AntHealth,
-                ));
+                parent
+                    .spawn((
+                        Sprite {
+                            color: Color::from(BLACK),
+                            custom_size: Some(Vec2::new(ant.size().x * 0.8, ant.size().y * 0.1)),
+                            ..default()
+                        },
+                        AntHealthWrapperCmp,
+                        Visibility::Hidden,
+                        NoRotationChildCmp,
+                        MapCmp,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Sprite {
+                                color: Color::from(LIME),
+                                custom_size: Some(Vec2::new(
+                                    ant.size().x * 0.77,
+                                    ant.size().y * 0.08,
+                                )),
+                                ..default()
+                            },
+                            Transform::from_xyz(0., 0., 0.1),
+                            AntHealthCmp,
+                        ));
+                    });
             });
     }
 }
 
-pub fn despawn_ants(
-    mut commands: Commands,
-    wrapper_q: Query<(Entity, &AntHealthWrapper)>,
-    mut despawn_ant_ev: EventReader<DespawnAntEv>,
-) {
+pub fn despawn_ants(mut commands: Commands, mut despawn_ant_ev: EventReader<DespawnAntEv>) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        commands
-            .entity(wrapper_q.iter().find(|(_, w)| w.0 == *entity).unwrap().0)
-            .despawn_recursive();
-        commands.entity(*entity).despawn();
+        commands.entity(*entity).despawn_recursive();
     }
 }

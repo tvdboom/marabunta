@@ -17,14 +17,15 @@ use crate::core::ants::events::{despawn_ants, spawn_ants, DespawnAntEv, SpawnAnt
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
+use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_in_game_menu, setup_menu};
 use crate::core::network::*;
 use crate::core::pause::*;
 use crate::core::states::{AppState, AudioState, GameState};
-use crate::core::systems::initialize_game;
-use crate::core::utils::despawn;
+use crate::core::systems::{check_keys, initialize_game};
+use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
 
@@ -32,6 +33,9 @@ pub struct GamePlugin;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 struct InGameSet;
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct RunningSet;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -42,12 +46,16 @@ impl Plugin for GamePlugin {
             .init_state::<AudioState>()
             // Events
             .add_event::<ToggleMusicEv>()
+            .add_event::<SpawnTileEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             // Sets
-            .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
+            .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(PostUpdate, InGameSet.run_if(in_state(AppState::Game)))
+            .configure_sets(PreUpdate, RunningSet.run_if(in_state(GameState::Running)))
+            .configure_sets(Update, RunningSet.run_if(in_state(GameState::Running)))
+            .configure_sets(PostUpdate, RunningSet.run_if(in_state(GameState::Running)))
             // Camera
             .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
@@ -90,8 +98,13 @@ impl Plugin for GamePlugin {
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
 
-        // Map
+        // Utilities
         app.add_systems(
+            PostUpdate,
+            update_transform_no_rotation.before(TransformSystem::TransformPropagate),
+        )
+        // Map
+        .add_systems(
             OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map).chain(),
         )
@@ -108,10 +121,12 @@ impl Plugin for GamePlugin {
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(
+            PreUpdate,
+            (spawn_tile, spawn_ants, despawn_ants).in_set(RunningSet),
+        )
+        .add_systems(
             Update,
             (
-                spawn_ants,
-                despawn_ants,
                 check_keys,
                 hatch_eggs,
                 animate_ants,
@@ -120,7 +135,7 @@ impl Plugin for GamePlugin {
                 update_vision,
                 resolve_digging,
             )
-                .run_if(in_state(GameState::Running)),
+                .in_set(RunningSet),
         );
     }
 }
