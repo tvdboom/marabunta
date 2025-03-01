@@ -33,7 +33,7 @@ impl Ant {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Behavior {
     Attack,
     Brood,
@@ -78,7 +78,7 @@ pub struct AnimationCmp {
     pub last_index: usize,
 }
 
-#[derive(Component, Clone, Serialize, Deserialize)]
+#[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct AntCmp {
     /// Unique id across players (not entity)
     pub id: Uuid,

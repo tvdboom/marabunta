@@ -21,7 +21,7 @@ pub fn play_music(
             Duration::from_secs(2),
             AudioEasing::OutPowi(2),
         ))
-        .with_volume(0.05)
+        .with_volume(0.03)
         .looped();
 
     if let Ok(mut node) = btn_q.get_single_mut() {

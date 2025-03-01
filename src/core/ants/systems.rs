@@ -166,7 +166,7 @@ pub fn resolve_action_ants(
                     if let Some(loc) = map.random_enemy_walk_loc(player.id) {
                         ant.action = Action::Walk(loc);
                     } else {
-                        ant.action = Action::Walk(map.random_enemy_walk_loc(player.id).unwrap());
+                        ant.action = Action::Walk(map.random_walk_loc(player.id, false).unwrap());
                     }
                 }
                 Behavior::Brood => {
@@ -345,6 +345,8 @@ pub fn update_vision(
 
     // Show/hide enemies on the map
     let mut current_population = vec![];
+    println!("pop: {:?}", population.0);
+    println!("{:?}", ant_q.iter().filter(|(_, _, a)| a.owner != player.id).map(|(e, _, a)|(e, a.kind.to_name(), a.id)).collect::<Vec<_>>());
     for (ant_e, mut ant_t, ant) in ant_q.iter_mut().filter(|(_, _, a)| a.owner != player.id) {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
@@ -357,10 +359,11 @@ pub fn update_vision(
                 *ant_t = *t;
             } else {
                 // The ant is no longer visible, despawn it
+                println!("despawn!");
                 despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
         } else {
-            // The ant is no longer in the population, despawn it
+            // The ant is no longer in the population (died), despawn it
             despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
         }
     }

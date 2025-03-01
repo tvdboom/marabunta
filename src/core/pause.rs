@@ -4,6 +4,7 @@ use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::GameState;
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
+use bevy_kira_audio::{Audio, AudioControl};
 use bevy_renet::renet::RenetServer;
 
 #[derive(Component)]
@@ -38,13 +39,15 @@ pub fn spawn_pause_banner(mut commands: Commands, assets: Local<WorldAssets>) {
         });
 }
 
-pub fn pause_game(mut vis_q: Query<&mut Visibility, With<PauseCmp>>) {
+pub fn pause_game(mut vis_q: Query<&mut Visibility, With<PauseCmp>>, audio: Res<Audio>) {
     *vis_q.single_mut() = Visibility::Visible;
+    audio.pause();
 }
 
 pub fn unpause_game(
     mut vis_q: Query<&mut Visibility, With<PauseCmp>>,
     mut game_settings: ResMut<GameSettings>,
+    audio: Res<Audio>,
 ) {
     // PauseWrapper not yet spawned at first iteration
     if let Ok(mut e) = vis_q.get_single_mut() {
@@ -52,6 +55,7 @@ pub fn unpause_game(
             game_settings.speed = 1.;
         }
         *e = Visibility::Hidden;
+        audio.resume();
     }
 }
 
