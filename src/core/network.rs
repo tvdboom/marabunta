@@ -115,7 +115,7 @@ pub fn server_update(
 
 pub fn server_send_status(
     mut server: ResMut<RenetServer>,
-    ant_q: Query<(&AntCmp, &Transform)>,
+    ant_q: Query<(&Transform, &AntCmp)>,
     game_settings: Res<GameSettings>,
     map: Res<Map>,
     game_state: Res<State<GameState>>,
@@ -126,7 +126,7 @@ pub fn server_send_status(
         map: map.clone(),
         population: ant_q
             .iter()
-            .map(|(a, t)| (a.id, (t.clone(), a.clone())))
+            .map(|(t, a)| (a.id, (t.clone(), a.clone())))
             .collect(),
     });
 

@@ -5,13 +5,31 @@ use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 use bevy_renet::renet::ClientId;
 use rand::prelude::IndexedRandom;
-use rand::rng;
+use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 
 #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Leaf {
     pub image: String,
     pub quantity: f32,
+}
+
+impl Default for Leaf {
+    fn default() -> Self {
+        Self {
+            image: "leaf1".to_string(),
+            quantity: 300.,
+        }
+    }
+}
+
+impl Leaf {
+    pub fn new() -> Self {
+        Self {
+            image: format!("leaf{}", rng().random_range(1..=5)),
+            quantity: rng().random_range(100.0..300.),
+        }
+    }
 }
 
 #[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -22,7 +40,7 @@ pub struct Tile {
     pub rotation: i32,
     pub base: Option<ClientId>,
     pub has_stone: bool,
-    pub has_leaf: Option<Leaf>,
+    pub leaf: Option<Leaf>,
     pub terraform: f32,
     pub visible: HashSet<ClientId>,
 }
@@ -36,7 +54,7 @@ impl Default for Tile {
             rotation: 0,
             base: None,
             has_stone: false,
-            has_leaf: None,
+            leaf: None,
             terraform: MAX_TERRAFORM_POINTS,
             visible: HashSet::new(),
         }

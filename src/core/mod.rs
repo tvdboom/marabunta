@@ -28,6 +28,7 @@ use crate::core::systems::{check_keys, initialize_game};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use map::ui::systems::{draw_ui, update_ui};
 
 pub struct GamePlugin;
 
@@ -105,9 +106,10 @@ impl Plugin for GamePlugin {
         )
         // Map
         .add_systems(OnEnter(AppState::Game), (despawn::<MapCmp>, draw_map))
+        .add_systems(Update, update_ui)
         .add_systems(
             OnExit(AppState::Game),
-            (despawn::<MapCmp>, initialize_game, draw_map).chain(),
+            (despawn::<MapCmp>, initialize_game, draw_map, draw_ui).chain(),
         )
         // Pause
         .add_systems(Startup, spawn_pause_banner)
@@ -127,6 +129,7 @@ impl Plugin for GamePlugin {
                 update_ant_components,
                 update_vision,
                 resolve_digging,
+                resolve_harvesting,
             )
                 .in_set(RunningSet),
         )

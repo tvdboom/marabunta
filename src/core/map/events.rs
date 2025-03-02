@@ -56,7 +56,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
             .set_parent(tile_e);
     }
 
-    if let Some(leaf) = &tile.has_leaf {
+    if let Some(leaf) = tile.leaf.as_ref().filter(|l| l.quantity > 0.) {
         commands
             .spawn((
                 Sprite {

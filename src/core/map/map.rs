@@ -87,11 +87,17 @@ impl Map {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
             for (j, x) in (pos.x..pos.x + 4).enumerate() {
                 if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
+                    let texture_index = i * Map::TEXTURE_SIZE.x as usize + j;
                     *tile = Tile {
                         x,
                         y,
-                        texture_index: i * Map::TEXTURE_SIZE.x as usize + j,
+                        texture_index,
                         base: Some(id),
+                        leaf: if texture_index == 18 {
+                            Some(Leaf::default())
+                        } else {
+                            None
+                        },
                         visible: HashSet::from([id]),
                         ..default()
                     };
@@ -159,8 +165,12 @@ impl Map {
 
     pub fn get_tile_from_coord(&self, coord: &Vec3) -> Option<&Tile> {
         let loc = self.get_loc(coord);
-        self.tiles
-            .get((loc.x % Self::MAP_SIZE.x + loc.y * Self::MAP_SIZE.x) as usize)
+        self.get_tile(loc.x, loc.y)
+    }
+
+    pub fn get_tile_mut_from_coord(&mut self, coord: &Vec3) -> Option<&mut Tile> {
+        let loc = self.get_loc(coord);
+        self.get_tile_mut(loc.x, loc.y)
     }
 
     fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<usize> {
@@ -258,6 +268,21 @@ impl Map {
                         .get_adjacent_tile(loc.x, loc.y, &loc.get_direction())
                         .map_or(false, |t| !t.has_stone)
                     && self.get_neighbors(loc).iter().any(|l| self.is_walkable(l))
+            })
+            .collect();
+
+        locations.choose(&mut rng()).copied()
+    }
+
+    pub fn random_leaf_loc(&self, id: ClientId) -> Option<Loc> {
+        let locations: Vec<_> = self
+            .tiles
+            .iter()
+            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
+            .map(|t| Loc {
+                x: t.x,
+                y: t.y,
+                bit: 6,
             })
             .collect();
 
@@ -410,11 +435,8 @@ impl Map {
         let mut new_t = self.find_tile(tile, directions, id);
 
         // Add (possibly) a leaf on newly dug tiles
-        if new_t.has_leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
-            new_t.has_leaf = Some(Leaf {
-                image: format!("leaf{}", rng().random_range(1..=5)),
-                quantity: rng().random_range(100.0..300.),
-            })
+        if new_t.leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
+            new_t.leaf = Some(Leaf::new())
         }
 
         self.replace_tile(&new_t);

@@ -46,17 +46,58 @@ pub fn animate_ants(
             }
         } else {
             // Else adjust the atlas
-            let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
+            let atlas = assets.atlas(&format!(
+                "{}_{}",
+                ant.kind.to_snake(),
+                ant.action.animation().to_snake()
+            ));
+
             *sprite = Sprite {
                 image: atlas.image,
                 texture_atlas: Some(atlas.texture),
                 ..default()
             };
+
             *animation = AnimationCmp {
                 action: ant.action.clone(),
-                timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
+                timer: Timer::from_seconds(ant.action.animation().interval(), TimerMode::Repeating),
                 last_index: atlas.last_index,
             };
+        }
+    }
+}
+
+pub fn resolve_harvesting(
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut map: ResMut<Map>,
+    game_settings: Res<GameSettings>,
+    player: Res<Player>,
+    time: Res<Time>,
+) {
+    for (ant_t, mut ant) in ant_q
+        .iter_mut()
+        .filter(|(_, a)| a.owner == player.id && a.action == Action::Harvest)
+    {
+        if let Some(leaf) = map
+            .get_tile_mut_from_coord(&ant_t.translation)
+            .unwrap()
+            .leaf
+            .as_mut()
+            .filter(|l| l.quantity > 0.)
+        {
+            let carry =
+                (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
+
+            if ant.carry + carry > ant.max_carry {
+                ant.carry = ant.max_carry;
+                leaf.quantity -= ant.max_carry - ant.carry;
+                ant.action = Action::Idle;
+            } else {
+                ant.carry += carry;
+                leaf.quantity -= carry;
+            }
+        } else {
+            ant.action = Action::Idle;
         }
     }
 }
@@ -140,7 +181,7 @@ pub fn hatch_eggs(
 
 pub fn resolve_action_ants(
     mut commands: Commands,
-    mut ant_q: Query<(Entity, &mut AntCmp, &mut Transform)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     map: Res<Map>,
     game_settings: Res<GameSettings>,
@@ -149,8 +190,12 @@ pub fn resolve_action_ants(
     time: Res<Time>,
 ) {
     let id = player.id;
+    let cloned_query = ant_q
+        .iter()
+        .map(|(_, t, a)| (t.clone(), a.clone()))
+        .collect::<Vec<_>>();
 
-    for (ant_e, mut ant, mut ant_t) in ant_q.iter_mut().filter(|(_, ant, _)| ant.owner == id) {
+    for (ant_e, mut ant_t, mut ant) in ant_q.iter_mut().filter(|(_, _, ant)| ant.owner == id) {
         match ant.action {
             Action::Die => {
                 if let Some(timer) = ant.timer.as_mut() {
@@ -216,12 +261,62 @@ pub fn resolve_action_ants(
                     }
                 }
                 Behavior::Dig => {
-                    ant.action = Action::Walk(map.random_dig_loc(None, player.id).unwrap());
+                    ant.action = Action::Walk(
+                        map.random_dig_loc(None, player.id)
+                            .unwrap_or(map.random_walk_loc(player.id, false).unwrap()),
+                    );
+                }
+                Behavior::Harvest => {
+                    if ant.carry == 0. {
+                        ant.action = Action::Walk(
+                            map.random_leaf_loc(player.id)
+                                .unwrap_or(map.random_walk_loc(player.id, false).unwrap()),
+                        );
+                    } else {
+                        // If it's carrying something, return to the queen
+                        ant.action = Action::TargetedWalk(
+                            cloned_query
+                                .iter()
+                                .filter_map(|(_, a)| {
+                                    if a.owner == player.id && a.kind == Ant::BlackQueen {
+                                        Some(a.id)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .last()
+                                .unwrap(),
+                        )
+                    }
                 }
                 Behavior::Wander => {
                     ant.action = Action::Walk(map.random_walk_loc(player.id, false).unwrap());
                 }
             },
+            Action::TargetedWalk(id) => {
+                if let Some((target_t, _)) = cloned_query.iter().find(|(_, a)| a.id == id) {
+                    let current_loc = map.get_loc(&ant_t.translation);
+                    let target_loc = map.get_loc(&target_t.translation);
+
+                    if current_loc != target_loc {
+                        walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
+                    } else {
+                        // Ant reached the target loc => continue with default action
+                        ant.action = match ant.behavior {
+                            Behavior::Harvest => {
+                                // Ant reached the queen, leave food and go back to harvesting
+                                player.food += ant.carry;
+                                ant.carry = 0.;
+                                Action::Idle
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                } else {
+                    // The target doesn't exist anymore, go back to default behavior
+                    ant.action = Action::Idle;
+                }
+            }
             Action::Walk(target_loc) => {
                 let current_loc = map.get_loc(&ant_t.translation);
                 if current_loc != target_loc {
@@ -243,6 +338,19 @@ pub fn resolve_action_ants(
                                     .unwrap()
                                     .clone(),
                                 )
+                            }
+                        }
+                        Behavior::Harvest => {
+                            if map
+                                .get_tile(current_loc.x, current_loc.y)
+                                .unwrap()
+                                .leaf
+                                .is_some()
+                            {
+                                // The leaf could have been harvested completely while getting there
+                                Action::Harvest
+                            } else {
+                                Action::Idle
                             }
                         }
                         _ => Action::Idle,

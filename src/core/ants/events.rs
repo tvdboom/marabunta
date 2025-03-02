@@ -22,16 +22,6 @@ pub struct DespawnAntEv {
     pub entity: Entity,
 }
 
-#[derive(Event)]
-pub struct CarryLeafEv {
-    pub entity: Entity,
-}
-
-#[derive(Event)]
-pub struct UncarryLeafEv {
-    pub entity: Entity,
-}
-
 pub fn spawn_ants(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
@@ -58,7 +48,7 @@ pub fn spawn_ants(
                 },
                 AnimationCmp {
                     action: ant.action.clone(),
-                    timer: Timer::from_seconds(ant.action.interval(), TimerMode::Repeating),
+                    timer: Timer::from_seconds(ant.action.animation().interval(), TimerMode::Repeating),
                     last_index: atlas.last_index,
                 },
                 ant.clone(),

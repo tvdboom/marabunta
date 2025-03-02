@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Action, Ant};
+use crate::core::ants::components::{Animation, Ant};
 use crate::utils::NameFromEnum;
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::*;
@@ -116,9 +116,13 @@ impl FromWorld for WorldAssets {
         ]);
 
         for ant in Ant::iter() {
-            for action in Action::iter() {
-                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
-                    .as_str();
+            for animation in Animation::iter() {
+                let name = Box::leak(Box::new(format!(
+                    "{}_{}",
+                    ant.to_snake(),
+                    animation.to_snake()
+                )))
+                .as_str();
 
                 images.insert(
                     name,
@@ -144,12 +148,16 @@ impl FromWorld for WorldAssets {
         let mut atlas = HashMap::new();
 
         for ant in Ant::iter() {
-            for action in Action::iter() {
-                let name = Box::leak(Box::new(format!("{}_{}", ant.to_snake(), action.to_name())))
-                    .as_str();
+            for animation in Animation::iter() {
+                let name = Box::leak(Box::new(format!(
+                    "{}_{}",
+                    ant.to_snake(),
+                    animation.to_snake()
+                )))
+                .as_str();
 
                 let layout =
-                    TextureAtlasLayout::from_grid(ant.size(), action.frames(), 1, None, None);
+                    TextureAtlasLayout::from_grid(ant.size(), animation.frames(), 1, None, None);
 
                 atlas.insert(
                     name,
@@ -159,7 +167,7 @@ impl FromWorld for WorldAssets {
                             layout: texture.add(layout),
                             index: 0,
                         },
-                        last_index: action.frames() as usize - 1,
+                        last_index: animation.frames() as usize - 1,
                     },
                 );
             }

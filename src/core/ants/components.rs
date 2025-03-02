@@ -15,7 +15,7 @@ pub struct AntHealthCmp;
 #[derive(Component)]
 pub struct LeafCarryCmp;
 
-#[derive(EnumIter, Clone, Debug, Serialize, Deserialize)]
+#[derive(EnumIter, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Ant {
     BlackAnt,
     BlackBullet,
@@ -42,32 +42,56 @@ impl Ant {
 pub enum Behavior {
     Attack,
     Brood,
-    Wander,
     Dig,
+    Harvest,
+    Wander,
 }
 
-#[derive(EnumIter, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum Action {
+#[derive(EnumIter, Debug)]
+pub enum Animation {
     Bite,
     Die,
+    LookAround,
     Idle,
-    Walk(Loc), // Location to walk to
-    Dig(Tile), // Tile to dig
+    Walk,
 }
 
-impl Action {
+impl Animation {
     pub fn frames(&self) -> u32 {
         match &self {
-            Action::Bite => 8,
-            Action::Die => 10,
-            Action::Dig(_) => 20,
-            Action::Idle => 20,
-            Action::Walk(_) => 8,
+            Animation::Bite => 8,
+            Animation::Die => 10,
+            Animation::LookAround => 20,
+            Animation::Idle => 20,
+            Animation::Walk => 8,
         }
     }
 
     pub fn interval(&self) -> f32 {
         1. / self.frames() as f32
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Action {
+    Bite,
+    Die,
+    Dig(Tile), // Tile to dig
+    Harvest,
+    Idle,
+    TargetedWalk(Uuid), // Id of the target to walk to
+    Walk(Loc),          // Location to walk to
+}
+
+impl Action {
+    pub fn animation(&self) -> Animation {
+        match &self {
+            Action::Bite => Animation::Bite,
+            Action::Die => Animation::Die,
+            Action::Harvest | Action::Dig(_) => Animation::LookAround,
+            Action::Idle => Animation::Idle,
+            Action::TargetedWalk(_) | Action::Walk(_) => Animation::Walk,
+        }
     }
 }
 
@@ -141,7 +165,7 @@ impl AntCmp {
                 health: 10.,
                 max_health: 10.,
                 speed: 20.,
-                behavior: Behavior::Dig,
+                behavior: Behavior::Harvest,
                 action: Action::Idle,
                 hatch_time: 5.,
                 carry: 10.,
@@ -157,7 +181,7 @@ impl AntCmp {
                 health: 10.,
                 max_health: 10.,
                 speed: 30.,
-                behavior: Behavior::Attack,
+                behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 10.,
                 carry: 0.,
