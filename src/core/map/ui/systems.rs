@@ -15,11 +15,6 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                 top: Val::Px(50.),
                 left: Val::Px(50.),
                 position_type: PositionType::Absolute,
-                // flex_direction: FlexDirection::Row,
-                // align_content: AlignContent::Start,
-                // align_items: AlignItems::Start,
-                // align_self: AlignSelf::Center,
-                // justify_content: JustifyContent::Center,
                 ..default()
             },
             PickingBehavior::IGNORE,
@@ -40,5 +35,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
 }
 
 pub fn update_ui(mut food_q: Query<&mut Text, With<FoodLabelCmp>>, player: Res<Player>) {
-    food_q.get_single_mut().unwrap().0 = format!("{:.0}", player.food);
+    if let Ok(mut text) = food_q.get_single_mut() {
+        text.0 = format!("{:.0}", player.food);
+    }
 }

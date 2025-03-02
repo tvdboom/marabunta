@@ -168,8 +168,8 @@ impl AntCmp {
                 behavior: Behavior::Harvest,
                 action: Action::Idle,
                 hatch_time: 5.,
-                carry: 10.,
-                max_carry: 10.,
+                carry: 0.,
+                max_carry: 30.,
                 timer: None,
             },
             Ant::BlackBullet => Self {
@@ -185,7 +185,7 @@ impl AntCmp {
                 action: Action::Idle,
                 hatch_time: 10.,
                 carry: 0.,
-                max_carry: 0.,
+                max_carry: 10.,
                 timer: None,
             },
             Ant::BlackSoldier => Self {
@@ -201,7 +201,7 @@ impl AntCmp {
                 action: Action::Idle,
                 hatch_time: 15.,
                 carry: 0.,
-                max_carry: 0.,
+                max_carry: 10.,
                 timer: None,
             },
             Ant::BlackQueen => Self {
@@ -216,8 +216,8 @@ impl AntCmp {
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
-                carry: 10.,
-                max_carry: 0.,
+                carry: 0.,
+                max_carry: 1000.,
                 timer: None,
             },
             Ant::GoldTail => Self {
@@ -233,7 +233,7 @@ impl AntCmp {
                 action: Action::Idle,
                 hatch_time: 12.,
                 carry: 0.,
-                max_carry: 0.,
+                max_carry: 10.,
                 timer: None,
             },
             Ant::TrapJaw => Self {
@@ -249,7 +249,7 @@ impl AntCmp {
                 action: Action::Idle,
                 hatch_time: 20.,
                 carry: 0.,
-                max_carry: 0.,
+                max_carry: 10.,
                 timer: None,
             },
         }
@@ -257,6 +257,10 @@ impl AntCmp {
 
     pub fn size(&self) -> Vec2 {
         self.kind.size().as_vec2()
+    }
+
+    pub fn scaled_size(&self) -> Vec2 {
+        self.size() * self.scale
     }
 }
 

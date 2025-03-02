@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use crate::core::ants::components::*;
 use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
 use crate::core::ants::utils::walk;
@@ -10,7 +11,7 @@ use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
-use crate::core::utils::scale_duration;
+use crate::core::utils::{collision, scale_duration};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
@@ -68,16 +69,18 @@ pub fn animate_ants(
 }
 
 pub fn resolve_harvesting(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
 ) {
-    for (ant_t, mut ant) in ant_q
+    for (mut ant_t, mut ant) in ant_q
         .iter_mut()
         .filter(|(_, a)| a.owner == player.id && a.action == Action::Harvest)
     {
+        let current_loc = map.get_loc(&ant_t.translation);
+
         if let Some(leaf) = map
             .get_tile_mut_from_coord(&ant_t.translation)
             .unwrap()
@@ -85,6 +88,13 @@ pub fn resolve_harvesting(
             .as_mut()
             .filter(|l| l.quantity > 0.)
         {
+            // Turn towards leaf
+            let d = -ant_t.translation + Map::get_coord_from_xy(current_loc.x, current_loc.y).extend(ant_t.translation.z);
+            ant_t.rotation = ant_t.rotation.rotate_towards(
+                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+                2. * game_settings.speed * time.delta_secs(),
+            );
+
             let carry =
                 (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
 
@@ -267,7 +277,7 @@ pub fn resolve_action_ants(
                     );
                 }
                 Behavior::Harvest => {
-                    if ant.carry == 0. {
+                    if ant.carry < ant.max_carry / 2. {
                         ant.action = Action::Walk(
                             map.random_leaf_loc(player.id)
                                 .unwrap_or(map.random_walk_loc(player.id, false).unwrap()),
@@ -294,11 +304,9 @@ pub fn resolve_action_ants(
                 }
             },
             Action::TargetedWalk(id) => {
-                if let Some((target_t, _)) = cloned_query.iter().find(|(_, a)| a.id == id) {
-                    let current_loc = map.get_loc(&ant_t.translation);
-                    let target_loc = map.get_loc(&target_t.translation);
-
-                    if current_loc != target_loc {
+                if let Some((target_t, target_a)) = cloned_query.iter().find(|(_, a)| a.id == id) {
+                    if !collision(&ant_t.translation, &ant.scaled_size(), &target_t.translation, &target_a.scaled_size()) {
+                        let target_loc = map.get_loc(&target_t.translation);
                         walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
                     } else {
                         // Ant reached the target loc => continue with default action
@@ -382,7 +390,7 @@ pub fn update_ant_components(
     for (ant_e, ant_t, ant) in ant_q.iter() {
         for child in children_q.iter_descendants(ant_e) {
             if let Ok(mut leaf_v) = leaf_q.get_mut(child) {
-                *leaf_v = if ant.carry > 0. {
+                *leaf_v = if ant.carry >= ant.max_carry / 2. {
                     Visibility::Visible
                 } else {
                     Visibility::Hidden

@@ -105,7 +105,7 @@ impl Plugin for GamePlugin {
             update_transform_no_rotation.before(TransformSystem::TransformPropagate),
         )
         // Map
-        .add_systems(OnEnter(AppState::Game), (despawn::<MapCmp>, draw_map))
+        .add_systems(OnEnter(AppState::Game), (despawn::<MapCmp>, draw_map, draw_ui))
         .add_systems(Update, update_ui)
         .add_systems(
             OnExit(AppState::Game),

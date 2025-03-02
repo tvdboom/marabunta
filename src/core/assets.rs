@@ -116,6 +116,12 @@ impl FromWorld for WorldAssets {
         ]);
 
         for ant in Ant::iter() {
+            // Load ant's base image
+            images.insert(
+                Box::leak(Box::new(ant.to_snake())).as_str(),
+                assets.load(&format!("images/ants/{}/{}.png", ant.to_snake(), ant.to_snake())),
+            );
+
             for animation in Animation::iter() {
                 let name = Box::leak(Box::new(format!(
                     "{}_{}",
@@ -124,6 +130,7 @@ impl FromWorld for WorldAssets {
                 )))
                 .as_str();
 
+                // Load animation texture image
                 images.insert(
                     name,
                     assets.load(&format!("images/ants/{}/{}.png", ant.to_snake(), name)),

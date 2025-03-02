@@ -24,8 +24,8 @@ impl Default for Player {
     fn default() -> Self {
         Self {
             id: 0,
+            food: 100.,
             queue: vec![Ant::BlackAnt, Ant::BlackBullet, Ant::BlackSoldier],
-            ..default()
         }
     }
 }
