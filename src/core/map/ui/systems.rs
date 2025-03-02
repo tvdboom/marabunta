@@ -40,7 +40,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             Node {
                 top: Val::Px(150.),
                 left: Val::Px(50.),
-                width: Val::Px(150.),
+                width: Val::Px(50.),
                 height: Val::Px(250.),
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
@@ -50,22 +50,41 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             MapCmp,
         ))
         .with_children(|parent| {
-            for ant in Ant::iter().filter(|a| !a.to_snake().contains("queen")) {
+            for ant in Ant::iter() {
                 parent.spawn((
-                    ImageNode::new(assets.image(&ant.to_snake())),
-                    Transform::from_scale(Vec3::splat(0.1)),
-                ));
-                parent.spawn((add_text(
-                    format!("{}", player.colony.get(&ant).unwrap_or(&0)),
-                    20.,
-                    &assets,
-                ), ColonyLabelCmp(ant)));
+                           Node {
+                               top: Val::Px(0.),
+                               left: Val::Px(0.),
+                               width: Val::Px(50.),
+                               height: Val::Px(250.),
+                               position_type: PositionType::Absolute,
+                               flex_direction: FlexDirection::Row,
+                               ..default()
+                           },
+                       ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            ImageNode::new(assets.image(&ant.to_snake())),
+                            Transform::from_scale(Vec3::splat(0.5)),
+                        ));
+                        parent.spawn((add_text(
+                            format!("{}", player.colony.get(&ant).unwrap_or(&0)),
+                            20.,
+                            &assets,
+                        ), ColonyLabelCmp(ant)));
+                    });
             }
         });
 }
 
-pub fn update_ui(mut food_q: Query<&mut Text, With<FoodLabelCmp>>, player: Res<Player>) {
-    if let Ok(mut text) = food_q.get_single_mut() {
-        text.0 = format!("{:.0}", player.food);
+pub fn update_ui(
+    mut food_q: Query<&mut Text, With<FoodLabelCmp>>,
+    mut colony_q: Query<(&mut Text, &ColonyLabelCmp)>,
+    player: Res<Player>,
+) {
+    food_q.get_single_mut().unwrap().0 = format!("{:.0}", player.food);
+
+    for (mut text, colony) in colony_q.iter_mut() {
+        text.0 = format!("{}", player.colony.get(&colony.0).unwrap_or(&0));
     }
 }

@@ -17,10 +17,10 @@ pub struct LeafCarryCmp;
 
 #[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Ant {
+    BlackQueen,
     BlackAnt,
     BlackBullet,
     BlackSoldier,
-    BlackQueen,
     GoldTail,
     TrapJaw,
 }
@@ -28,10 +28,10 @@ pub enum Ant {
 impl Ant {
     pub fn size(&self) -> UVec2 {
         match self {
+            Ant::BlackQueen => UVec2::new(307, 525),
             Ant::BlackAnt => UVec2::new(307, 438),
             Ant::BlackBullet => UVec2::new(307, 474),
             Ant::BlackSoldier => UVec2::new(367, 508),
-            Ant::BlackQueen => UVec2::new(307, 525),
             Ant::GoldTail => UVec2::new(466, 623),
             Ant::TrapJaw => UVec2::new(513, 577),
         }

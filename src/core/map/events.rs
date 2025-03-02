@@ -89,7 +89,7 @@ pub fn spawn_tile(
             if !tile.is_soil()
                 && (tile_c.texture_index != tile.texture_index
                     || tile_c.rotation != tile.rotation
-                    || tile_c.leaf != tile.leaf)
+                    || (tile_c.leaf.is_some() && tile.leaf.is_none()) || (tile_c.leaf.is_none() && tile.leaf.is_some()))
             {
                 commands.entity(tile_e).despawn_recursive();
 

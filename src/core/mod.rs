@@ -109,10 +109,10 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map, draw_ui),
         )
-        .add_systems(Update, update_ui)
+        .add_systems(Update, update_ui.in_set(InGameSet))
         .add_systems(
             OnExit(AppState::Game),
-            (despawn::<MapCmp>, initialize_game, draw_map, draw_ui).chain(),
+            (despawn::<MapCmp>, initialize_game, draw_map).chain(),
         )
         // Pause
         .add_systems(Startup, spawn_pause_banner)

@@ -435,7 +435,7 @@ impl Map {
         let mut new_t = self.find_tile(tile, directions, id);
 
         // Add (possibly) a leaf on newly dug tiles
-        if new_t.leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
+        if new_t.leaf.is_none() && !tile.visible.contains(&id) && rng().random::<f32>() < TILE_LEAF_CHANCE {
             new_t.leaf = Some(Leaf::new())
         }
 
