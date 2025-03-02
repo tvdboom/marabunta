@@ -119,7 +119,11 @@ impl FromWorld for WorldAssets {
             // Load ant's base image
             images.insert(
                 Box::leak(Box::new(ant.to_snake())).as_str(),
-                assets.load(&format!("images/ants/{}/{}.png", ant.to_snake(), ant.to_snake())),
+                assets.load(&format!(
+                    "images/ants/{}/{}.png",
+                    ant.to_snake(),
+                    ant.to_snake()
+                )),
             );
 
             for animation in Animation::iter() {

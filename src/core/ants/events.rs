@@ -4,6 +4,7 @@ use crate::core::ants::components::{
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::systems::MapCmp;
+use crate::core::player::Player;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
 use crate::utils::NameFromEnum;
 use bevy::color::palettes::basic::{BLACK, LIME};
@@ -19,12 +20,14 @@ pub struct SpawnAntEv {
 
 #[derive(Event)]
 pub struct DespawnAntEv {
+    pub ant: AntCmp,
     pub entity: Entity,
 }
 
 pub fn spawn_ants(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
+    mut player: ResMut<Player>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
@@ -48,7 +51,10 @@ pub fn spawn_ants(
                 },
                 AnimationCmp {
                     action: ant.action.clone(),
-                    timer: Timer::from_seconds(ant.action.animation().interval(), TimerMode::Repeating),
+                    timer: Timer::from_seconds(
+                        ant.action.animation().interval(),
+                        TimerMode::Repeating,
+                    ),
                     last_index: atlas.last_index,
                 },
                 ant.clone(),
@@ -98,11 +104,30 @@ pub fn spawn_ants(
                     MapCmp,
                 ));
             });
+
+        if ant.owner == player.id {
+            player
+                .colony
+                .entry(ant.kind.clone())
+                .and_modify(|c| *c += 1)
+                .or_insert(1);
+        }
     }
 }
 
-pub fn despawn_ants(mut commands: Commands, mut despawn_ant_ev: EventReader<DespawnAntEv>) {
-    for DespawnAntEv { entity } in despawn_ant_ev.read() {
+pub fn despawn_ants(
+    mut commands: Commands,
+    mut despawn_ant_ev: EventReader<DespawnAntEv>,
+    mut player: ResMut<Player>,
+) {
+    for DespawnAntEv { ant, entity } in despawn_ant_ev.read() {
         commands.entity(*entity).despawn_recursive();
+
+        if ant.owner == player.id {
+            player
+                .colony
+                .entry(ant.kind.clone())
+                .and_modify(|c| *c -= 1);
+        }
     }
 }

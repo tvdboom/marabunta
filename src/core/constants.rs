@@ -23,7 +23,7 @@ pub const MAX_Z_SCORE: f32 = 10.;
 
 // Map
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
-pub const TILE_LEAF_CHANCE: f32 = 0.05;
+pub const TILE_LEAF_CHANCE: f32 = 0.1;
 
 // Ants
 pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg

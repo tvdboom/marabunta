@@ -1,6 +1,6 @@
 use crate::core::assets::WorldAssets;
+use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
-use crate::core::menu::utils::{add_root_node, add_text};
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
@@ -59,6 +59,7 @@ pub fn setup_menu(
                                 } else {
                                     format!("There are {} players in the lobby...", n_players)
                                 },
+                                40.,
                                 &assets,
                             ),
                             LobbyTextCmp,
@@ -68,7 +69,10 @@ pub fn setup_menu(
                             spawn_menu_button(parent, MenuBtn::Play, &assets);
                         }
                     } else {
-                        parent.spawn((add_text("Searching for a game...", &assets), LobbyTextCmp));
+                        parent.spawn((
+                            add_text("Searching for a game...", 40., &assets),
+                            LobbyTextCmp,
+                        ));
                     }
 
                     spawn_menu_button(parent, MenuBtn::Back, &assets);

@@ -1,11 +1,13 @@
 use crate::core::ants::components::Ant;
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
 use bevy_renet::renet::ClientId;
 
 #[derive(Resource)]
 pub struct Player {
     pub id: ClientId,
     pub food: f32,
+    pub colony: HashMap<Ant, u32>,
     pub queue: Vec<Ant>,
 }
 
@@ -13,8 +15,8 @@ impl Player {
     pub fn new(id: ClientId) -> Self {
         Self {
             id,
-            food: 100.,
             queue: vec![],
+            ..default()
         }
     }
 }
@@ -25,7 +27,8 @@ impl Default for Player {
         Self {
             id: 0,
             food: 100.,
-            queue: vec![Ant::BlackAnt, Ant::BlackBullet, Ant::BlackSoldier],
+            colony: HashMap::from([(Ant::BlackQueen, 1)]),
+            queue: vec![Ant::BlackAnt, Ant::BlackBullet, Ant::BlackBullet],
         }
     }
 }

@@ -282,7 +282,7 @@ impl Map {
             .map(|t| Loc {
                 x: t.x,
                 y: t.y,
-                bit: 6,
+                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
             })
             .collect();
 

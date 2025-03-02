@@ -32,12 +32,16 @@ pub fn add_root_node() -> (Node, PickingBehavior) {
 }
 
 /// Add a standard text component
-pub fn add_text(text: impl Into<String>, assets: &Local<WorldAssets>) -> (Text, TextFont) {
+pub fn add_text(
+    text: impl Into<String>,
+    size: f32,
+    assets: &Local<WorldAssets>,
+) -> (Text, TextFont) {
     (
         Text::new(text),
         TextFont {
             font: assets.font("FiraSans-Bold"),
-            font_size: 40.,
+            font_size: size,
             ..default()
         },
     )

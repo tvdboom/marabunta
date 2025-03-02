@@ -56,7 +56,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
             .set_parent(tile_e);
     }
 
-    if let Some(leaf) = tile.leaf.as_ref().filter(|l| l.quantity > 0.) {
+    if let Some(leaf) = &tile.leaf {
         commands
             .spawn((
                 Sprite {
@@ -65,7 +65,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                 },
                 Transform {
                     translation: Vec3::new(0., 0., 0.2),
-                    scale: Vec3::splat(leaf.quantity / 1e3),
+                    scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
                     ..default()
                 },
                 leaf.clone(),
@@ -85,9 +85,11 @@ pub fn spawn_tile(
         // Check if there already exists a tile at the same position
         if let Some((tile_e, tile_c)) = tile_q.iter().find(|(_, t)| t.x == tile.x && t.y == tile.y)
         {
-            // If the tile is not soil and the texture or rotation is different, replace it
+            // If the tile is not soil and the texture, rotation or leaf is different, replace it
             if !tile.is_soil()
-                && (tile_c.texture_index != tile.texture_index || tile_c.rotation != tile.rotation)
+                && (tile_c.texture_index != tile.texture_index
+                    || tile_c.rotation != tile.rotation
+                    || tile_c.leaf != tile.leaf)
             {
                 commands.entity(tile_e).despawn_recursive();
 

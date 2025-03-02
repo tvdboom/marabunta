@@ -15,7 +15,7 @@ pub struct AntHealthCmp;
 #[derive(Component)]
 pub struct LeafCarryCmp;
 
-#[derive(EnumIter, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Ant {
     BlackAnt,
     BlackBullet,
@@ -125,6 +125,9 @@ pub struct AntCmp {
     /// Z-score above the base ant's default z-score (0.0-0.9)
     pub z_score: f32,
 
+    /// Food necessary to spawn the ant
+    pub price: f32,
+
     /// Current health
     pub health: f32,
 
@@ -162,6 +165,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.03,
                 z_score: 0.1,
+                price: 30.,
                 health: 10.,
                 max_health: 10.,
                 speed: 20.,
@@ -178,6 +182,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.03,
                 z_score: 0.2,
+                price: 100.,
                 health: 10.,
                 max_health: 10.,
                 speed: 30.,
@@ -194,6 +199,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.04,
                 z_score: 0.5,
+                price: 150.,
                 health: 50.,
                 max_health: 50.,
                 speed: 15.,
@@ -210,6 +216,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.06,
                 z_score: 0.9,
+                price: 1000.,
                 health: 1000.,
                 max_health: 1000.,
                 speed: 20.,
@@ -226,6 +233,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.04,
                 z_score: 0.6,
+                price: 200.,
                 health: 50.,
                 max_health: 50.,
                 speed: 20.,
@@ -242,6 +250,7 @@ impl AntCmp {
                 owner: id,
                 scale: 0.05,
                 z_score: 0.7,
+                price: 250.,
                 health: 100.,
                 max_health: 100.,
                 speed: 15.,

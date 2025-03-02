@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use crate::core::ants::components::*;
 use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
 use crate::core::ants::utils::walk;
@@ -16,6 +15,7 @@ use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
 use rand::{rng, Rng};
+use std::f32::consts::PI;
 use std::mem::discriminant;
 use strum::IntoEnumIterator;
 
@@ -81,33 +81,35 @@ pub fn resolve_harvesting(
     {
         let current_loc = map.get_loc(&ant_t.translation);
 
-        if let Some(leaf) = map
-            .get_tile_mut_from_coord(&ant_t.translation)
-            .unwrap()
-            .leaf
-            .as_mut()
-            .filter(|l| l.quantity > 0.)
-        {
-            // Turn towards leaf
-            let d = -ant_t.translation + Map::get_coord_from_xy(current_loc.x, current_loc.y).extend(ant_t.translation.z);
-            ant_t.rotation = ant_t.rotation.rotate_towards(
-                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                2. * game_settings.speed * time.delta_secs(),
-            );
+        if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
+            if let Some(ref mut leaf) = &mut tile.leaf {
+                // Turn towards leaf
+                let d = -ant_t.translation
+                    + Map::get_coord_from_xy(current_loc.x, current_loc.y)
+                        .extend(ant_t.translation.z);
+                ant_t.rotation = ant_t.rotation.rotate_towards(
+                    Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+                    2. * game_settings.speed * time.delta_secs(),
+                );
 
-            let carry =
-                (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
+                let carry =
+                    (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
 
-            if ant.carry + carry > ant.max_carry {
-                ant.carry = ant.max_carry;
-                leaf.quantity -= ant.max_carry - ant.carry;
-                ant.action = Action::Idle;
+                if ant.carry + carry > ant.max_carry {
+                    ant.carry = ant.max_carry;
+                    leaf.quantity -= ant.max_carry - ant.carry;
+                    ant.action = Action::Idle;
+                } else {
+                    ant.carry += carry;
+                    leaf.quantity -= carry;
+                }
+
+                if leaf.quantity == 0. {
+                    tile.leaf = None;
+                }
             } else {
-                ant.carry += carry;
-                leaf.quantity -= carry;
+                ant.action = Action::Idle;
             }
-        } else {
-            ant.action = Action::Idle;
         }
     }
 }
@@ -212,7 +214,10 @@ pub fn resolve_action_ants(
                     timer.tick(scale_duration(time.delta(), game_settings.speed));
 
                     if timer.just_finished() {
-                        despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
+                        despawn_ant_ev.send(DespawnAntEv {
+                            ant: ant.clone(),
+                            entity: ant_e,
+                        });
                     }
                 }
             }
@@ -305,7 +310,12 @@ pub fn resolve_action_ants(
             },
             Action::TargetedWalk(id) => {
                 if let Some((target_t, target_a)) = cloned_query.iter().find(|(_, a)| a.id == id) {
-                    if !collision(&ant_t.translation, &ant.scaled_size(), &target_t.translation, &target_a.scaled_size()) {
+                    if !collision(
+                        &ant_t.translation,
+                        &ant.scaled_size(),
+                        &target_t.translation,
+                        &target_a.scaled_size(),
+                    ) {
                         let target_loc = map.get_loc(&target_t.translation);
                         walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
                     } else {
@@ -486,11 +496,17 @@ pub fn update_vision(
                 *ant_t = *t;
             } else {
                 // The ant is no longer visible, despawn it
-                despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
+                despawn_ant_ev.send(DespawnAntEv {
+                    ant: ant.clone(),
+                    entity: ant_e,
+                });
             }
         } else {
             // The ant is no longer in the population (died), despawn it
-            despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
+            despawn_ant_ev.send(DespawnAntEv {
+                ant: ant.clone(),
+                entity: ant_e,
+            });
         }
     }
 

@@ -1,7 +1,7 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::core::map::systems::create_map;
-use crate::core::menu::utils::{add_text, recolor};
+use crate::core::map::ui::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::player::Player;
 use crate::core::resources::{GameMode, GameSettings};
@@ -157,6 +157,6 @@ pub fn spawn_menu_button(parent: &mut ChildBuilder, btn: MenuBtn, assets: &Local
         .observe(recolor::<Pointer<Up>>(HOVERED_BUTTON))
         .observe(on_click_menu_button)
         .with_children(|parent| {
-            parent.spawn(add_text(btn.to_title(), assets));
+            parent.spawn(add_text(btn.to_title(), 40., assets));
         });
 }
