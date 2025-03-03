@@ -47,7 +47,7 @@ pub enum Behavior {
     Wander,
 }
 
-#[derive(EnumIter, Debug)]
+#[derive(EnumIter, Debug, Eq, PartialEq)]
 pub enum Animation {
     Bite,
     Die,
@@ -70,6 +70,18 @@ impl Animation {
     pub fn interval(&self) -> f32 {
         1. / self.frames() as f32
     }
+}
+
+#[derive(Component)]
+pub struct AnimationCmp {
+    /// Animation to run
+    pub animation: Animation,
+
+    /// Repeating timer that determines the time interval between frames
+    pub timer: Timer,
+
+    /// Index of the last frame in the animation
+    pub last_index: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -95,18 +107,6 @@ impl Action {
     }
 }
 
-#[derive(Component)]
-pub struct AnimationCmp {
-    /// Action corresponding to this animation
-    pub action: Action,
-
-    /// Repeating timer that determines the time interval between frames
-    pub timer: Timer,
-
-    /// Index of the last frame in the animation
-    pub last_index: usize,
-}
-
 #[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct AntCmp {
     /// Unique id across players (not entity)
@@ -114,6 +114,9 @@ pub struct AntCmp {
 
     /// Ant type
     pub kind: Ant,
+
+    /// Key used to create this ant
+    pub key: Option<KeyCode>,
 
     /// Player id of the ant's owner
     pub owner: ClientId,
@@ -162,6 +165,7 @@ impl AntCmp {
             Ant::BlackAnt => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::BlackAnt,
+                key: Some(KeyCode::KeyZ),
                 owner: id,
                 scale: 0.03,
                 z_score: 0.1,
@@ -179,6 +183,7 @@ impl AntCmp {
             Ant::BlackBullet => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::BlackBullet,
+                key: Some(KeyCode::KeyX),
                 owner: id,
                 scale: 0.03,
                 z_score: 0.2,
@@ -196,6 +201,7 @@ impl AntCmp {
             Ant::BlackSoldier => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::BlackSoldier,
+                key: Some(KeyCode::KeyC),
                 owner: id,
                 scale: 0.04,
                 z_score: 0.5,
@@ -213,6 +219,7 @@ impl AntCmp {
             Ant::BlackQueen => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::BlackQueen,
+                key: None,
                 owner: id,
                 scale: 0.06,
                 z_score: 0.9,
@@ -230,6 +237,7 @@ impl AntCmp {
             Ant::GoldTail => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::GoldTail,
+                key: Some(KeyCode::KeyV),
                 owner: id,
                 scale: 0.04,
                 z_score: 0.6,
@@ -247,6 +255,7 @@ impl AntCmp {
             Ant::TrapJaw => Self {
                 id: Uuid::new_v4(),
                 kind: Ant::TrapJaw,
+                key: Some(KeyCode::KeyB),
                 owner: id,
                 scale: 0.05,
                 z_score: 0.7,

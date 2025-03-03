@@ -10,12 +10,12 @@ pub fn walk(
     ant: &AntCmp,
     ant_t: &mut Transform,
     target_loc: &Loc,
-    map: &Map,
+    map: &mut ResMut<Map>,
     game_settings: &Res<GameSettings>,
     time: &Res<Time>,
 ) {
     let current_loc = map.get_loc(&ant_t.translation);
-    if let Some(mut path) = map.shortest_path(&current_loc, target_loc) {
+    if let Some(mut path) = map.shortest_path(&current_loc, target_loc).clone() {
         if let Some(next_loc) = path.split_off(1).first() {
             // Calculate the distance vector to the next location
             let target_pos = Map::get_coord_from_loc(next_loc).extend(ant_t.translation.z);

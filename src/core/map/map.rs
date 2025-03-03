@@ -2,9 +2,10 @@ use crate::core::constants::{MAX_TERRAFORM_POINTS, TILE_LEAF_CHANCE};
 use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::{Leaf, Tile};
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
 use bevy::utils::HashSet;
 use bevy_renet::renet::ClientId;
-use pathfinding::prelude::bfs;
+use pathfinding::prelude::astar;
 use rand;
 use rand::prelude::IndexedRandom;
 use rand::{rng, Rng};
@@ -14,6 +15,7 @@ use strum::IntoEnumIterator;
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Map {
     pub tiles: Vec<Tile>,
+    pub paths: HashMap<(Loc, Loc), Option<Vec<Loc>>>,
 }
 
 /// The default implementation is used as starting
@@ -74,6 +76,7 @@ impl Map {
             tiles: (0..Self::MAP_SIZE.y)
                 .flat_map(|y| (0..Self::MAP_SIZE.x).map(move |x| Tile::soil(x, y)))
                 .collect(),
+            paths: HashMap::new(),
         }
     }
 
@@ -355,18 +358,37 @@ impl Map {
             .collect()
     }
 
-    pub fn shortest_path(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
-        // Allow the last loc to be a wall
-        bfs(
-            start,
-            |loc| {
-                self.get_neighbors(loc)
-                    .into_iter()
-                    .filter(|l| self.is_walkable(l) || l == end)
-                    .collect::<Vec<_>>()
-            },
-            |loc| loc == end,
-        )
+    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> &Option<Vec<Loc>> {
+        if !self.paths.contains_key(&(*start, *end)) {
+            let path = astar(
+                start,
+                |loc| {
+                    self.get_neighbors(loc)
+                        .into_iter()
+                        .filter(|l| self.is_walkable(l) || l == end) // Allow the last loc to be a wall
+                        .map(|n| (n, 1))
+                        .collect::<Vec<_>>()
+                },
+                |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
+                |loc| loc == end,
+            ).map(|(path, _)| path);
+
+            if let Some(full_path) = &path {
+                for i in 0..full_path.len() {
+                    for j in i + 1..full_path.len() {
+                        let sub_start = full_path[i];
+                        let sub_end = full_path[j];
+                        let sub_path = full_path[i..=j].to_vec();
+                        let rev_sub_path = sub_path.iter().rev().cloned().collect::<Vec<_>>();
+
+                        self.paths.insert((sub_start, sub_end), Some(sub_path.clone()));
+                        self.paths.insert((sub_end, sub_start), Some(rev_sub_path));
+                    }
+                }
+            }
+        }
+
+        self.paths.get(&(*start, *end)).unwrap()
     }
 
     // Map updates ============================================================
@@ -435,7 +457,10 @@ impl Map {
         let mut new_t = self.find_tile(tile, directions, id);
 
         // Add (possibly) a leaf on newly dug tiles
-        if new_t.leaf.is_none() && !tile.visible.contains(&id) && rng().random::<f32>() < TILE_LEAF_CHANCE {
+        if new_t.leaf.is_none()
+            && !tile.visible.contains(&id)
+            && rng().random::<f32>() < TILE_LEAF_CHANCE
+        {
             new_t.leaf = Some(Leaf::new())
         }
 

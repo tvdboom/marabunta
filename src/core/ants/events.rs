@@ -1,6 +1,4 @@
-use crate::core::ants::components::{
-    AnimationCmp, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp,
-};
+use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::systems::MapCmp;
@@ -11,6 +9,12 @@ use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
+use bevy_kira_audio::{Audio, AudioControl};
+
+#[derive(Event)]
+pub struct QueueAntEv {
+    pub ant: Ant,
+}
 
 #[derive(Event)]
 pub struct SpawnAntEv {
@@ -22,6 +26,27 @@ pub struct SpawnAntEv {
 pub struct DespawnAntEv {
     pub ant: AntCmp,
     pub entity: Entity,
+}
+
+pub fn queue_ants(
+    mut queue_ant_ev: EventReader<QueueAntEv>,
+    mut player: ResMut<Player>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
+) {
+    for ev in queue_ant_ev.read() {
+        let ant_c = AntCmp::new(&ev.ant, player.id);
+
+        if ant_c.key.is_some() {
+            if player.food >= ant_c.price {
+                player.food -= ant_c.price;
+                player.queue.push(ant_c.kind);
+                audio.play(assets.audio("button"));
+            } else {
+                audio.play(assets.audio("error"));
+            }
+        }
+    }
 }
 
 pub fn spawn_ants(
@@ -50,7 +75,7 @@ pub fn spawn_ants(
                     ..default()
                 },
                 AnimationCmp {
-                    action: ant.action.clone(),
+                    animation: ant.action.animation(),
                     timer: Timer::from_seconds(
                         ant.action.animation().interval(),
                         TimerMode::Repeating,

@@ -26,7 +26,7 @@ impl Default for Leaf {
 impl Leaf {
     pub fn new() -> Self {
         Self {
-            image: format!("leaf{}", rng().random_range(1..=5)),
+            image: format!("leaf{}", rng().random_range(2..=5)),
             quantity: rng().random_range(200.0..500.),
         }
     }

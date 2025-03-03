@@ -27,7 +27,7 @@ impl Default for Player {
         Self {
             id: 0,
             food: 100.,
-            colony: HashMap::from([(Ant::BlackQueen, 1)]),
+            colony: HashMap::new(),
             queue: vec![Ant::BlackAnt, Ant::BlackBullet, Ant::BlackBullet],
         }
     }

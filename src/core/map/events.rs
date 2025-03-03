@@ -78,6 +78,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
 pub fn spawn_tile(
     mut commands: Commands,
     tile_q: Query<(Entity, &Tile)>,
+    mut map: ResMut<Map>,
     mut spawn_tile_ev: EventReader<SpawnTileEv>,
     assets: Local<WorldAssets>,
 ) {
@@ -89,9 +90,19 @@ pub fn spawn_tile(
             if !tile.is_soil()
                 && (tile_c.texture_index != tile.texture_index
                     || tile_c.rotation != tile.rotation
-                    || (tile_c.leaf.is_some() && tile.leaf.is_none()) || (tile_c.leaf.is_none() && tile.leaf.is_some()))
+                    || (tile_c.leaf.is_some() && tile.leaf.is_none())
+                    || (tile_c.leaf.is_none() && tile.leaf.is_some()))
             {
+                // Despawn the tile
                 commands.entity(tile_e).despawn_recursive();
+
+                // Delete the cache entries from the map that contain this tile
+                map.paths.retain(|_, path| {
+                    match path {
+                        Some(p) => !p.iter().any(|loc| loc.x == tile.x && loc.y == tile.y),
+                        None => true,
+                    }
+                });
 
                 _spawn_tile(
                     &mut commands,

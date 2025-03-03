@@ -16,7 +16,6 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
-use std::mem::discriminant;
 use strum::IntoEnumIterator;
 
 pub fn animate_ants(
@@ -26,7 +25,7 @@ pub fn animate_ants(
     time: Res<Time>,
 ) {
     for (mut sprite, ant, mut animation) in ant_q.iter_mut() {
-        if discriminant(&ant.action) == discriminant(&animation.action) {
+        if ant.action.animation() == animation.animation {
             // If the ant's action matches the animation, continue the frames
             animation
                 .timer
@@ -60,7 +59,7 @@ pub fn animate_ants(
             };
 
             *animation = AnimationCmp {
-                action: ant.action.clone(),
+                animation: ant.action.animation(),
                 timer: Timer::from_seconds(ant.action.animation().interval(), TimerMode::Repeating),
                 last_index: atlas.last_index,
             };
@@ -69,29 +68,18 @@ pub fn animate_ants(
 }
 
 pub fn resolve_harvesting(
-    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
 ) {
-    for (mut ant_t, mut ant) in ant_q
+    for (ant_t, mut ant) in ant_q
         .iter_mut()
         .filter(|(_, a)| a.owner == player.id && a.action == Action::Harvest)
     {
-        let current_loc = map.get_loc(&ant_t.translation);
-
         if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
             if let Some(ref mut leaf) = &mut tile.leaf {
-                // Turn towards leaf
-                let d = -ant_t.translation
-                    + Map::get_coord_from_xy(current_loc.x, current_loc.y)
-                        .extend(ant_t.translation.z);
-                ant_t.rotation = ant_t.rotation.rotate_towards(
-                    Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                    2. * game_settings.speed * time.delta_secs(),
-                );
-
                 let carry =
                     (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
 
@@ -195,7 +183,7 @@ pub fn resolve_action_ants(
     mut commands: Commands,
     mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-    map: Res<Map>,
+    mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     mut player: ResMut<Player>,
     assets: Local<WorldAssets>,
@@ -317,7 +305,7 @@ pub fn resolve_action_ants(
                         &target_a.scaled_size(),
                     ) {
                         let target_loc = map.get_loc(&target_t.translation);
-                        walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
+                        walk(&ant, &mut ant_t, &target_loc, &mut map, &game_settings, &time);
                     } else {
                         // Ant reached the target loc => continue with default action
                         ant.action = match ant.behavior {
@@ -338,7 +326,7 @@ pub fn resolve_action_ants(
             Action::Walk(target_loc) => {
                 let current_loc = map.get_loc(&ant_t.translation);
                 if current_loc != target_loc {
-                    walk(&ant, &mut ant_t, &target_loc, &map, &game_settings, &time);
+                    walk(&ant, &mut ant_t, &target_loc, &mut map, &game_settings, &time);
                 } else {
                     // Ant reached the target loc => continue with default action
                     ant.action = match ant.behavior {
@@ -359,14 +347,30 @@ pub fn resolve_action_ants(
                             }
                         }
                         Behavior::Harvest => {
+                            // The leaf could have been harvested completely while getting there
                             if map
                                 .get_tile(current_loc.x, current_loc.y)
                                 .unwrap()
                                 .leaf
                                 .is_some()
                             {
-                                // The leaf could have been harvested completely while getting there
-                                Action::Harvest
+                                // Ant reached the leaf => turn towards it
+                                let current_loc = map.get_loc(&ant_t.translation);
+                                let d = -ant_t.translation
+                                    + Map::get_coord_from_xy(current_loc.x, current_loc.y)
+                                        .extend(ant_t.translation.z);
+
+                                let rotation = ant_t.rotation.rotate_towards(
+                                    Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
+                                    3. * game_settings.speed * time.delta_secs(),
+                                );
+
+                                if ant_t.rotation != rotation {
+                                    ant_t.rotation = rotation;
+                                    Action::Walk(target_loc)
+                                } else {
+                                    Action::Harvest
+                                }
                             } else {
                                 Action::Idle
                             }

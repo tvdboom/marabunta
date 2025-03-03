@@ -13,12 +13,13 @@ mod states;
 mod systems;
 mod utils;
 
-use crate::core::ants::events::{despawn_ants, spawn_ants, DespawnAntEv, SpawnAntEv};
+use crate::core::ants::events::{despawn_ants, queue_ants, spawn_ants, DespawnAntEv, QueueAntEv, SpawnAntEv};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
+use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_in_game_menu, setup_menu};
 use crate::core::network::*;
@@ -28,7 +29,6 @@ use crate::core::systems::{check_keys, initialize_game};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
-use map::ui::systems::{draw_ui, update_ui};
 
 pub struct GamePlugin;
 
@@ -48,6 +48,7 @@ impl Plugin for GamePlugin {
             // Events
             .add_event::<ToggleMusicEv>()
             .add_event::<SpawnTileEv>()
+            .add_event::<QueueAntEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             // Sets
@@ -109,7 +110,10 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map, draw_ui),
         )
-        .add_systems(Update, update_ui.in_set(InGameSet))
+        .add_systems(
+            Update,
+            (animate_ui, update_ui).in_set(InGameSet).in_set(RunningSet),
+        )
         .add_systems(
             OnExit(AppState::Game),
             (despawn::<MapCmp>, initialize_game, draw_map).chain(),
@@ -138,7 +142,7 @@ impl Plugin for GamePlugin {
         )
         .add_systems(
             PostUpdate,
-            (spawn_tile, spawn_ants, despawn_ants).in_set(RunningSet),
+            (spawn_tile, queue_ants, spawn_ants, despawn_ants).in_set(RunningSet),
         );
     }
 }
