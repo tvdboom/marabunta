@@ -1,8 +1,10 @@
+use crate::core::constants::DEFAULT_WALK_SPEED;
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
 
@@ -15,29 +17,6 @@ pub struct AntHealthCmp;
 #[derive(Component)]
 pub struct LeafCarryCmp;
 
-#[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Ant {
-    BlackQueen,
-    BlackAnt,
-    BlackBullet,
-    BlackSoldier,
-    GoldTail,
-    TrapJaw,
-}
-
-impl Ant {
-    pub fn size(&self) -> UVec2 {
-        match self {
-            Ant::BlackQueen => UVec2::new(307, 525),
-            Ant::BlackAnt => UVec2::new(307, 438),
-            Ant::BlackBullet => UVec2::new(307, 474),
-            Ant::BlackSoldier => UVec2::new(367, 508),
-            Ant::GoldTail => UVec2::new(466, 623),
-            Ant::TrapJaw => UVec2::new(513, 577),
-        }
-    }
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Behavior {
     Attack,
@@ -47,28 +26,81 @@ pub enum Behavior {
     Wander,
 }
 
-#[derive(EnumIter, Debug, Eq, PartialEq)]
+#[derive(EnumIter, Clone, Debug, Eq, PartialEq)]
 pub enum Animation {
     Bite,
     Die,
     LookAround,
     Idle,
+    Pinch,
+    Sting,
     Walk,
+    WalkPincing,
 }
 
-impl Animation {
-    pub fn frames(&self) -> u32 {
-        match &self {
-            Animation::Bite => 8,
-            Animation::Die => 10,
-            Animation::LookAround => 20,
-            Animation::Idle => 20,
-            Animation::Walk => 8,
+#[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub enum Ant {
+    BlackQueen,
+    BlackAnt,
+    BlackBullet,
+    BlackSoldier,
+    GoldTail,
+    TrapJaw,
+    BlackScorpion,
+}
+
+impl Ant {
+    pub fn is_monster(&self) -> bool {
+        match self {
+            Ant::BlackScorpion => true,
+            _ => false,
         }
     }
 
-    pub fn interval(&self) -> f32 {
-        1. / self.frames() as f32
+    pub fn size(&self) -> UVec2 {
+        match self {
+            Ant::BlackQueen => UVec2::new(307, 525),
+            Ant::BlackAnt => UVec2::new(307, 438),
+            Ant::BlackBullet => UVec2::new(307, 474),
+            Ant::BlackSoldier => UVec2::new(367, 508),
+            Ant::GoldTail => UVec2::new(466, 623),
+            Ant::TrapJaw => UVec2::new(513, 577),
+            Ant::BlackScorpion => UVec2::new(675, 785),
+        }
+    }
+
+    pub fn animations(&self) -> Vec<Animation> {
+        let exclude_animations = match self {
+            Ant::BlackScorpion => vec![Animation::Bite, Animation::LookAround],
+            _ => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
+        };
+
+        Animation::iter()
+            .filter(|a| !exclude_animations.contains(a))
+            .collect()
+    }
+
+    pub fn frames(&self, animation: &Animation) -> u32 {
+        match self {
+            Ant::BlackScorpion => match animation {
+                Animation::Bite => 8,
+                Animation::Die => 5,
+                Animation::Idle => 24,
+                Animation::Pinch | Animation::Sting => 10,
+                Animation::Walk | Animation::WalkPincing => 16,
+                _ => unreachable!(),
+            },
+            _ => match animation {
+                Animation::Bite | Animation::Walk => 8,
+                Animation::Die => 10,
+                Animation::LookAround | Animation::Idle => 20,
+                _ => unreachable!(),
+            },
+        }
+    }
+
+    pub fn interval(&self, animation: &Animation) -> f32 {
+        1. / self.frames(animation) as f32
     }
 }
 
@@ -91,6 +123,7 @@ pub enum Action {
     Dig(Tile), // Tile to dig
     Harvest,
     Idle,
+    Pinch,
     TargetedWalk(Uuid), // Id of the target to walk to
     Walk(Loc),          // Location to walk to
 }
@@ -102,6 +135,7 @@ impl Action {
             Action::Die => Animation::Die,
             Action::Harvest | Action::Dig(_) => Animation::LookAround,
             Action::Idle => Animation::Idle,
+            Action::Pinch => Animation::Pinch,
             Action::TargetedWalk(_) | Action::Walk(_) => Animation::Walk,
         }
     }
@@ -159,47 +193,61 @@ pub struct AntCmp {
     pub timer: Option<Timer>,
 }
 
+impl Default for AntCmp {
+    fn default() -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            kind: Ant::BlackAnt,
+            key: None,
+            owner: 0,
+            scale: 0.03,
+            z_score: 0.9,
+            price: 0.,
+            health: 0.,
+            max_health: 0.,
+            speed: DEFAULT_WALK_SPEED,
+            behavior: Behavior::Attack,
+            action: Action::Idle,
+            hatch_time: 0.,
+            carry: 0.,
+            max_carry: 10.,
+            timer: None,
+        }
+    }
+}
+
 impl AntCmp {
     pub fn new(kind: &Ant, id: ClientId) -> Self {
         match kind {
             Ant::BlackAnt => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::BlackAnt,
                 key: Some(KeyCode::KeyZ),
                 owner: id,
-                scale: 0.03,
                 z_score: 0.1,
                 price: 30.,
                 health: 10.,
                 max_health: 10.,
-                speed: 20.,
                 behavior: Behavior::Harvest,
                 action: Action::Idle,
                 hatch_time: 5.,
-                carry: 0.,
                 max_carry: 30.,
-                timer: None,
+                ..default()
             },
             Ant::BlackBullet => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::BlackBullet,
                 key: Some(KeyCode::KeyX),
                 owner: id,
-                scale: 0.03,
                 z_score: 0.2,
                 price: 100.,
                 health: 10.,
                 max_health: 10.,
-                speed: 30.,
+                speed: DEFAULT_WALK_SPEED + 10.,
                 behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 10.,
-                carry: 0.,
-                max_carry: 10.,
-                timer: None,
+                ..default()
             },
             Ant::BlackSoldier => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::BlackSoldier,
                 key: Some(KeyCode::KeyC),
                 owner: id,
@@ -208,34 +256,26 @@ impl AntCmp {
                 price: 150.,
                 health: 50.,
                 max_health: 50.,
-                speed: 15.,
+                speed: DEFAULT_WALK_SPEED + 5.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 15.,
-                carry: 0.,
-                max_carry: 10.,
-                timer: None,
+                ..default()
             },
             Ant::BlackQueen => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::BlackQueen,
-                key: None,
                 owner: id,
                 scale: 0.06,
-                z_score: 0.9,
                 price: 1000.,
                 health: 1000.,
                 max_health: 1000.,
-                speed: 20.,
+                speed: DEFAULT_WALK_SPEED - 10.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
-                carry: 0.,
-                max_carry: 1000.,
-                timer: None,
+                ..default()
             },
             Ant::GoldTail => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::GoldTail,
                 key: Some(KeyCode::KeyV),
                 owner: id,
@@ -244,16 +284,13 @@ impl AntCmp {
                 price: 200.,
                 health: 50.,
                 max_health: 50.,
-                speed: 20.,
+                speed: DEFAULT_WALK_SPEED,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 12.,
-                carry: 0.,
-                max_carry: 10.,
-                timer: None,
+                ..default()
             },
             Ant::TrapJaw => Self {
-                id: Uuid::new_v4(),
                 kind: Ant::TrapJaw,
                 key: Some(KeyCode::KeyB),
                 owner: id,
@@ -262,13 +299,22 @@ impl AntCmp {
                 price: 250.,
                 health: 100.,
                 max_health: 100.,
-                speed: 15.,
+                speed: DEFAULT_WALK_SPEED - 5.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 20.,
-                carry: 0.,
-                max_carry: 10.,
-                timer: None,
+                ..default()
+            },
+            Ant::BlackScorpion => Self {
+                kind: Ant::BlackScorpion,
+                owner: id,
+                scale: 0.05,
+                health: 100.,
+                max_health: 100.,
+                speed: DEFAULT_WALK_SPEED - 5.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
             },
         }
     }

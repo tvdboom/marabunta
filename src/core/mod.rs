@@ -13,7 +13,9 @@ mod states;
 mod systems;
 mod utils;
 
-use crate::core::ants::events::{despawn_ants, queue_ants, spawn_ants, DespawnAntEv, QueueAntEv, SpawnAntEv};
+use crate::core::ants::events::{
+    despawn_ants, queue_ants, spawn_ants, DespawnAntEv, QueueAntEv, SpawnAntEv,
+};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;

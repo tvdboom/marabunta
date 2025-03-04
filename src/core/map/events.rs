@@ -97,12 +97,7 @@ pub fn spawn_tile(
                 commands.entity(tile_e).despawn_recursive();
 
                 // Delete the cache entries from the map that contain this tile
-                map.paths.retain(|_, path| {
-                    match path {
-                        Some(p) => !p.iter().any(|loc| loc.x == tile.x && loc.y == tile.y),
-                        None => true,
-                    }
-                });
+                map.cache.invalidate(tile);
 
                 _spawn_tile(
                     &mut commands,

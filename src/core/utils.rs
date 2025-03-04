@@ -15,11 +15,11 @@ pub fn scale_duration(duration: Duration, scale: f32) -> Duration {
 
 /// AABB collision detection
 pub fn collision(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
-    let p1_min = pos1 - Vec3::new(size1.x / 2., size1.y / 2., 0.);
-    let p1_max = pos1 + Vec3::new(size1.x / 2., size1.y / 2., 0.);
+    let p1_min = pos1 - Vec3::new(size1.x / 4., size1.y / 4., 0.);
+    let p1_max = pos1 + Vec3::new(size1.x / 4., size1.y / 4., 0.);
 
-    let p2_min = pos2 - Vec3::new(size2.x / 2., size2.y / 2., 0.);
-    let p2_max = pos2 + Vec3::new(size2.x / 2., size2.y / 2., 0.);
+    let p2_min = pos2 - Vec3::new(size2.x / 4., size2.y / 4., 0.);
+    let p2_max = pos2 + Vec3::new(size2.x / 4., size2.y / 4., 0.);
 
     p1_max.x > p2_min.x && p1_min.x < p2_max.x && p1_max.y > p2_min.y && p1_min.y < p2_max.y
 }

@@ -1,4 +1,5 @@
 use crate::core::ants::components::{Animation, AnimationCmp, Ant, AntCmp};
+use crate::core::ants::events::QueueAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::ui::utils::add_text;
@@ -6,7 +7,6 @@ use crate::core::player::Player;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use strum::IntoEnumIterator;
-use crate::core::ants::events::QueueAntEv;
 
 #[derive(Component)]
 pub struct FoodLabelCmp;
@@ -54,7 +54,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             MapCmp,
         ))
         .with_children(|parent| {
-            for (i, ant) in Ant::iter().enumerate() {
+            for (i, ant) in Ant::iter().filter(|a| !a.is_monster()).enumerate() {
                 let ant_c = AntCmp::new(&ant, player.id);
                 let scale = match i {
                     0..3 => 1.,
@@ -96,7 +96,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 AnimationCmp {
                                     animation: Animation::Idle,
                                     timer: Timer::from_seconds(
-                                        Animation::Idle.interval() * 3.,
+                                        ant.interval(&Animation::Idle) * 3.,
                                         TimerMode::Repeating,
                                     ),
                                     last_index: atlas.last_index,
@@ -193,5 +193,7 @@ pub fn on_click_ui_button(
     btn_q: Query<&ColonyButtonCmp>,
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
-    queue_ant_ev.send(QueueAntEv { ant: btn_q.get(click.entity()).unwrap().0.clone() });
+    queue_ant_ev.send(QueueAntEv {
+        ant: btn_q.get(click.entity()).unwrap().0.clone(),
+    });
 }

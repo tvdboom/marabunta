@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Animation, Ant};
+use crate::core::ants::components::Ant;
 use crate::utils::NameFromEnum;
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::*;
@@ -117,17 +117,7 @@ impl FromWorld for WorldAssets {
         ]);
 
         for ant in Ant::iter() {
-            // Load ant's base image
-            images.insert(
-                Box::leak(Box::new(ant.to_snake())).as_str(),
-                assets.load(&format!(
-                    "images/ants/{}/{}.png",
-                    ant.to_snake(),
-                    ant.to_snake()
-                )),
-            );
-
-            for animation in Animation::iter() {
+            for animation in ant.animations() {
                 let name = Box::leak(Box::new(format!(
                     "{}_{}",
                     ant.to_snake(),
@@ -160,7 +150,7 @@ impl FromWorld for WorldAssets {
         let mut atlas = HashMap::new();
 
         for ant in Ant::iter() {
-            for animation in Animation::iter() {
+            for animation in ant.animations() {
                 let name = Box::leak(Box::new(format!(
                     "{}_{}",
                     ant.to_snake(),
@@ -168,8 +158,13 @@ impl FromWorld for WorldAssets {
                 )))
                 .as_str();
 
-                let layout =
-                    TextureAtlasLayout::from_grid(ant.size(), animation.frames(), 1, None, None);
+                let layout = TextureAtlasLayout::from_grid(
+                    ant.size(),
+                    ant.frames(&animation),
+                    1,
+                    None,
+                    None,
+                );
 
                 atlas.insert(
                     name,
@@ -179,7 +174,7 @@ impl FromWorld for WorldAssets {
                             layout: texture.add(layout),
                             index: 0,
                         },
-                        last_index: animation.frames() as usize - 1,
+                        last_index: ant.frames(&animation) as usize - 1,
                     },
                 );
             }

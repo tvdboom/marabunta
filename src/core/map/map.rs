@@ -12,10 +12,62 @@ use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct PathCache {
+    /// Cache the path between two tiles
+    pub paths: HashMap<((u32, u32), (u32, u32)), Vec<Loc>>,
+
+    /// Cache the tiles that contain a location
+    /// This is used for efficient removal of cache entries
+    pub nodes: HashMap<(u32, u32), Vec<((u32, u32), (u32, u32))>>,
+}
+
+impl PathCache {
+    pub fn new() -> Self {
+        Self {
+            paths: HashMap::new(),
+            nodes: HashMap::new(),
+        }
+    }
+
+    pub fn get(&self, start: &Loc, end: &Loc) -> Option<&Vec<Loc>> {
+        self.paths.get(&((start.x, start.y), (end.x, end.y)))
+    }
+
+    pub fn contains_key(&self, start: &Loc, end: &Loc) -> bool {
+        self.paths
+            .contains_key(&((start.x, start.y), (end.x, end.y)))
+    }
+
+    pub fn insert(&mut self, start: Loc, end: Loc, path: Vec<Loc>) {
+        let key = ((start.x, start.y), (end.x, end.y));
+        for loc in path.iter() {
+            self.nodes
+                .entry((loc.x, loc.y))
+                .or_insert_with(Vec::new)
+                .push(key);
+        }
+        self.paths.insert(key, path);
+    }
+
+    pub fn invalidate(&mut self, tile: &Tile) {
+        if let Some(keys) = self.nodes.get(&(tile.x, tile.y)) {
+            for key in keys.iter() {
+                self.paths.remove(key);
+            }
+        }
+    }
+
+    pub fn update(&mut self, other: PathCache) {
+        self.paths.extend(other.paths);
+        self.nodes.extend(other.nodes);
+    }
+}
+
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Map {
     pub tiles: Vec<Tile>,
-    pub paths: HashMap<(Loc, Loc), Option<Vec<Loc>>>,
+    pub cache: PathCache,
 }
 
 /// The default implementation is used as starting
@@ -76,7 +128,7 @@ impl Map {
             tiles: (0..Self::MAP_SIZE.y)
                 .flat_map(|y| (0..Self::MAP_SIZE.x).map(move |x| Tile::soil(x, y)))
                 .collect(),
-            paths: HashMap::new(),
+            cache: PathCache::new(),
         }
     }
 
@@ -358,37 +410,61 @@ impl Map {
             .collect()
     }
 
-    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> &Option<Vec<Loc>> {
-        if !self.paths.contains_key(&(*start, *end)) {
-            let path = astar(
-                start,
-                |loc| {
-                    self.get_neighbors(loc)
-                        .into_iter()
-                        .filter(|l| self.is_walkable(l) || l == end) // Allow the last loc to be a wall
-                        .map(|n| (n, 1))
-                        .collect::<Vec<_>>()
-                },
-                |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
-                |loc| loc == end,
-            ).map(|(path, _)| path);
+    /// Use A* to find the shortest path between two locations
+    fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
+        astar(
+            start,
+            |loc| {
+                self.get_neighbors(loc)
+                    .into_iter()
+                    .filter(|l| self.is_walkable(l) || l == end) // Allow the last loc to be a wall
+                    .map(|n| (n, 1))
+                    .collect::<Vec<_>>()
+            },
+            |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
+            |loc| loc == end,
+        )
+        .map(|(path, _)| path)
+        .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
+    }
 
-            if let Some(full_path) = &path {
-                for i in 0..full_path.len() {
-                    for j in i + 1..full_path.len() {
-                        let sub_start = full_path[i];
-                        let sub_end = full_path[j];
-                        let sub_path = full_path[i..=j].to_vec();
-                        let rev_sub_path = sub_path.iter().rev().cloned().collect::<Vec<_>>();
-
-                        self.paths.insert((sub_start, sub_end), Some(sub_path.clone()));
-                        self.paths.insert((sub_end, sub_start), Some(rev_sub_path));
-                    }
-                }
-            }
+    /// Find the shortest path between two locations (using the cache if available)
+    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
+        // If within 2 tiles range, calculate the path directly
+        if (start.x as i32 - end.x as i32).abs() + (start.y as i32 - end.y as i32).abs() <= 2 {
+            return self.find_path(start, end);
         }
 
-        self.paths.get(&(*start, *end)).unwrap()
+        // Store the calculated path in the cache if not available
+        if !self.cache.contains_key(start, end) {
+            let path = self.find_path(start, end);
+            self.cache.insert(*start, *end, path.to_vec().clone());
+            self.cache
+                .insert(*end, *start, path.iter().rev().cloned().collect::<Vec<_>>());
+        }
+
+        // Use only the cached path excluding the first and last tile
+        let middle_tiles: Vec<Loc> = self
+            .cache
+            .get(start, end)
+            .unwrap()
+            .iter()
+            .skip_while(|l| (l.x == start.x && l.y == start.y) || (l.x == end.x && l.y == end.y))
+            .cloned()
+            .collect();
+
+        // Calculate a new path for the first and last tile only
+        let mut first_tile = self.find_path(start, middle_tiles.first().unwrap());
+        first_tile.pop();
+        let last_tile = self
+            .find_path(middle_tiles.last().unwrap(), end)
+            .split_off(1);
+
+        first_tile
+            .into_iter()
+            .chain(middle_tiles.into_iter())
+            .chain(last_tile.into_iter())
+            .collect()
     }
 
     // Map updates ============================================================
@@ -408,6 +484,8 @@ impl Map {
             .for_each(|(t, new_t)| {
                 *t = new_t;
             });
+
+        self.cache.update(new_map.cache);
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`

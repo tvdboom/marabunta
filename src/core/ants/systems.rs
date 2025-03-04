@@ -17,6 +17,7 @@ use bevy::utils::HashSet;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 use strum::IntoEnumIterator;
+use crate::core::map::utils::reveal_surrounding_tiles;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -24,16 +25,16 @@ pub fn animate_ants(
     assets: Local<WorldAssets>,
     time: Res<Time>,
 ) {
-    for (mut sprite, ant, mut animation) in ant_q.iter_mut() {
-        if ant.action.animation() == animation.animation {
+    for (mut sprite, ant, mut animation_c) in ant_q.iter_mut() {
+        if ant.action.animation() == animation_c.animation {
             // If the ant's action matches the animation, continue the frames
-            animation
+            animation_c
                 .timer
                 .tick(scale_duration(time.delta(), game_settings.speed));
 
-            if animation.timer.just_finished() {
+            if animation_c.timer.just_finished() {
                 if let Some(atlas) = &mut sprite.texture_atlas {
-                    atlas.index = if atlas.index == animation.last_index {
+                    atlas.index = if atlas.index == animation_c.last_index {
                         if ant.action == Action::Die {
                             atlas.index // Remain at last frame when dead
                         } else {
@@ -58,9 +59,16 @@ pub fn animate_ants(
                 ..default()
             };
 
-            *animation = AnimationCmp {
+            let animation = ant.action.animation();
+            let interval = if animation == Animation::Walk {
+                ant.kind.interval(&animation) * DEFAULT_WALK_SPEED / ant.speed
+            } else {
+                ant.kind.interval(&animation)
+            };
+
+            *animation_c = AnimationCmp {
                 animation: ant.action.animation(),
-                timer: Timer::from_seconds(ant.action.animation().interval(), TimerMode::Repeating),
+                timer: Timer::from_seconds(interval, TimerMode::Repeating),
                 last_index: atlas.last_index,
             };
         }
@@ -106,6 +114,7 @@ pub fn resolve_digging(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut tile_q: Query<&mut Tile>,
     mut map: ResMut<Map>,
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
@@ -119,37 +128,52 @@ pub fn resolve_digging(
             })
             .collect();
 
-        // Turn ants towards the direction they are digging
-        let mut directions = HashSet::new();
-        ants.iter_mut().for_each(|(t, _)| {
-            let d = map.get_loc(&t.translation).get_direction();
-            t.rotation = t.rotation.rotate_towards(
-                Quat::from_rotation_z(d.degrees()),
-                2. * game_settings.speed * time.delta_secs(),
-            );
-            directions.insert(d);
-        });
-
-        // Calculate the aggregate terraform progress
-        let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
-
-        if tile.terraform > terraform {
-            tile.terraform -= terraform;
-        } else {
-            map.find_and_replace_tile(&tile, &directions, player.id);
-
-            // Set digging ants onto a new task
-            ants.iter_mut().for_each(|(_, ant)| {
-                if rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
-                    ant.action = Action::Walk(
-                        map.random_dig_loc(Some(&tile), player.id)
-                            // If there are no digging locations on the tile, select a random one
-                            .unwrap_or(map.random_dig_loc(None, player.id).unwrap()),
-                    );
-                } else {
-                    ant.action = Action::Idle;
-                }
+        if !ants.is_empty() {
+            // Turn ants towards the direction they are digging
+            let mut directions = HashSet::new();
+            ants.iter_mut().for_each(|(t, _)| {
+                let d = map.get_loc(&t.translation).get_direction();
+                t.rotation = t.rotation.rotate_towards(
+                    Quat::from_rotation_z(d.degrees()),
+                    2. * game_settings.speed * time.delta_secs(),
+                );
+                directions.insert(d);
             });
+
+            // Calculate the aggregate terraform progress
+            let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
+
+            if tile.terraform > terraform {
+                tile.terraform -= terraform;
+            } else {
+                if !tile.visible.contains(&player.id) && rng().random::<f32>() < TILE_ENEMY_CHANCE {
+                    // Spawn an enemy on the newly dug tile
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::new(&Ant::BlackScorpion, 0),
+                        transform: Transform {
+                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                    });
+                }
+
+                map.find_and_replace_tile(&tile, &directions, player.id);
+
+                // Set digging ants onto a new task
+                ants.iter_mut().for_each(|(_, ant)| {
+                    ant.action = if rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
+                        if let Some(loc) = map.random_dig_loc(Some(&tile), player.id) {
+                            Action::Walk(loc)
+                        } else {
+                            // If there are no digging locations on the tile, select a random one
+                            Action::Idle
+                        }
+                    } else {
+                        Action::Idle
+                    }
+                });
+            }
         }
     }
 }
@@ -305,7 +329,14 @@ pub fn resolve_action_ants(
                         &target_a.scaled_size(),
                     ) {
                         let target_loc = map.get_loc(&target_t.translation);
-                        walk(&ant, &mut ant_t, &target_loc, &mut map, &game_settings, &time);
+                        walk(
+                            &ant,
+                            &mut ant_t,
+                            &target_loc,
+                            &mut map,
+                            &game_settings,
+                            &time,
+                        );
                     } else {
                         // Ant reached the target loc => continue with default action
                         ant.action = match ant.behavior {
@@ -326,7 +357,14 @@ pub fn resolve_action_ants(
             Action::Walk(target_loc) => {
                 let current_loc = map.get_loc(&ant_t.translation);
                 if current_loc != target_loc {
-                    walk(&ant, &mut ant_t, &target_loc, &mut map, &game_settings, &time);
+                    walk(
+                        &ant,
+                        &mut ant_t,
+                        &target_loc,
+                        &mut map,
+                        &game_settings,
+                        &time,
+                    );
                 } else {
                     // Ant reached the target loc => continue with default action
                     ant.action = match ant.behavior {
@@ -441,7 +479,7 @@ pub fn update_ant_components(
 }
 
 pub fn update_vision(
-    mut ant_q: Query<(Entity, &mut Transform, &AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
@@ -453,28 +491,46 @@ pub fn update_vision(
 
     ant_q
         .iter()
-        .filter(|(_, _, a)| a.owner == player.id)
-        .for_each(|(_, ant_t, _)| {
-            let tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
-            visible_tiles.insert((tile.x, tile.y));
+        .filter(|(_, _, _, a)| a.owner == player.id && !a.kind.is_monster())
+        .for_each(|(_, ant_t, _, _)| {
+            if let Some(tile) = map.get_tile_from_coord(&ant_t.translation) {
+                visible_tiles.insert((tile.x, tile.y));
 
-            for dir in Direction::iter() {
-                if tile.border(&dir) != 0 {
-                    if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
-                        visible_tiles.insert((tile.x, tile.y));
+                for dir in Direction::iter() {
+                    visible_tiles.extend(reveal_surrounding_tiles(&tile, &dir, &map));
 
-                        // Also update tiles in corners (north-west, south-east, etc...)
-                        // if the corner bit is walkable
-                        if tile.border(&dir.rotate()) & 1 != 0 {
-                            if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate())
-                            {
-                                visible_tiles.insert((tile.x, tile.y));
-                            }
-                        }
+                    // Check diagonal tiles
+                    if let Some(diag_tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate()) {
+                        reveal_surrounding_tiles(&map, &mut visible_tiles, &diag_tile, &dir);
                     }
                 }
             }
         });
+
+    // ant_q
+    //     .iter()
+    //     .filter(|(_, _, _, a)| a.owner == player.id && !a.kind.is_monster())
+    //     .for_each(|(_, ant_t, _, _)| {
+    //         let tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
+    //         visible_tiles.insert((tile.x, tile.y));
+    //
+    //         for dir in Direction::iter() {
+    //             if tile.border(&dir) != 0 {
+    //                 if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
+    //                     visible_tiles.insert((tile.x, tile.y));
+    //
+    //                     // Also update tiles in corners (north-west, south-east, etc...)
+    //                     // if the corner bit is walkable
+    //                     if tile.border(&dir.rotate()) & 1 != 0 {
+    //                         if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate())
+    //                         {
+    //                             visible_tiles.insert((tile.x, tile.y));
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     });
 
     visible_tiles.iter().for_each(|(x, y)| {
         let tile = map.get_tile_mut(*x, *y).unwrap();
@@ -488,7 +544,7 @@ pub fn update_vision(
 
     // Show/hide enemies on the map
     let mut current_population = vec![];
-    for (ant_e, mut ant_t, ant) in ant_q.iter_mut().filter(|(_, _, a)| a.owner != player.id) {
+    for (ant_e, mut ant_t, mut ant_v, ant) in ant_q.iter_mut().filter(|(_, _, _, a)| a.owner != player.id || a.kind.is_monster()) {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
             // The ant is already on the map
@@ -496,21 +552,32 @@ pub fn update_vision(
                 .get_tile_from_coord(&t.translation)
                 .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
             {
-                // The ant is visible, reposition it
+                // The ant is visible, reposition and show it
                 *ant_t = *t;
+                *ant_v = Visibility::Visible;
             } else {
-                // The ant is no longer visible, despawn it
+                // The ant is no longer visible, hide it
+                *ant_v = Visibility::Hidden;
+            }
+        } else {
+            // The ant is no longer in the population (died), despawn it
+            if ant.kind.is_monster() {
+                if map
+                    .get_tile_from_coord(&ant_t.translation)
+                    .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
+                {
+                    // The monster is visible, show it
+                    *ant_v = Visibility::Visible;
+                } else {
+                    // The monster is no longer visible, hide it
+                    *ant_v = Visibility::Hidden;
+                }
+            } else {
                 despawn_ant_ev.send(DespawnAntEv {
                     ant: ant.clone(),
                     entity: ant_e,
                 });
             }
-        } else {
-            // The ant is no longer in the population (died), despawn it
-            despawn_ant_ev.send(DespawnAntEv {
-                ant: ant.clone(),
-                entity: ant_e,
-            });
         }
     }
 

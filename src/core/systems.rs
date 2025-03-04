@@ -1,10 +1,10 @@
 use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::ants::events::QueueAntEv;
 use crate::core::map::map::Map;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
 use bevy::prelude::*;
 use strum::IntoEnumIterator;
-use crate::core::ants::events::QueueAntEv;
 
 pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(GameSettings::default());

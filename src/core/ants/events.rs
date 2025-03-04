@@ -1,4 +1,6 @@
-use crate::core::ants::components::{AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp};
+use crate::core::ants::components::{
+    AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp,
+};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::ANT_Z_SCORE;
 use crate::core::map::systems::MapCmp;
@@ -58,6 +60,7 @@ pub fn spawn_ants(
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
         let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
+        let animation = ant.action.animation();
         commands
             .spawn((
                 Sprite {
@@ -75,11 +78,8 @@ pub fn spawn_ants(
                     ..default()
                 },
                 AnimationCmp {
-                    animation: ant.action.animation(),
-                    timer: Timer::from_seconds(
-                        ant.action.animation().interval(),
-                        TimerMode::Repeating,
-                    ),
+                    animation: animation.clone(),
+                    timer: Timer::from_seconds(ant.kind.interval(&animation), TimerMode::Repeating),
                     last_index: atlas.last_index,
                 },
                 ant.clone(),
