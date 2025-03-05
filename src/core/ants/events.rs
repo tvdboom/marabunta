@@ -130,7 +130,7 @@ pub fn spawn_ants(
                 ));
             });
 
-        if ant.owner == player.id {
+        if player.controls(ant) {
             player
                 .colony
                 .entry(ant.kind.clone())
@@ -148,7 +148,7 @@ pub fn despawn_ants(
     for DespawnAntEv { ant, entity } in despawn_ant_ev.read() {
         commands.entity(*entity).despawn_recursive();
 
-        if ant.owner == player.id {
+        if player.controls(ant) {
             player
                 .colony
                 .entry(ant.kind.clone())

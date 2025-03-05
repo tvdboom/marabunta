@@ -1,4 +1,4 @@
-use crate::core::ants::components::Ant;
+use crate::core::ants::components::{Ant, AntCmp};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy_renet::renet::ClientId;
@@ -13,22 +13,25 @@ pub struct Player {
 
 impl Player {
     pub fn new(id: ClientId) -> Self {
-        Self {
-            id,
-            queue: vec![],
-            ..default()
-        }
+        Self { id, ..default() }
+    }
+
+    pub fn owns(&self, ant: &AntCmp) -> bool {
+        self.id == ant.owner
+    }
+
+    pub fn controls(&self, ant: &AntCmp) -> bool {
+        self.id == ant.owner && !ant.kind.is_monster()
     }
 }
 
-/// The default is used for the player in the menu
 impl Default for Player {
     fn default() -> Self {
         Self {
             id: 0,
             food: 100.,
             colony: HashMap::new(),
-            queue: vec![Ant::BlackAnt, Ant::BlackBullet, Ant::BlackBullet],
+            queue: vec![],
         }
     }
 }

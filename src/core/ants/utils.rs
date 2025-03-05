@@ -24,7 +24,8 @@ pub fn walk(
         let rotate = |r: Quat| {
             r.rotate_towards(
                 Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                2. * game_settings.speed * time.delta_secs(),
+                // Rotate faster when closer to the target to avoid walking in circles
+                2. *  (1. + (1. / (d.length() + 0.1))) * game_settings.speed * time.delta_secs(),
             )
         };
 

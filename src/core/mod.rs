@@ -38,7 +38,7 @@ pub struct GamePlugin;
 struct InGameSet;
 
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct RunningSet;
+struct InRunningGameSet;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
@@ -57,9 +57,24 @@ impl Plugin for GamePlugin {
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(PostUpdate, InGameSet.run_if(in_state(AppState::Game)))
-            .configure_sets(PreUpdate, RunningSet.run_if(in_state(GameState::Running)))
-            .configure_sets(Update, RunningSet.run_if(in_state(GameState::Running)))
-            .configure_sets(PostUpdate, RunningSet.run_if(in_state(GameState::Running)))
+            .configure_sets(
+                PreUpdate,
+                InRunningGameSet
+                    .run_if(in_state(GameState::Running))
+                    .in_set(InGameSet),
+            )
+            .configure_sets(
+                Update,
+                InRunningGameSet
+                    .run_if(in_state(GameState::Running))
+                    .in_set(InGameSet),
+            )
+            .configure_sets(
+                PostUpdate,
+                InRunningGameSet
+                    .run_if(in_state(GameState::Running))
+                    .in_set(InGameSet),
+            )
             // Camera
             .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
@@ -112,10 +127,7 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map, draw_ui),
         )
-        .add_systems(
-            Update,
-            (animate_ui, update_ui).in_set(InGameSet).in_set(RunningSet),
-        )
+        .add_systems(Update, (animate_ui, update_ui).in_set(InRunningGameSet))
         .add_systems(
             OnExit(AppState::Game),
             (despawn::<MapCmp>, initialize_game, draw_map).chain(),
@@ -140,11 +152,12 @@ impl Plugin for GamePlugin {
                 resolve_digging,
                 resolve_harvesting,
             )
-                .in_set(RunningSet),
+                .in_set(InRunningGameSet),
         )
         .add_systems(
             PostUpdate,
-            (spawn_tile, queue_ants, spawn_ants, despawn_ants).in_set(RunningSet),
+            (spawn_tile,
+            (queue_ants, spawn_ants, despawn_ants).in_set(InRunningGameSet)),
         );
     }
 }

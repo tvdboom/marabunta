@@ -25,7 +25,7 @@ pub const MAX_Z_SCORE: f32 = 10.;
 pub const VISION_RANGE: u32 = 3;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
 pub const TILE_LEAF_CHANCE: f32 = 0.1;
-pub const TILE_ENEMY_CHANCE: f32 = 0.3;
+pub const TILE_ENEMY_CHANCE: f32 = 0.05;
 
 // Ants
 pub const BROODING_TIME: f32 = 0.001; //2.5; // Seconds the queen needs to place an egg

@@ -168,7 +168,7 @@ pub fn client_send_status(
         population: ant_q
             .iter()
             .filter_map(|(t, a)| {
-                if a.owner == player.id {
+                if player.owns(a) {
                     Some((a.id, (t.clone(), a.clone())))
                 } else {
                     None

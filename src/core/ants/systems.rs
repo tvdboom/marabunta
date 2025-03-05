@@ -4,10 +4,10 @@ use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
 use crate::core::map::events::SpawnTileEv;
-use crate::core::map::loc::Direction;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
+use crate::core::map::utils::reveal_tiles;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
 use crate::core::utils::{collision, scale_duration};
@@ -16,8 +16,6 @@ use bevy::prelude::*;
 use bevy::utils::HashSet;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
-use strum::IntoEnumIterator;
-use crate::core::map::utils::reveal_surrounding_tiles;
 
 pub fn animate_ants(
     mut ant_q: Query<(&mut Sprite, &AntCmp, &mut AnimationCmp)>,
@@ -84,7 +82,7 @@ pub fn resolve_harvesting(
 ) {
     for (ant_t, mut ant) in ant_q
         .iter_mut()
-        .filter(|(_, a)| a.owner == player.id && a.action == Action::Harvest)
+        .filter(|(_, a)| player.owns(a) && a.action == Action::Harvest)
     {
         if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
             if let Some(ref mut leaf) = &mut tile.leaf {
@@ -123,8 +121,8 @@ pub fn resolve_digging(
         // Select ants that were digging on that tile
         let mut ants: Vec<_> = ant_q
             .iter_mut()
-            .filter(|(_, ant)| {
-                ant.owner == player.id && matches!(&ant.action, Action::Dig(t) if t.equals(&tile))
+            .filter(|(_, a)| {
+                player.owns(a) && matches!(&a.action, Action::Dig(t) if t.equals(&tile))
             })
             .collect();
 
@@ -489,48 +487,14 @@ pub fn update_vision(
 ) {
     let mut visible_tiles = HashSet::new();
 
+    // Calculate all tiles currently visible by the player
     ant_q
         .iter()
-        .filter(|(_, _, _, a)| a.owner == player.id && !a.kind.is_monster())
+        .filter(|(_, _, _, a)| player.controls(a))
         .for_each(|(_, ant_t, _, _)| {
-            if let Some(tile) = map.get_tile_from_coord(&ant_t.translation) {
-                visible_tiles.insert((tile.x, tile.y));
-
-                for dir in Direction::iter() {
-                    visible_tiles.extend(reveal_surrounding_tiles(&tile, &dir, &map));
-
-                    // Check diagonal tiles
-                    if let Some(diag_tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate()) {
-                        reveal_surrounding_tiles(&map, &mut visible_tiles, &diag_tile, &dir);
-                    }
-                }
-            }
+            let current_tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
+            visible_tiles.extend(reveal_tiles(current_tile, &map, 0))
         });
-
-    // ant_q
-    //     .iter()
-    //     .filter(|(_, _, _, a)| a.owner == player.id && !a.kind.is_monster())
-    //     .for_each(|(_, ant_t, _, _)| {
-    //         let tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
-    //         visible_tiles.insert((tile.x, tile.y));
-    //
-    //         for dir in Direction::iter() {
-    //             if tile.border(&dir) != 0 {
-    //                 if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
-    //                     visible_tiles.insert((tile.x, tile.y));
-    //
-    //                     // Also update tiles in corners (north-west, south-east, etc...)
-    //                     // if the corner bit is walkable
-    //                     if tile.border(&dir.rotate()) & 1 != 0 {
-    //                         if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate())
-    //                         {
-    //                             visible_tiles.insert((tile.x, tile.y));
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     });
 
     visible_tiles.iter().for_each(|(x, y)| {
         let tile = map.get_tile_mut(*x, *y).unwrap();
@@ -544,7 +508,10 @@ pub fn update_vision(
 
     // Show/hide enemies on the map
     let mut current_population = vec![];
-    for (ant_e, mut ant_t, mut ant_v, ant) in ant_q.iter_mut().filter(|(_, _, _, a)| a.owner != player.id || a.kind.is_monster()) {
+    for (ant_e, mut ant_t, mut ant_v, ant) in ant_q
+        .iter_mut()
+        .filter(|(_, _, _, a)| a.owner != player.id || a.kind.is_monster())
+    {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
             // The ant is already on the map

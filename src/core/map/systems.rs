@@ -6,7 +6,6 @@ use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
 use crate::core::player::Player;
 use crate::core::resources::{GameMode, GameSettings};
-use crate::core::states::AppState;
 use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
@@ -24,7 +23,7 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
             )
         }
         GameMode::MultiPlayer(ids) => {
-            let mut map = Map::new();
+            let mut map = Map::default();
 
             // Insert bases at random locations
             let mut bases: Vec<UVec2> = Vec::new();
@@ -58,7 +57,6 @@ pub fn draw_map(
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     map: Res<Map>,
     player: Res<Player>,
-    app_state: Res<State<AppState>>,
 ) {
     for (i, tile) in map.world(player.id).iter_mut().enumerate() {
         let pos = Vec2::new(
@@ -82,15 +80,13 @@ pub fn draw_map(
                 },
             });
 
-            // If in-game -> place camera on top of base
-            if *app_state.get() == AppState::Game {
-                let (mut camera_t, projection) = camera_q.single_mut();
-                let view_size = projection.area.max - projection.area.min;
+            // Place camera on top of base
+            let (mut camera_t, projection) = camera_q.single_mut();
+            let view_size = projection.area.max - projection.area.min;
 
-                // Clamp camera position within bounds
-                let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
-                camera_t.translation = target_pos.extend(camera_t.translation.z);
-            }
+            // Clamp camera position within bounds
+            let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
+            camera_t.translation = target_pos.extend(camera_t.translation.z);
         }
     }
 }

@@ -74,10 +74,12 @@ pub struct Map {
 /// resource to draw the map seen during the menu
 impl Default for Map {
     fn default() -> Self {
-        Self::from_base(
-            UVec2::new(Map::MAP_SIZE.x / 2 - 16, Map::MAP_SIZE.y / 2 - 6),
-            0,
-        )
+        Self {
+            tiles: (0..Self::MAP_SIZE.y)
+                .flat_map(|y| (0..Self::MAP_SIZE.x).map(move |x| Tile::soil(x, y)))
+                .collect(),
+            cache: PathCache::new(),
+        }
     }
 }
 
@@ -123,17 +125,8 @@ impl Map {
 
     // Constructors ===========================================================
 
-    pub fn new() -> Self {
-        Self {
-            tiles: (0..Self::MAP_SIZE.y)
-                .flat_map(|y| (0..Self::MAP_SIZE.x).map(move |x| Tile::soil(x, y)))
-                .collect(),
-            cache: PathCache::new(),
-        }
-    }
-
     pub fn from_base(pos: UVec2, id: ClientId) -> Self {
-        Self::new().insert_base(&pos, id).clone()
+        Self::default().insert_base(&pos, id).clone()
     }
 
     // Building methods =======================================================
