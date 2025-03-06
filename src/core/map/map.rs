@@ -10,7 +10,6 @@ use rand;
 use rand::prelude::IndexedRandom;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PathCache {
@@ -223,14 +222,14 @@ impl Map {
 
     fn adjacent_tile(&self, x: u32, y: u32, dir: &Direction) -> Option<usize> {
         let new_x = match dir {
-            Direction::East => x + 1,
-            Direction::West => x.checked_sub(1)?,
+            Direction::East | Direction::NorthEast | Direction::SouthEast => x + 1,
+            Direction::West | Direction::NorthWest | Direction::SouthWest => x.checked_sub(1)?,
             _ => x,
         };
 
         let new_y = match dir {
-            Direction::North => y.checked_sub(1)?,
-            Direction::South => y + 1,
+            Direction::North | Direction::NorthEast | Direction::NorthWest => y.checked_sub(1)?,
+            Direction::South | Direction::SouthEast | Direction::SouthWest => y + 1,
             _ => y,
         };
 
@@ -261,7 +260,7 @@ impl Map {
 
     // Location finding =======================================================
 
-    pub fn random_walk_loc(&self, id: ClientId, in_base: bool) -> Option<Loc> {
+    pub fn random_loc(&self, id: ClientId, in_base: bool) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
             .iter()
@@ -279,19 +278,16 @@ impl Map {
         locations.choose(&mut rng()).copied()
     }
 
-    pub fn random_enemy_walk_loc(&self, id: ClientId) -> Option<Loc> {
+    pub fn random_leaf_loc(&self, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|tile| tile.visible.contains(&id) && tile.visible.len() > 1)
-            .flat_map(|tile| {
-                (0..16).map(move |bit| Loc {
-                    x: tile.x,
-                    y: tile.y,
-                    bit,
-                })
+            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
+            .map(|t| Loc {
+                x: t.x,
+                y: t.y,
+                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
             })
-            .filter(|loc| self.is_walkable(loc))
             .collect();
 
         locations.choose(&mut rng()).copied()
@@ -322,16 +318,19 @@ impl Map {
         locations.choose(&mut rng()).copied()
     }
 
-    pub fn random_leaf_loc(&self, id: ClientId) -> Option<Loc> {
+    pub fn random_enemy_loc(&self, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
-            .map(|t| Loc {
-                x: t.x,
-                y: t.y,
-                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
+            .filter(|tile| tile.visible.contains(&id) && tile.visible.len() > 1)
+            .flat_map(|tile| {
+                (0..16).map(move |bit| Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit,
+                })
             })
+            .filter(|loc| self.is_walkable(loc))
             .collect();
 
         locations.choose(&mut rng()).copied()
@@ -498,7 +497,7 @@ impl Map {
                     ..tile_clone
                 };
 
-                if Direction::iter().all(|dir| {
+                if Direction::CARDINALS.iter().all(|dir| {
                     let opposite = dir.opposite();
                     if directions.contains(&opposite) {
                         new_t.border(&dir) == 0b0110

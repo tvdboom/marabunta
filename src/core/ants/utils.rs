@@ -25,7 +25,9 @@ pub fn walk(
             r.rotate_towards(
                 Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
                 // Rotate faster when closer to the target to avoid walking in circles
-                2. *  (1. + (1. / (d.length() + 0.1))) * game_settings.speed * time.delta_secs(),
+                (1. + 3. / (1. + ((d.length() - 8.).exp())))
+                    * game_settings.speed
+                    * time.delta_secs(),
             )
         };
 
@@ -34,13 +36,6 @@ pub fn walk(
 
         let speed = ant.speed * game_settings.speed * time.delta_secs();
         let next_pos = ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
-
-        // If walking in a circle, increase the rotation
-        // if (d.length() - (-next_pos + target_pos).length()).abs() < 0.5 * speed {
-        //     ant_t.rotation = rotate(ant_t.rotation);
-        //     ant_t.rotation = rotate(ant_t.rotation);
-        //     ant_t.rotation = rotate(ant_t.rotation);
-        // }
 
         let next_loc = map.get_loc(&next_pos);
         if next_loc == *target_loc

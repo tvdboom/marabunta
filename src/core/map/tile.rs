@@ -177,19 +177,23 @@ impl Tile {
         let bitmap = self.bitmap();
         match dir {
             Direction::North => bitmap >> 12,
+            Direction::NorthEast => (bitmap >> 12) & 1,
             Direction::East => {
                 (((bitmap >> 12) & 1) << 3)
                     | (((bitmap >> 8) & 1) << 2)
                     | (((bitmap >> 4) & 1) << 1)
                     | ((bitmap) & 1)
             }
+            Direction::SouthEast => (bitmap >> 4) & 1,
             Direction::South => bitmap & 0b1111,
+            Direction::SouthWest => (bitmap >> 3) & 1,
             Direction::West => {
                 (((bitmap >> 15) & 1) << 3)
                     | (((bitmap >> 11) & 1) << 2)
                     | (((bitmap >> 7) & 1) << 1)
                     | ((bitmap >> 3) & 1)
             }
+            Direction::NorthWest => (bitmap >> 15) & 1,
         }
     }
 

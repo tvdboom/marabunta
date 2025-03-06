@@ -25,11 +25,13 @@ pub const MAX_Z_SCORE: f32 = 10.;
 pub const VISION_RANGE: u32 = 3;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
 pub const TILE_LEAF_CHANCE: f32 = 0.1;
-pub const TILE_ENEMY_CHANCE: f32 = 0.05;
+pub const TILE_ENEMY_CHANCE: f32 = 0.5;
 
 // Ants
 pub const BROODING_TIME: f32 = 0.001; //2.5; // Seconds the queen needs to place an egg
+pub const DEATH_TIME: f32 = 5.; // Seconds a corpse remains on the map
 pub const DEFAULT_WALK_SPEED: f32 = 20.; // Base walking speed
 pub const DIG_SPEED: f32 = 50.; // Terraform points per ant per second
 pub const HARVEST_SPEED: f32 = 10.; // Food harvesting per ant per second
 pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel
+pub const ATTACK_CLOSEST_ENEMY_CHANCE: f32 = 0.8; // Chance of attacking the closest enemy

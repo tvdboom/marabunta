@@ -1,8 +1,8 @@
 use crate::core::ants::components::{
-    AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, LeafCarryCmp,
+    Action, AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, Behavior, LeafCarryCmp,
 };
 use crate::core::assets::WorldAssets;
-use crate::core::constants::ANT_Z_SCORE;
+use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
@@ -12,6 +12,7 @@ use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
+use uuid::Uuid;
 
 #[derive(Event)]
 pub struct QueueAntEv {
@@ -26,11 +27,22 @@ pub struct SpawnAntEv {
 
 #[derive(Event)]
 pub struct DespawnAntEv {
-    pub ant: AntCmp,
     pub entity: Entity,
 }
 
-pub fn queue_ants(
+#[derive(Event)]
+pub struct AttackEv {
+    pub attacker: Uuid,
+    pub defender: Uuid,
+}
+
+#[derive(Event)]
+pub struct DamageAntEv {
+    pub attacker: Uuid,
+    pub defender: Uuid,
+}
+
+pub fn queue_ant_event(
     mut queue_ant_ev: EventReader<QueueAntEv>,
     mut player: ResMut<Player>,
     audio: Res<Audio>,
@@ -42,7 +54,7 @@ pub fn queue_ants(
         if ant_c.key.is_some() {
             if player.food >= ant_c.price {
                 player.food -= ant_c.price;
-                player.queue.push(ant_c.kind);
+                player.queue.push_back(ant_c.kind);
                 audio.play(assets.audio("button"));
             } else {
                 audio.play(assets.audio("error"));
@@ -51,7 +63,7 @@ pub fn queue_ants(
     }
 }
 
-pub fn spawn_ants(
+pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     mut player: ResMut<Player>,
@@ -60,7 +72,6 @@ pub fn spawn_ants(
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
         let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
 
-        let animation = ant.action.animation();
         commands
             .spawn((
                 Sprite {
@@ -78,8 +89,11 @@ pub fn spawn_ants(
                     ..default()
                 },
                 AnimationCmp {
-                    animation: animation.clone(),
-                    timer: Timer::from_seconds(ant.kind.interval(&animation), TimerMode::Repeating),
+                    animation: ant.animation(),
+                    timer: Timer::from_seconds(
+                        ant.kind.interval(&ant.animation()),
+                        TimerMode::Repeating,
+                    ),
                     last_index: atlas.last_index,
                 },
                 ant.clone(),
@@ -140,19 +154,51 @@ pub fn spawn_ants(
     }
 }
 
-pub fn despawn_ants(
+pub fn despawn_ant_event(
     mut commands: Commands,
+    ant_q: Query<&AntCmp>,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut player: ResMut<Player>,
 ) {
-    for DespawnAntEv { ant, entity } in despawn_ant_ev.read() {
-        commands.entity(*entity).despawn_recursive();
+    for DespawnAntEv { entity } in despawn_ant_ev.read() {
+        let ant = ant_q.get(*entity).unwrap();
 
         if player.controls(ant) {
             player
                 .colony
                 .entry(ant.kind.clone())
                 .and_modify(|c| *c -= 1);
+        }
+
+        commands.entity(*entity).despawn_recursive();
+    }
+}
+
+pub fn attack_ants(mut attack_ev: EventReader<AttackEv>, mut ant_q: Query<&mut AntCmp>) {
+    for AttackEv { attacker, defender } in attack_ev.read() {
+        if let Some(mut defender) = ant_q.iter_mut().find(|a| a.id == *defender) {
+            defender.action = Action::Attack(*attacker);
+            defender.behavior = Behavior::Attack;
+        }
+    }
+}
+
+pub fn damage_event(
+    mut damage_ev: EventReader<DamageAntEv>,
+    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+) {
+    for DamageAntEv {
+        attacker,
+        defender,
+    } in damage_ev.read()
+    {
+        // let attacker = ant_q.iter_mut().find(|a| a.id == *attacker).unwrap();
+        let (mut defender_t, mut defender) = ant_q.iter_mut().find(|(_, a)| a.id == *defender).unwrap();
+
+        defender.health = (defender.health - 10.).max(0.);
+        if defender.health == 0. {
+            defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
+            defender_t.translation.z = ANT_Z_SCORE;
         }
     }
 }

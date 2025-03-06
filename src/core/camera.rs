@@ -130,3 +130,11 @@ pub fn move_camera_keyboard(
         camera_t.translation.y -= transform;
     }
 }
+
+pub fn reset_camera(
+    mut camera_q: Query<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
+) {
+    let (mut camera_t, mut projection) = camera_q.single_mut();
+    camera_t.translation = Vec3::new(0., 0., 1.);
+    projection.scale = 1.;
+}

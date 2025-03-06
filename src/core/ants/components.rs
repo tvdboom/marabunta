@@ -69,7 +69,7 @@ impl Ant {
         }
     }
 
-    pub fn animations(&self) -> Vec<Animation> {
+    pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
             Ant::BlackScorpion => vec![Animation::Bite, Animation::LookAround],
             _ => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
@@ -83,7 +83,6 @@ impl Ant {
     pub fn frames(&self, animation: &Animation) -> u32 {
         match self {
             Ant::BlackScorpion => match animation {
-                Animation::Bite => 8,
                 Animation::Die => 5,
                 Animation::Idle => 24,
                 Animation::Pinch | Animation::Sting => 10,
@@ -118,27 +117,14 @@ pub struct AnimationCmp {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Action {
-    Bite,
-    Die,
-    Dig(Tile), // Tile to dig
+    Attack(Uuid), // Id of the target to attack
+    Brood(Timer), // Brooding time remaining
+    Die(Timer),   // Time the body remains visible
+    Dig(Tile),    // Tile to dig
     Harvest,
     Idle,
-    Pinch,
     TargetedWalk(Uuid), // Id of the target to walk to
     Walk(Loc),          // Location to walk to
-}
-
-impl Action {
-    pub fn animation(&self) -> Animation {
-        match &self {
-            Action::Bite => Animation::Bite,
-            Action::Die => Animation::Die,
-            Action::Harvest | Action::Dig(_) => Animation::LookAround,
-            Action::Idle => Animation::Idle,
-            Action::Pinch => Animation::Pinch,
-            Action::TargetedWalk(_) | Action::Walk(_) => Animation::Walk,
-        }
-    }
 }
 
 #[derive(Component, Clone, Debug, Serialize, Deserialize)]
@@ -188,9 +174,6 @@ pub struct AntCmp {
 
     /// Maximum resource carry capacity
     pub max_carry: f32,
-
-    /// General purpose timer used for brooding, death, etc...
-    pub timer: Option<Timer>,
 }
 
 impl Default for AntCmp {
@@ -211,7 +194,6 @@ impl Default for AntCmp {
             hatch_time: 0.,
             carry: 0.,
             max_carry: 10.,
-            timer: None,
         }
     }
 }
@@ -269,7 +251,7 @@ impl AntCmp {
                 price: 1000.,
                 health: 1000.,
                 max_health: 1000.,
-                speed: DEFAULT_WALK_SPEED - 10.,
+                speed: DEFAULT_WALK_SPEED - 2.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
@@ -325,6 +307,19 @@ impl AntCmp {
 
     pub fn scaled_size(&self) -> Vec2 {
         self.size() * self.scale
+    }
+
+    pub fn animation(&self) -> Animation {
+        match self.action {
+            Action::Attack(_) => match self.kind {
+                Ant::BlackScorpion => Animation::Sting,
+                _ => Animation::Bite,
+            },
+            Action::Die(_) => Animation::Die,
+            Action::Harvest | Action::Dig(_) => Animation::LookAround,
+            Action::Brood(_) | Action::Idle => Animation::Idle,
+            Action::TargetedWalk(_) | Action::Walk(_) => Animation::Walk,
+        }
     }
 }
 

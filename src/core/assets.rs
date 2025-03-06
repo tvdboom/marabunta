@@ -117,7 +117,7 @@ impl FromWorld for WorldAssets {
         ]);
 
         for ant in Ant::iter() {
-            for animation in ant.animations() {
+            for animation in ant.all_animations() {
                 let name = Box::leak(Box::new(format!(
                     "{}_{}",
                     ant.to_snake(),
@@ -150,7 +150,7 @@ impl FromWorld for WorldAssets {
         let mut atlas = HashMap::new();
 
         for ant in Ant::iter() {
-            for animation in ant.animations() {
+            for animation in ant.all_animations() {
                 let name = Box::leak(Box::new(format!(
                     "{}_{}",
                     ant.to_snake(),

@@ -6,36 +6,46 @@ use strum_macros::EnumIter;
 #[derive(EnumIter, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Direction {
     North,
+    NorthEast,
     East,
+    SouthEast,
     South,
+    SouthWest,
     West,
+    NorthWest,
 }
 
 impl Direction {
-    pub fn rotate(&self) -> Direction {
-        match self {
-            Direction::North => Direction::East,
-            Direction::East => Direction::South,
-            Direction::South => Direction::West,
-            Direction::West => Direction::North,
-        }
-    }
+    pub const CARDINALS: [Direction; 4] = [
+        Direction::North,
+        Direction::East,
+        Direction::South,
+        Direction::West,
+    ];
 
     pub fn opposite(&self) -> Direction {
         match self {
             Direction::North => Direction::South,
+            Direction::NorthEast => Direction::NorthWest,
             Direction::East => Direction::West,
+            Direction::SouthEast => Direction::SouthWest,
             Direction::South => Direction::North,
+            Direction::SouthWest => Direction::NorthEast,
             Direction::West => Direction::East,
+            Direction::NorthWest => Direction::SouthEast,
         }
     }
 
     pub fn degrees(&self) -> f32 {
         match self {
             Direction::North => 0.,
+            Direction::NorthEast => PI * 0.25,
             Direction::East => -PI * 0.5,
+            Direction::SouthEast => -PI * 0.75,
             Direction::South => PI,
+            Direction::SouthWest => PI * 1.25,
             Direction::West => PI * 0.5,
+            Direction::NorthWest => PI * 0.75,
         }
     }
 }
@@ -57,9 +67,13 @@ impl Loc {
 
     pub fn get_direction(&self) -> Direction {
         match self.bit {
+            0 => Direction::NorthWest,
             1 | 2 => Direction::North,
+            3 => Direction::NorthEast,
             7 | 11 => Direction::East,
+            12 => Direction::SouthEast,
             13 | 14 => Direction::South,
+            15 => Direction::SouthWest,
             4 | 8 => Direction::West,
             _ => unreachable!(),
         }

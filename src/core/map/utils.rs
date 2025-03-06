@@ -21,7 +21,12 @@ pub fn rotate_bitmap(bitmap: u16, rotation: i32) -> u16 {
 }
 
 /// Calculate visible tiles from a starting tile
-pub fn reveal_tiles(tile: &Tile, map: &Map, depth: u32) -> HashSet<(u32, u32)> {
+pub fn reveal_tiles(
+    tile: &Tile,
+    map: &Map,
+    from_dir: Option<Direction>,
+    depth: u32,
+) -> HashSet<(u32, u32)> {
     let mut visible_tiles = HashSet::from([(tile.x, tile.y)]);
 
     // Abort search when reached the maximum vision range
@@ -29,14 +34,13 @@ pub fn reveal_tiles(tile: &Tile, map: &Map, depth: u32) -> HashSet<(u32, u32)> {
         for dir in Direction::iter() {
             if tile.border(&dir) != 0 {
                 if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir) {
-                    visible_tiles.extend(reveal_tiles(tile, map, depth + 1));
+                    let depth = if from_dir.as_ref().map_or(true, |d| d == &dir) {
+                        depth + 1
+                    } else {
+                        (VISION_RANGE - 1).max(depth + 1)
+                    };
 
-                    // Also check diagonal tiles
-                    if tile.border(&dir.rotate()) & 1 != 0 {
-                        if let Some(tile) = map.get_adjacent_tile(tile.x, tile.y, &dir.rotate()) {
-                            visible_tiles.extend(reveal_tiles(tile, map, depth + 1));
-                        }
-                    }
+                    visible_tiles.extend(reveal_tiles(tile, map, Some(dir), depth));
                 }
             }
         }

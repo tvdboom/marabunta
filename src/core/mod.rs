@@ -13,9 +13,7 @@ mod states;
 mod systems;
 mod utils;
 
-use crate::core::ants::events::{
-    despawn_ants, queue_ants, spawn_ants, DespawnAntEv, QueueAntEv, SpawnAntEv,
-};
+use crate::core::ants::events::*;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
@@ -53,6 +51,8 @@ impl Plugin for GamePlugin {
             .add_event::<QueueAntEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
+            .add_event::<AttackEv>()
+            .add_event::<DamageAntEv>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
@@ -130,7 +130,7 @@ impl Plugin for GamePlugin {
         .add_systems(Update, (animate_ui, update_ui).in_set(InRunningGameSet))
         .add_systems(
             OnExit(AppState::Game),
-            (despawn::<MapCmp>, initialize_game, draw_map).chain(),
+            (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
         // Pause
         .add_systems(Startup, spawn_pause_banner)
@@ -146,18 +146,32 @@ impl Plugin for GamePlugin {
                 check_keys,
                 hatch_eggs,
                 animate_ants,
-                resolve_action_ants,
-                update_ant_components,
-                update_vision,
+                resolve_attack_action,
+                resolve_die_action,
+                resolve_brood_action,
+                resolve_idle_action,
+                resolve_targeted_walk_action,
+                resolve_walk_action,
                 resolve_digging,
                 resolve_harvesting,
+                update_ant_components,
+                update_vision,
             )
                 .in_set(InRunningGameSet),
         )
         .add_systems(
             PostUpdate,
-            (spawn_tile,
-            (queue_ants, spawn_ants, despawn_ants).in_set(InRunningGameSet)),
+            (
+                spawn_tile,
+                (
+                    queue_ant_event,
+                    spawn_ant_event,
+                    despawn_ant_event,
+                    attack_ants,
+                    damage_event,
+                )
+                    .in_set(InRunningGameSet),
+            ),
         );
     }
 }
