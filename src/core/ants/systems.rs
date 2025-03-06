@@ -1,11 +1,10 @@
 use crate::core::ants::components::*;
-use crate::core::ants::events::{DamageAntEv, DespawnAntEv, SpawnAntEv};
+use crate::core::ants::events::{DamageAntEv, DespawnAntEv, SpawnAntEv, SpawnEggEv};
 use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
-use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::map::utils::reveal_tiles;
 use crate::core::player::Player;
@@ -214,21 +213,24 @@ pub fn hatch_eggs(
 
 pub fn resolve_attack_action(
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    egg_q: Query<(&Transform, &Egg)>,
     player: Res<Player>,
 ) {
-    let enemies = ant_q
+    let enemies: Vec<_> = ant_q
         .iter()
-        .filter(|(_, a)| !player.owns(a) && a.health > 0.)
-        .map(|(t, a)| (a.id, t.translation, a.scaled_size()))
-        .collect::<Vec<_>>();
+        .filter_map(|(t, a)| (a.health > 0.).then(|| (a.id, t.translation, a.scaled_size())))
+        .chain(
+            egg_q
+                .iter()
+                .map(|(t, e)| (e.id, t.translation, e.scaled_size())),
+        )
+        .collect();
 
     for (ant_t, mut ant) in ant_q.iter_mut().filter(|(_, a)| player.owns(a)) {
         if let Action::Attack(id) = ant.action {
             if let Some((_, pos_t, size_t)) = enemies.iter().find(|(i, _, _)| *i == id) {
-                println!("22. ant {:?} attacking", id);
                 if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
                     // The enemy is not adjacent anymore
-                    println!("33. ant {:?} attacking", id);
                     ant.action = Action::TargetedWalk(id);
                 }
             } else {
@@ -240,12 +242,11 @@ pub fn resolve_attack_action(
 }
 
 pub fn resolve_brood_action(
-    mut commands: Commands,
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut spawn_egg_ev: EventWriter<SpawnEggEv>,
     game_settings: Res<GameSettings>,
     mut player: ResMut<Player>,
     time: Res<Time>,
-    assets: Local<WorldAssets>,
 ) {
     for (ant_t, mut ant) in ant_q.iter_mut() {
         if player.owns(&ant) {
@@ -254,26 +255,10 @@ pub fn resolve_brood_action(
 
                 if timer.just_finished() {
                     if let Some(ant_queue) = player.queue.pop_front() {
-                        let ant_c = AntCmp::new(&ant_queue, player.id);
-                        commands.spawn((
-                            Sprite {
-                                image: assets.image("larva2"),
-                                ..default()
-                            },
-                            Transform {
-                                translation: ant_t.translation.truncate().extend(EGG_Z_SCORE),
-                                rotation: ant_t.rotation,
-                                scale: Vec3::splat(0.5 * ant_c.scale),
-                                ..default()
-                            },
-                            Egg {
-                                ant: ant_c.kind.clone(),
-                                owner: player.id,
-                                timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
-                            },
-                            MapCmp,
-                        ));
-
+                        spawn_egg_ev.send(SpawnEggEv {
+                            ant: ant_queue,
+                            transform: *ant_t,
+                        });
                     }
 
                     ant.action = Action::Idle;
@@ -303,6 +288,7 @@ pub fn resolve_die_action(
 
 pub fn resolve_idle_action(
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut egg_q: Query<(&Transform, &mut Egg)>,
     player: Res<Player>,
     map: Res<Map>,
 ) {
@@ -315,8 +301,8 @@ pub fn resolve_idle_action(
     let enemies: Vec<_> = ant_q
         .iter()
         .filter_map(|(t, a)| {
-            if !player.controls(a) && a.health > 0. {
-                Some((t.translation, a.id))
+            if a.health > 0. {
+                Some((a.clone(), t.translation))
             } else {
                 None
             }
@@ -329,6 +315,22 @@ pub fn resolve_idle_action(
     {
         ant.action = match ant.behavior {
             Behavior::Attack => {
+                // Select actual enemies from this ant
+                let enemies: Vec<_> = enemies
+                    .iter()
+                    .filter(|(a, _)| {
+                        (ant.kind.is_monster() && a.id != ant.id)
+                            || (!ant.kind.is_monster() && !player.controls(a))
+                    })
+                    .map(|(a, t)| (a.id, t))
+                    .chain(
+                        egg_q
+                            .iter()
+                            .filter(|(_, e)| ant.kind.is_monster() || e.owner != player.id)
+                            .map(|(t, e)| (e.id, &t.translation)),
+                    )
+                    .collect();
+
                 if enemies.is_empty() {
                     map.random_enemy_loc(player.id)
                         .or_else(|| map.random_loc(player.id, false))
@@ -338,17 +340,15 @@ pub fn resolve_idle_action(
                     Action::TargetedWalk(
                         enemies
                             .iter()
-                            .min_by_key(|(t, _)| t.distance(ant_t.translation) as u32)
+                            .min_by_key(|(_, t)| t.distance(ant_t.translation) as u32)
                             .unwrap()
-                            .1
+                            .0,
                     )
                 } else {
-                    Action::TargetedWalk(enemies.choose(&mut rng()).unwrap().1)
+                    Action::TargetedWalk(enemies.choose(&mut rng()).unwrap().0)
                 }
             }
-            Behavior::Brood => {
-                Action::Walk(map.random_loc(player.id, true).unwrap())
-            }
+            Behavior::Brood => Action::Walk(map.random_loc(player.id, true).unwrap()),
             Behavior::Dig => Action::Walk(
                 map.random_dig_loc(None, player.id)
                     .unwrap_or(map.random_loc(player.id, false).unwrap()),
@@ -410,7 +410,6 @@ pub fn resolve_targeted_walk_action(
                                 );
 
                                 if ant_t.rotation == rotation {
-                                    println!("11. ant {:?} attacking {:?}", ant.id, id);
                                     Action::Attack(id)
                                 } else {
                                     ant_t.rotation = rotation;
@@ -580,7 +579,7 @@ pub fn update_vision(
     // Calculate all tiles currently visible by the player
     ant_q
         .iter()
-        .filter(|(_, _, _, a)| player.controls(a))
+        .filter(|(_, _, _, a)| player.controls(a) && a.health > 0.)
         .for_each(|(_, ant_t, _, _)| {
             let current_tile = map.get_tile_from_coord(&ant_t.translation).unwrap();
             visible_tiles.extend(reveal_tiles(current_tile, &map, None, 0))

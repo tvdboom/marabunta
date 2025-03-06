@@ -49,6 +49,7 @@ impl Plugin for GamePlugin {
             .add_event::<ToggleMusicEv>()
             .add_event::<SpawnTileEv>()
             .add_event::<QueueAntEv>()
+            .add_event::<SpawnEggEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             .add_event::<AttackEv>()
@@ -165,6 +166,7 @@ impl Plugin for GamePlugin {
                 spawn_tile,
                 (
                     queue_ant_event,
+                    spawn_egg_event,
                     spawn_ant_event,
                     despawn_ant_event,
                     attack_ants,

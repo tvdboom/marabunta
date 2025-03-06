@@ -1,8 +1,9 @@
 use crate::core::ants::components::{
-    Action, AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, Behavior, LeafCarryCmp,
+    Action, AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, Behavior, Egg,
+    LeafCarryCmp,
 };
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME};
+use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_Z_SCORE};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
@@ -17,6 +18,12 @@ use uuid::Uuid;
 #[derive(Event)]
 pub struct QueueAntEv {
     pub ant: Ant,
+}
+
+#[derive(Event)]
+pub struct SpawnEggEv {
+    pub ant: Ant,
+    pub transform: Transform,
 }
 
 #[derive(Event)]
@@ -60,6 +67,71 @@ pub fn queue_ant_event(
                 audio.play(assets.audio("error"));
             }
         }
+    }
+}
+
+pub fn spawn_egg_event(
+    mut commands: Commands,
+    mut spawn_egg_ev: EventReader<SpawnEggEv>,
+    player: Res<Player>,
+    assets: Local<WorldAssets>,
+) {
+    for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
+        let ant_c = AntCmp::new(ant, player.id);
+        commands
+            .spawn((
+                Sprite {
+                    image: assets.image("larva2"),
+                    ..default()
+                },
+                Transform {
+                    translation: transform.translation.truncate().extend(EGG_Z_SCORE),
+                    rotation: transform.rotation,
+                    scale: Vec3::splat(0.5 * ant_c.scale),
+                    ..default()
+                },
+                Egg {
+                    id: Uuid::new_v4(),
+                    ant: ant_c.kind.clone(),
+                    owner: player.id,
+                    health: ant_c.max_health / 4.,
+                    max_health: ant_c.max_health / 4.,
+                    timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
+                },
+                NoRotationParentCmp,
+                MapCmp,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((
+                        Sprite {
+                            color: Color::from(BLACK),
+                            custom_size: Some(Vec2::new(
+                                ant_c.size().x * 0.4,
+                                ant_c.size().y * 0.05,
+                            )),
+                            ..default()
+                        },
+                        AntHealthWrapperCmp,
+                        Visibility::Hidden,
+                        NoRotationChildCmp,
+                        MapCmp,
+                    ))
+                    .with_children(|parent| {
+                        parent.spawn((
+                            Sprite {
+                                color: Color::from(LIME),
+                                custom_size: Some(Vec2::new(
+                                    ant_c.size().x * 0.77,
+                                    ant_c.size().y * 0.08,
+                                )),
+                                ..default()
+                            },
+                            Transform::from_xyz(0., 0., 0.1),
+                            AntHealthCmp,
+                        ));
+                    });
+            });
     }
 }
 
@@ -161,13 +233,13 @@ pub fn despawn_ant_event(
     mut player: ResMut<Player>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        let ant = ant_q.get(*entity).unwrap();
-
-        if player.controls(ant) {
-            player
-                .colony
-                .entry(ant.kind.clone())
-                .and_modify(|c| *c -= 1);
+        if let Ok(ant) = ant_q.get(*entity) {
+            if player.controls(ant) {
+                player
+                    .colony
+                    .entry(ant.kind.clone())
+                    .and_modify(|c| *c -= 1);
+            }
         }
 
         commands.entity(*entity).despawn_recursive();
@@ -186,19 +258,30 @@ pub fn attack_ants(mut attack_ev: EventReader<AttackEv>, mut ant_q: Query<&mut A
 pub fn damage_event(
     mut damage_ev: EventReader<DamageAntEv>,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    mut egg_q: Query<(Entity, &mut Egg)>,
+    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
 ) {
-    for DamageAntEv {
-        attacker,
-        defender,
-    } in damage_ev.read()
-    {
-        // let attacker = ant_q.iter_mut().find(|a| a.id == *attacker).unwrap();
-        let (mut defender_t, mut defender) = ant_q.iter_mut().find(|(_, a)| a.id == *defender).unwrap();
+    for DamageAntEv { attacker, defender } in damage_ev.read() {
+        let damage = ant_q
+            .iter_mut()
+            .find(|(_, a)| a.id == *attacker)
+            .unwrap()
+            .1
+            .damage;
 
-        defender.health = (defender.health - 10.).max(0.);
-        if defender.health == 0. {
-            defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
-            defender_t.translation.z = ANT_Z_SCORE;
+        if let Some((mut defender_t, mut defender)) =
+            ant_q.iter_mut().find(|(_, a)| a.id == *defender)
+        {
+            defender.health = (defender.health - damage).max(0.);
+            if defender.health == 0. {
+                defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
+                defender_t.translation.z = ANT_Z_SCORE;
+            }
+        } else if let Some((egg_e, mut egg)) = egg_q.iter_mut().find(|(_, a)| a.id == *defender) {
+            egg.health = (egg.health - damage).max(0.);
+            if egg.health == 0. {
+                despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
+            }
         }
     }
 }

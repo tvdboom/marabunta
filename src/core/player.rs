@@ -12,20 +12,6 @@ pub struct Player {
     pub queue: VecDeque<Ant>,
 }
 
-impl Player {
-    pub fn new(id: ClientId) -> Self {
-        Self { id, ..default() }
-    }
-
-    pub fn owns(&self, ant: &AntCmp) -> bool {
-        self.id == ant.owner
-    }
-
-    pub fn controls(&self, ant: &AntCmp) -> bool {
-        self.id == ant.owner && !ant.kind.is_monster()
-    }
-}
-
 impl Default for Player {
     fn default() -> Self {
         Self {
@@ -34,5 +20,21 @@ impl Default for Player {
             colony: HashMap::new(),
             queue: VecDeque::new(),
         }
+    }
+}
+
+impl Player {
+    pub fn new(id: ClientId) -> Self {
+        Self { id, ..default() }
+    }
+
+    /// Whether the player owns the ant (includes monsters)
+    pub fn owns(&self, ant: &AntCmp) -> bool {
+        self.id == ant.owner
+    }
+
+    /// Whether the player controls the ant (own colony)
+    pub fn controls(&self, ant: &AntCmp) -> bool {
+        self.id == ant.owner && !ant.kind.is_monster()
     }
 }

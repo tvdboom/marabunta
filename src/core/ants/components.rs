@@ -160,6 +160,9 @@ pub struct AntCmp {
     /// Speed in pixels per second
     pub speed: f32,
 
+    /// Damage the ant does
+    pub damage: f32,
+
     /// Default behavior of the ant
     pub behavior: Behavior,
 
@@ -189,6 +192,7 @@ impl Default for AntCmp {
             health: 0.,
             max_health: 0.,
             speed: DEFAULT_WALK_SPEED,
+            damage: 0.,
             behavior: Behavior::Attack,
             action: Action::Idle,
             hatch_time: 0.,
@@ -209,6 +213,7 @@ impl AntCmp {
                 price: 30.,
                 health: 10.,
                 max_health: 10.,
+                damage: 1.,
                 behavior: Behavior::Harvest,
                 action: Action::Idle,
                 hatch_time: 5.,
@@ -224,6 +229,7 @@ impl AntCmp {
                 health: 10.,
                 max_health: 10.,
                 speed: DEFAULT_WALK_SPEED + 10.,
+                damage: 2.,
                 behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 10.,
@@ -239,6 +245,7 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED + 5.,
+                damage: 5.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 15.,
@@ -252,6 +259,7 @@ impl AntCmp {
                 health: 1000.,
                 max_health: 1000.,
                 speed: DEFAULT_WALK_SPEED - 2.,
+                damage: 20.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
                 hatch_time: 30.,
@@ -267,6 +275,7 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED,
+                damage: 7.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 12.,
@@ -282,6 +291,7 @@ impl AntCmp {
                 health: 100.,
                 max_health: 100.,
                 speed: DEFAULT_WALK_SPEED - 5.,
+                damage: 12.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 hatch_time: 20.,
@@ -294,6 +304,7 @@ impl AntCmp {
                 health: 100.,
                 max_health: 100.,
                 speed: DEFAULT_WALK_SPEED - 5.,
+                damage: 5.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 ..default()
@@ -325,12 +336,28 @@ impl AntCmp {
 
 #[derive(Component)]
 pub struct Egg {
-    /// Type of ant in the egg
-    pub ant: Ant,
+    /// Id of the egg
+    pub id: Uuid,
 
     /// Player id of the egg's owner
     pub owner: ClientId,
 
+    /// Current health
+    pub health: f32,
+
+    /// Maximum health
+    pub max_health: f32,
+
     /// Time to hatch
     pub timer: Timer,
+
+    /// Type of ant in the egg
+    pub ant: Ant,
+}
+
+impl Egg {
+    pub fn scaled_size(&self) -> Vec2 {
+        let ant_c = AntCmp::new(&self.ant, self.owner);
+        ant_c.scaled_size() * 0.5
+    }
 }
