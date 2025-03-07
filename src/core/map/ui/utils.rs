@@ -13,6 +13,16 @@ pub fn recolor<E: Debug + Clone + Reflect>(
     }
 }
 
+/// Despawn all entities with a specific component
+pub fn despawn_ui<E: Debug + Clone + Reflect, T: Component>(
+) -> impl Fn(Trigger<E>, Commands, Query<Entity, With<T>>) {
+    move |_, mut commands: Commands, query_c: Query<Entity, With<T>>| {
+        for entity in &query_c {
+            commands.entity(entity).try_despawn_recursive();
+        }
+    }
+}
+
 /// Add a root UI node that covers the whole screen
 pub fn add_root_node() -> (Node, PickingBehavior) {
     (

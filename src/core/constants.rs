@@ -33,5 +33,6 @@ pub const DEATH_TIME: f32 = 5.; // Seconds a corpse remains on the map
 pub const DEFAULT_WALK_SPEED: f32 = 20.; // Base walking speed
 pub const DIG_SPEED: f32 = 50.; // Terraform points per ant per second
 pub const HARVEST_SPEED: f32 = 10.; // Food harvesting per ant per second
+pub const FLY_SPEED_FACTOR: f32 = 2.; // Times flying is faster than base
 pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel
 pub const ATTACK_CLOSEST_ENEMY_CHANCE: f32 = 0.8; // Chance of attacking the closest enemy

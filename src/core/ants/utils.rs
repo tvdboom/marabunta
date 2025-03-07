@@ -1,4 +1,3 @@
-use crate::core::ants::components::AntCmp;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::resources::GameSettings;
@@ -7,9 +6,9 @@ use bevy::prelude::*;
 use std::f32::consts::PI;
 
 pub fn walk(
-    ant: &AntCmp,
     ant_t: &mut Transform,
     target_loc: &Loc,
+    speed: f32,
     map: &mut ResMut<Map>,
     game_settings: &Res<GameSettings>,
     time: &Res<Time>,
@@ -34,7 +33,6 @@ pub fn walk(
         // Rotate towards the next location
         ant_t.rotation = rotate(ant_t.rotation);
 
-        let speed = ant.speed * game_settings.speed * time.delta_secs();
         let next_pos = ant_t.translation + (ant_t.rotation * Vec3::Y).normalize() * speed;
 
         let next_loc = map.get_loc(&next_pos);

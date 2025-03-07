@@ -2,10 +2,11 @@ use crate::core::ants::components::{Animation, AnimationCmp, Ant, AntCmp};
 use crate::core::ants::events::QueueAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::map::systems::MapCmp;
-use crate::core::map::ui::utils::add_text;
+use crate::core::map::ui::utils::{add_text, despawn_ui};
 use crate::core::player::Player;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
+use std::fmt::Debug;
 use strum::IntoEnumIterator;
 
 #[derive(Component)]
@@ -16,6 +17,92 @@ pub struct ColonyButtonCmp(pub Ant);
 
 #[derive(Component)]
 pub struct ColonyLabelCmp(pub Ant);
+
+#[derive(Component)]
+pub struct InfoPanelUi;
+
+pub fn on_hover_info_panel<E: Debug + Clone + Reflect>(
+    ant: AntCmp,
+) -> impl FnMut(Trigger<E>, Commands, Local<WorldAssets>) {
+    move |_, mut commands: Commands, assets: Local<WorldAssets>| {
+        // Insert pixel height manually since nodes are not childs of the button node
+        let height = match ant.kind {
+            Ant::BlackQueen => 160.,
+            Ant::BlackAnt => 240.,
+            Ant::BlackBullet => 320.,
+            Ant::BlackSoldier => 400.,
+            Ant::GoldTail => 480.,
+            Ant::TrapJaw => 565.,
+            _ => unreachable!(),
+        };
+
+        commands
+            .spawn((
+                Node {
+                    top: Val::Px(height),
+                    left: Val::Px(108.),
+                    width: Val::Px(250.),
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba_u8(88, 57, 39, 200)),
+                BorderRadius::all(Val::Px(10.)),
+                InfoPanelUi,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((Node {
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::ZERO.with_bottom(Val::Px(15.)),
+                        ..default()
+                    },))
+                    .with_children(|parent| {
+                        parent.spawn(add_text(ant.kind.to_title(), 20., &assets));
+                    });
+
+                parent
+                    .spawn(Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::FlexStart,
+                        margin: UiRect::ZERO.with_bottom(Val::Px(10.)),
+                        ..default()
+                    })
+                    .with_children(|parent| {
+                        let attributes = [
+                            ("Price", ant.price),
+                            ("Health", ant.max_health),
+                            ("Speed", ant.speed),
+                            ("Damage", ant.damage),
+                            ("Hatch time", ant.hatch_time),
+                            ("Carry capacity", ant.max_carry),
+                        ];
+
+                        for (k, v) in attributes.iter() {
+                            // Skip default values
+                            if *v > 1. && *v < f32::MAX {
+                                parent.spawn((
+                                    Node {
+                                        margin: UiRect::ZERO.with_bottom(Val::Px(5.)),
+                                        ..default()
+                                    },
+                                    add_text(format!("{k}: {:.0}", v), 15., &assets),
+                                ));
+                            }
+                        }
+                    });
+
+                parent.spawn((
+                    Text::new(&ant.description),
+                    TextFont {
+                        font_size: 13.,
+                        ..default()
+                    },
+                ));
+            });
+    }
+}
 
 pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldAssets>) {
     commands
@@ -104,6 +191,8 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 ColonyButtonCmp(ant.clone()),
                             ))
                             .observe(on_click_ui_button)
+                            .observe(on_hover_info_panel::<Pointer<Over>>(ant_c.clone()))
+                            .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                             .with_children(|parent| {
                                 parent
                                     .spawn(Node {
@@ -142,14 +231,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 })
                                 .with_children(|parent| {
                                     parent.spawn((add_text(
-                                        match key {
-                                            KeyCode::KeyZ => "Z",
-                                            KeyCode::KeyX => "X",
-                                            KeyCode::KeyC => "C",
-                                            KeyCode::KeyV => "V",
-                                            KeyCode::KeyB => "B",
-                                            _ => unreachable!(),
-                                        },
+                                        key.to_name().chars().last().unwrap().to_string(),
                                         20.,
                                         &assets,
                                     ),));

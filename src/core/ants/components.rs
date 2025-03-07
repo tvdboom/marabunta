@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
+use crate::core::player::AntColor;
 
 #[derive(Component)]
 pub struct AntHealthWrapperCmp;
@@ -30,6 +31,7 @@ pub enum Behavior {
 pub enum Animation {
     Bite,
     Die,
+    Fly,
     LookAround,
     Idle,
     Pinch,
@@ -46,6 +48,7 @@ pub enum Ant {
     BlackSoldier,
     GoldTail,
     TrapJaw,
+    BlackAlate,
     BlackScorpion,
 }
 
@@ -65,14 +68,21 @@ impl Ant {
             Ant::BlackSoldier => UVec2::new(367, 508),
             Ant::GoldTail => UVec2::new(466, 623),
             Ant::TrapJaw => UVec2::new(513, 577),
+            Ant::BlackAlate => UVec2::new(510, 512),
             Ant::BlackScorpion => UVec2::new(675, 785),
         }
     }
 
     pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
-            Ant::BlackScorpion => vec![Animation::Bite, Animation::LookAround],
-            _ => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
+            Ant::BlackAlate => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
+            Ant::BlackScorpion => vec![Animation::Bite, Animation::Fly, Animation::LookAround],
+            _ => vec![
+                Animation::Fly,
+                Animation::Pinch,
+                Animation::Sting,
+                Animation::WalkPincing,
+            ],
         };
 
         Animation::iter()
@@ -92,6 +102,7 @@ impl Ant {
             _ => match animation {
                 Animation::Bite | Animation::Walk => 8,
                 Animation::Die => 10,
+                Animation::Fly => 12,
                 Animation::LookAround | Animation::Idle => 20,
                 _ => unreachable!(),
             },
@@ -135,6 +146,9 @@ pub struct AntCmp {
     /// Ant type
     pub kind: Ant,
 
+    /// Ant color
+    pub color: AntColor,
+
     /// Key used to create this ant
     pub key: Option<KeyCode>,
 
@@ -163,12 +177,6 @@ pub struct AntCmp {
     /// Damage the ant does
     pub damage: f32,
 
-    /// Default behavior of the ant
-    pub behavior: Behavior,
-
-    /// Current action performed by the ant
-    pub action: Action,
-
     /// Time to hatch from an egg
     pub hatch_time: f32,
 
@@ -177,6 +185,18 @@ pub struct AntCmp {
 
     /// Maximum resource carry capacity
     pub max_carry: f32,
+
+    /// Whether the ant can fly
+    pub can_fly: bool,
+
+    /// Default behavior of the ant
+    pub behavior: Behavior,
+
+    /// Current action performed by the ant
+    pub action: Action,
+
+    /// Description of the ant
+    pub description: String,
 }
 
 impl Default for AntCmp {
@@ -184,6 +204,7 @@ impl Default for AntCmp {
         Self {
             id: Uuid::new_v4(),
             kind: Ant::BlackAnt,
+            color: AntColor::Black,
             key: None,
             owner: 0,
             scale: 0.03,
@@ -193,11 +214,13 @@ impl Default for AntCmp {
             max_health: 0.,
             speed: DEFAULT_WALK_SPEED,
             damage: 0.,
-            behavior: Behavior::Attack,
-            action: Action::Idle,
             hatch_time: 0.,
             carry: 0.,
-            max_carry: 10.,
+            max_carry: 1.,
+            can_fly: false,
+            behavior: Behavior::Attack,
+            action: Action::Idle,
+            description: "".to_string(),
         }
     }
 }
@@ -213,11 +236,15 @@ impl AntCmp {
                 price: 30.,
                 health: 10.,
                 max_health: 10.,
-                damage: 1.,
-                behavior: Behavior::Harvest,
-                action: Action::Idle,
+                damage: 2.,
                 hatch_time: 5.,
                 max_carry: 30.,
+                behavior: Behavior::Harvest,
+                action: Action::Idle,
+                description: "\
+                    The worker is the most common ant in the colony. \
+                    They are responsible for gathering food."
+                    .to_string(),
                 ..default()
             },
             Ant::BlackBullet => Self {
@@ -229,10 +256,14 @@ impl AntCmp {
                 health: 10.,
                 max_health: 10.,
                 speed: DEFAULT_WALK_SPEED + 10.,
-                damage: 2.,
+                damage: 3.,
                 behavior: Behavior::Dig,
                 action: Action::Idle,
                 hatch_time: 10.,
+                description: "\
+                    The bullet ant expands the colonies territory digging \
+                    new tunnels. They move fast, but are weak in combat."
+                    .to_string(),
                 ..default()
             },
             Ant::BlackSoldier => Self {
@@ -245,24 +276,33 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED + 5.,
-                damage: 5.,
+                damage: 6.,
+                hatch_time: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                hatch_time: 15.,
+                description: "\
+                    The soldier ants form the colony's base defense. Their main \
+                    task is to protect the workers and queen from any foe."
+                    .to_string(),
                 ..default()
             },
             Ant::BlackQueen => Self {
                 kind: Ant::BlackQueen,
                 owner: id,
                 scale: 0.06,
-                price: 1000.,
+                price: f32::MAX,
                 health: 1000.,
                 max_health: 1000.,
                 speed: DEFAULT_WALK_SPEED - 2.,
                 damage: 20.,
+                hatch_time: 30.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
-                hatch_time: 30.,
+                description: "\
+                    The queen is the heart of the colony. She is responsible for \
+                    laying eggs and keeping the colony alive. If the queen dies, \
+                    you lose the game!"
+                    .to_string(),
                 ..default()
             },
             Ant::GoldTail => Self {
@@ -275,10 +315,15 @@ impl AntCmp {
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED,
-                damage: 7.,
+                damage: 9.,
+                hatch_time: 12.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                hatch_time: 12.,
+                description: "\
+                    The gold tail ant is a rare species that is known for its \
+                    golden tail. They are strong and fast, making them excellent \
+                    hunters."
+                    .to_string(),
                 ..default()
             },
             Ant::TrapJaw => Self {
@@ -292,9 +337,34 @@ impl AntCmp {
                 max_health: 100.,
                 speed: DEFAULT_WALK_SPEED - 5.,
                 damage: 12.,
+                hatch_time: 20.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                hatch_time: 20.,
+                description: "\
+                    The trap jaw ant is a rare species that is known for its \
+                    powerful jaws. They are slow, but very strong individuals."
+                    .to_string(),
+                ..default()
+            },
+            Ant::BlackAlate => Self {
+                kind: Ant::BlackAlate,
+                key: Some(KeyCode::KeyN),
+                owner: id,
+                scale: 0.05,
+                z_score: 0.9,
+                price: 350.,
+                health: 150.,
+                max_health: 150.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 10.,
+                hatch_time: 30.,
+                can_fly: true,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                description: "\
+                    The flying ant, also known as alate, are the male individuals \
+                    in the colony. They are incredibly fast and powerful units."
+                    .to_string(),
                 ..default()
             },
             Ant::BlackScorpion => Self {
@@ -329,12 +399,19 @@ impl AntCmp {
             Action::Die(_) => Animation::Die,
             Action::Harvest | Action::Dig(_) => Animation::LookAround,
             Action::Brood(_) | Action::Idle => Animation::Idle,
-            Action::TargetedWalk(_) | Action::Walk(_) => Animation::Walk,
+            Action::TargetedWalk(_) => {
+                if self.can_fly {
+                    Animation::Fly
+                } else {
+                    Animation::Walk
+                }
+            }
+            Action::Walk(_) => Animation::Walk,
         }
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Clone)]
 pub struct Egg {
     /// Id of the egg
     pub id: Uuid,
@@ -356,6 +433,10 @@ pub struct Egg {
 }
 
 impl Egg {
+    pub fn size(&self) -> Vec2 {
+        self.ant.size().as_vec2()
+    }
+
     pub fn scaled_size(&self) -> Vec2 {
         let ant_c = AntCmp::new(&self.ant, self.owner);
         ant_c.scaled_size() * 0.5

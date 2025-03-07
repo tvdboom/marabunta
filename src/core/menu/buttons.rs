@@ -3,7 +3,7 @@ use crate::core::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
-use crate::core::player::Player;
+use crate::core::player::{AntColor, Player};
 use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
@@ -71,7 +71,7 @@ pub fn on_click_menu_button(
             let map = create_map(&game_settings);
 
             commands.insert_resource(game_settings);
-            commands.insert_resource(Player::new(0));
+            commands.insert_resource(Player::new(0, AntColor::Black));
             commands.insert_resource(map);
 
             next_app_state.set(AppState::Game);
@@ -93,6 +93,7 @@ pub fn on_click_menu_button(
             for client in server.clients_id().iter() {
                 let message = bincode::serialize(&ServerMessage::StartGame {
                     id: *client,
+                    color: AntColor::Red,
                     settings: game_settings.clone(),
                     map: map.clone(),
                 })
@@ -101,7 +102,7 @@ pub fn on_click_menu_button(
             }
 
             commands.insert_resource(game_settings);
-            commands.insert_resource(Player::new(0)); // The host is player 0
+            commands.insert_resource(Player::new(0, AntColor::Black)); // The host is player 0
             commands.insert_resource(map);
 
             next_app_state.set(AppState::Game);

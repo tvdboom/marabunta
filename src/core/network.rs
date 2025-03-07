@@ -1,7 +1,7 @@
 use crate::core::ants::components::AntCmp;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
-use crate::core::player::Player;
+use crate::core::player::{AntColor, Player};
 use crate::core::resources::{GameSettings, Population, PopulationT};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
@@ -20,6 +20,7 @@ pub enum ServerMessage {
     NPlayers(usize),
     StartGame {
         id: ClientId,
+        color: AntColor,
         settings: GameSettings,
         map: Map,
     },
@@ -196,8 +197,13 @@ pub fn client_receive_message(
                     text.0 = format!("There are {i} players in the lobby.\nWaiting for the host to start the game...");
                 }
             }
-            ServerMessage::StartGame { id, settings, map } => {
-                commands.insert_resource(Player::new(id));
+            ServerMessage::StartGame {
+                id,
+                color,
+                settings,
+                map,
+            } => {
+                commands.insert_resource(Player::new(id, color));
                 commands.insert_resource(settings);
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);

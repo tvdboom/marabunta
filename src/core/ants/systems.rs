@@ -288,7 +288,7 @@ pub fn resolve_die_action(
 
 pub fn resolve_idle_action(
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
-    mut egg_q: Query<(&Transform, &mut Egg)>,
+    egg_q: Query<(&Transform, &Egg)>,
     player: Res<Player>,
     map: Res<Map>,
 ) {
@@ -370,6 +370,7 @@ pub fn resolve_idle_action(
 
 pub fn resolve_targeted_walk_action(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    egg_q: Query<(&Transform, &Egg), Without<AntCmp>>,
     mut player: ResMut<Player>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
@@ -378,6 +379,11 @@ pub fn resolve_targeted_walk_action(
     let ant_elem: Vec<_> = ant_q
         .iter()
         .map(|(t, a)| (a.id, t.translation, a.scaled_size()))
+        .chain(
+            egg_q
+                .iter()
+                .map(|(t, e)| (e.id, t.translation, e.scaled_size())),
+        )
         .collect();
 
     for (mut ant_t, mut ant) in ant_q.iter_mut() {
@@ -385,10 +391,15 @@ pub fn resolve_targeted_walk_action(
             if let Action::TargetedWalk(id) = ant.action {
                 if let Some((_, pos_t, size_t)) = ant_elem.iter().find(|(i, _, _)| i == &id) {
                     if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
+                        let speed = ant.speed
+                            * game_settings.speed
+                            * time.delta_secs()
+                            * if ant.can_fly { FLY_SPEED_FACTOR } else { 1. };
+
                         walk(
-                            &ant,
                             &mut ant_t,
                             &map.get_loc(pos_t),
+                            speed,
                             &mut map,
                             &game_settings,
                             &time,
@@ -440,9 +451,9 @@ pub fn resolve_walk_action(
             let current_loc = map.get_loc(&ant_t.translation);
             if current_loc != target_loc {
                 walk(
-                    &ant,
                     &mut ant_t,
                     &target_loc,
+                    ant.speed * game_settings.speed * time.delta_secs(),
                     &mut map,
                     &game_settings,
                     &time,
@@ -512,12 +523,9 @@ pub fn resolve_walk_action(
 pub fn update_ant_components(
     ant_q: Query<
         (Entity, &Transform, &AntCmp),
-        (
-            With<AntCmp>,
-            Without<AntHealthWrapperCmp>,
-            Without<AntHealthCmp>,
-        ),
+        (Without<AntHealthWrapperCmp>, Without<AntHealthCmp>),
     >,
+    egg_q: Query<(Entity, &Transform, &Egg), (Without<AntHealthWrapperCmp>, Without<AntHealthCmp>)>,
     mut wrapper_q: Query<
         (Entity, &mut Transform, &mut Visibility),
         (With<AntHealthWrapperCmp>, Without<AntHealthCmp>),
@@ -553,6 +561,36 @@ pub fn update_ant_components(
                             if let Some(size) = health_s.custom_size.as_mut() {
                                 let full_size = ant.size().x * 0.77;
                                 size.x = full_size * ant.health / ant.max_health;
+                                health_t.translation.x = (size.x - full_size) * 0.5;
+                            }
+                        }
+                    }
+                } else {
+                    *wrapper_v = Visibility::Hidden;
+                }
+            }
+        }
+    }
+
+    for (egg_e, egg_t, egg) in egg_q.iter() {
+        for child in children_q.iter_descendants(egg_e) {
+            if let Ok((wrapper_e, mut wrapper_t, mut wrapper_v)) = wrapper_q.get_mut(child) {
+                // Show the health bar when the egg is damaged
+                if egg.health > 0. && egg.health < egg.max_health {
+                    *wrapper_v = Visibility::Inherited;
+
+                    // Place the health bar on top of the egg on a distance dependent on the egg's rotation
+                    wrapper_t.translation = Vec3::new(
+                        egg.size().x * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.sin(),
+                        egg.size().y * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.cos(),
+                        0.1,
+                    );
+
+                    for child in children_q.iter_descendants(wrapper_e) {
+                        if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
+                            if let Some(size) = health_s.custom_size.as_mut() {
+                                let full_size = egg.size().x * 0.77;
+                                size.x = full_size * egg.health / egg.max_health;
                                 health_t.translation.x = (size.x - full_size) * 0.5;
                             }
                         }

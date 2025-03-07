@@ -52,7 +52,6 @@ impl Plugin for GamePlugin {
             .add_event::<SpawnEggEv>()
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
-            .add_event::<AttackEv>()
             .add_event::<DamageAntEv>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
@@ -169,7 +168,6 @@ impl Plugin for GamePlugin {
                     spawn_egg_event,
                     spawn_ant_event,
                     despawn_ant_event,
-                    attack_ants,
                     damage_event,
                 )
                     .in_set(InRunningGameSet),

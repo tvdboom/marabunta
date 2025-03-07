@@ -1,7 +1,4 @@
-use crate::core::ants::components::{
-    Action, AnimationCmp, Ant, AntCmp, AntHealthCmp, AntHealthWrapperCmp, Behavior, Egg,
-    LeafCarryCmp,
-};
+use crate::core::ants::components::*;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_Z_SCORE};
 use crate::core::map::systems::MapCmp;
@@ -35,12 +32,6 @@ pub struct SpawnAntEv {
 #[derive(Event)]
 pub struct DespawnAntEv {
     pub entity: Entity,
-}
-
-#[derive(Event)]
-pub struct AttackEv {
-    pub attacker: Uuid,
-    pub defender: Uuid,
 }
 
 #[derive(Event)]
@@ -78,6 +69,15 @@ pub fn spawn_egg_event(
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
         let ant_c = AntCmp::new(ant, player.id);
+        let egg = Egg {
+            id: Uuid::new_v4(),
+            ant: ant_c.kind.clone(),
+            owner: player.id,
+            health: ant_c.max_health / 4.,
+            max_health: ant_c.max_health / 4.,
+            timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
+        };
+
         commands
             .spawn((
                 Sprite {
@@ -90,14 +90,7 @@ pub fn spawn_egg_event(
                     scale: Vec3::splat(0.5 * ant_c.scale),
                     ..default()
                 },
-                Egg {
-                    id: Uuid::new_v4(),
-                    ant: ant_c.kind.clone(),
-                    owner: player.id,
-                    health: ant_c.max_health / 4.,
-                    max_health: ant_c.max_health / 4.,
-                    timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
-                },
+                egg.clone(),
                 NoRotationParentCmp,
                 MapCmp,
             ))
@@ -106,10 +99,7 @@ pub fn spawn_egg_event(
                     .spawn((
                         Sprite {
                             color: Color::from(BLACK),
-                            custom_size: Some(Vec2::new(
-                                ant_c.size().x * 0.4,
-                                ant_c.size().y * 0.05,
-                            )),
+                            custom_size: Some(Vec2::new(egg.size().x * 0.8, egg.size().y * 0.1)),
                             ..default()
                         },
                         AntHealthWrapperCmp,
@@ -122,8 +112,8 @@ pub fn spawn_egg_event(
                             Sprite {
                                 color: Color::from(LIME),
                                 custom_size: Some(Vec2::new(
-                                    ant_c.size().x * 0.77,
-                                    ant_c.size().y * 0.08,
+                                    egg.size().x * 0.77,
+                                    egg.size().y * 0.08,
                                 )),
                                 ..default()
                             },
@@ -142,7 +132,7 @@ pub fn spawn_ant_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
-        let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.action.to_name()));
+        let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.animation().to_snake()));
 
         commands
             .spawn((
@@ -243,15 +233,6 @@ pub fn despawn_ant_event(
         }
 
         commands.entity(*entity).despawn_recursive();
-    }
-}
-
-pub fn attack_ants(mut attack_ev: EventReader<AttackEv>, mut ant_q: Query<&mut AntCmp>) {
-    for AttackEv { attacker, defender } in attack_ev.read() {
-        if let Some(mut defender) = ant_q.iter_mut().find(|a| a.id == *defender) {
-            defender.action = Action::Attack(*attacker);
-            defender.behavior = Behavior::Attack;
-        }
     }
 }
 
