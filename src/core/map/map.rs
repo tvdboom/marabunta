@@ -293,6 +293,22 @@ impl Map {
         locations.choose(&mut rng()).copied()
     }
 
+    pub fn closest_leaf_loc(&self, pos: &Vec3, id: ClientId) -> Option<Loc> {
+        self.tiles
+            .iter()
+            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
+            .map(|t| Loc {
+                x: t.x,
+                y: t.y,
+                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
+            })
+            .min_by_key(|t| {
+                Map::get_coord_from_xy(t.x, t.y)
+                    .extend(pos.z)
+                    .distance(*pos) as u32
+            })
+    }
+
     pub fn random_dig_loc(&self, tile: Option<&Tile>, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles

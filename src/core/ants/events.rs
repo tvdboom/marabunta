@@ -73,6 +73,7 @@ pub fn spawn_egg_event(
             id: Uuid::new_v4(),
             ant: ant_c.kind.clone(),
             owner: player.id,
+            team: player.id,
             health: ant_c.max_health / 4.,
             max_health: ant_c.max_health / 4.,
             timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
@@ -132,7 +133,11 @@ pub fn spawn_ant_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
-        let atlas = assets.atlas(&format!("{}_{}", ant.kind.to_snake(), ant.animation().to_snake()));
+        let atlas = assets.atlas(&format!(
+            "{}_{}",
+            ant.kind.to_snake(),
+            ant.animation().to_snake()
+        ));
 
         commands
             .spawn((

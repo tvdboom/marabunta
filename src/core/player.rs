@@ -2,8 +2,8 @@ use crate::core::ants::components::{Ant, AntCmp};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy_renet::renet::ClientId;
-use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AntColor {

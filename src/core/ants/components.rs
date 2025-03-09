@@ -3,11 +3,11 @@ use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
 use bevy::prelude::*;
 use bevy_renet::renet::ClientId;
+use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
-use crate::core::player::AntColor;
 
 #[derive(Component)]
 pub struct AntHealthWrapperCmp;
@@ -18,12 +18,13 @@ pub struct AntHealthCmp;
 #[derive(Component)]
 pub struct LeafCarryCmp;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Behavior {
     Attack,
     Brood,
     Dig,
     Harvest,
+    Heal,
     Wander,
 }
 
@@ -133,6 +134,7 @@ pub enum Action {
     Die(Timer),   // Time the body remains visible
     Dig(Tile),    // Tile to dig
     Harvest,
+    Heal,
     Idle,
     TargetedWalk(Uuid), // Id of the target to walk to
     Walk(Loc),          // Location to walk to
@@ -146,14 +148,15 @@ pub struct AntCmp {
     /// Ant type
     pub kind: Ant,
 
-    /// Ant color
-    pub color: AntColor,
-
     /// Key used to create this ant
     pub key: Option<KeyCode>,
 
     /// Player id of the ant's owner
+    /// In singleplayer mode, this is always the same value
     pub owner: ClientId,
+
+    /// Team the ant corresponds to
+    pub team: u64,
 
     /// Scale factor of `Transform`
     /// Determines the size of the ant's sprite
@@ -204,9 +207,9 @@ impl Default for AntCmp {
         Self {
             id: Uuid::new_v4(),
             kind: Ant::BlackAnt,
-            color: AntColor::Black,
             key: None,
             owner: 0,
+            team: 0,
             scale: 0.03,
             z_score: 0.9,
             price: 0.,
@@ -232,6 +235,7 @@ impl AntCmp {
                 kind: Ant::BlackAnt,
                 key: Some(KeyCode::KeyZ),
                 owner: id,
+                team: id,
                 z_score: 0.1,
                 price: 30.,
                 health: 10.,
@@ -251,6 +255,7 @@ impl AntCmp {
                 kind: Ant::BlackBullet,
                 key: Some(KeyCode::KeyX),
                 owner: id,
+                team: id,
                 z_score: 0.2,
                 price: 100.,
                 health: 10.,
@@ -270,6 +275,7 @@ impl AntCmp {
                 kind: Ant::BlackSoldier,
                 key: Some(KeyCode::KeyC),
                 owner: id,
+                team: id,
                 scale: 0.04,
                 z_score: 0.5,
                 price: 150.,
@@ -289,6 +295,7 @@ impl AntCmp {
             Ant::BlackQueen => Self {
                 kind: Ant::BlackQueen,
                 owner: id,
+                team: id,
                 scale: 0.06,
                 price: f32::MAX,
                 health: 1000.,
@@ -309,6 +316,7 @@ impl AntCmp {
                 kind: Ant::GoldTail,
                 key: Some(KeyCode::KeyV),
                 owner: id,
+                team: id,
                 scale: 0.04,
                 z_score: 0.6,
                 price: 200.,
@@ -330,6 +338,7 @@ impl AntCmp {
                 kind: Ant::TrapJaw,
                 key: Some(KeyCode::KeyB),
                 owner: id,
+                team: id,
                 scale: 0.05,
                 z_score: 0.7,
                 price: 250.,
@@ -350,6 +359,7 @@ impl AntCmp {
                 kind: Ant::BlackAlate,
                 key: Some(KeyCode::KeyN),
                 owner: id,
+                team: id,
                 scale: 0.05,
                 z_score: 0.9,
                 price: 350.,
@@ -370,6 +380,7 @@ impl AntCmp {
             Ant::BlackScorpion => Self {
                 kind: Ant::BlackScorpion,
                 owner: id,
+                team: rng().random_range(100..1000),
                 scale: 0.05,
                 health: 100.,
                 max_health: 100.,
@@ -397,7 +408,7 @@ impl AntCmp {
                 _ => Animation::Bite,
             },
             Action::Die(_) => Animation::Die,
-            Action::Harvest | Action::Dig(_) => Animation::LookAround,
+            Action::Harvest | Action::Heal | Action::Dig(_) => Animation::LookAround,
             Action::Brood(_) | Action::Idle => Animation::Idle,
             Action::TargetedWalk(_) => {
                 if self.can_fly {
@@ -418,6 +429,9 @@ pub struct Egg {
 
     /// Player id of the egg's owner
     pub owner: ClientId,
+
+    /// Team the egg corresponds to
+    pub team: u64,
 
     /// Current health
     pub health: f32,
