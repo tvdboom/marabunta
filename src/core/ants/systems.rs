@@ -235,24 +235,19 @@ pub fn resolve_healing(
                 let heal =
                     (HEAL_SPEED_RATIO * ant.max_health * game_settings.speed * time.delta_secs())
                         .min(leaf.quantity);
-                println!("heal: {}", heal);
 
                 let health = (ant.health + heal).min(ant.max_health);
-                println!("health: {}", health);
                 let healed = health - ant.health;
-                println!("healed: {}", healed);
                 ant.health = health;
                 leaf.quantity -= healed;
 
                 if leaf.quantity == 0. {
                     tile.leaf = None;
                 }
+            }
 
-                if ant.health == ant.max_health {
-                    ant.behavior = AntCmp::new(&ant.kind, player.id).behavior;
-                    ant.action = Action::Idle;
-                }
-            } else {
+            if ant.health == ant.max_health || tile.leaf.is_none() {
+                ant.behavior = AntCmp::new(&ant.kind, player.id).behavior;
                 ant.action = Action::Idle;
             }
         }

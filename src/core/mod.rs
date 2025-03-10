@@ -148,7 +148,7 @@ impl Plugin for GamePlugin {
                 animate_ants,
                 resolve_digging,
                 resolve_harvesting,
-                reolve_healing,
+                resolve_healing,
                 resolve_attack_action,
                 resolve_die_action,
                 resolve_brood_action,
