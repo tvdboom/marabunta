@@ -74,6 +74,7 @@ pub fn toggle_pause_keyboard(
                 GameState::Running => next_game_state.set(GameState::InGameMenu),
                 GameState::Paused => next_game_state.set(GameState::InGameMenu),
                 GameState::InGameMenu => next_game_state.set(GameState::Running),
+                GameState::TraitSelection => (),
                 GameState::GameOver => next_app_state.set(AppState::MainMenu),
             }
         }

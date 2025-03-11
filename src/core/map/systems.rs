@@ -93,7 +93,7 @@ pub fn draw_map(
             ));
 
             spawn_ant_ev.send(SpawnAntEv {
-                ant: AntCmp::new(&Ant::Queen).with(player.id, &player.color),
+                ant: AntCmp::from_player(&Ant::Queen, &player),
                 transform: Transform {
                     translation: pos.extend(0.),
                     rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),

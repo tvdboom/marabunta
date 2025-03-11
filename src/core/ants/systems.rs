@@ -9,6 +9,7 @@ use crate::core::map::tile::Tile;
 use crate::core::map::utils::reveal_tiles;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
+use crate::core::traits::Trait;
 use crate::core::utils::{collision, scale_duration};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
@@ -163,7 +164,15 @@ pub fn resolve_digging(
             });
 
             // Calculate the aggregate terraform progress
-            let terraform = ants.len() as f32 * DIG_SPEED * game_settings.speed * time.delta_secs();
+            let terraform = ants.len() as f32
+                * DIG_SPEED
+                * game_settings.speed
+                * time.delta_secs()
+                * if player.has_trait(&Trait::Tunneling) {
+                    2.
+                } else {
+                    1.
+                };
 
             if tile.terraform > terraform {
                 tile.terraform -= terraform;
@@ -176,7 +185,7 @@ pub fn resolve_digging(
                     } {
                         // Spawn an enemy on the newly dug tile
                         spawn_ant_ev.send(SpawnAntEv {
-                            ant: AntCmp::new(&enemy),
+                            ant: AntCmp::base(&enemy).with_owner(player.id),
                             transform: Transform {
                                 translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
                                 rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
@@ -269,7 +278,7 @@ pub fn resolve_healing(
             }
 
             if ant.health == ant.max_health || tile.leaf.is_none() {
-                ant.behavior = AntCmp::new(&ant.kind).behavior;
+                ant.behavior = AntCmp::base(&ant.kind).behavior;
                 ant.action = Action::Idle;
             }
         }
@@ -324,8 +333,7 @@ pub fn resolve_brood_action(
                 if timer.just_finished() {
                     if let Some(ant_queue) = player.queue.pop_front() {
                         spawn_egg_ev.send(SpawnEggEv {
-                            ant: AntCmp::new(&ant_queue)
-                                .with(ant.owner, &ant.color.clone().unwrap()),
+                            ant: AntCmp::from_player(&ant_queue, &player),
                             transform: *ant_t,
                         });
                     }

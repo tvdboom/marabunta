@@ -1,7 +1,7 @@
 use crate::core::constants::DEFAULT_WALK_SPEED;
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
-use crate::core::player::AntColor;
+use crate::core::player::{AntColor, Player};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy_renet::renet::ClientId;
@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
+use crate::core::traits::Trait;
 
 #[derive(Component)]
 pub struct AntHealthWrapperCmp;
@@ -80,12 +81,12 @@ impl Ant {
     pub fn colors(&self) -> Box<dyn Iterator<Item = AntCmp>> {
         match self {
             Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion => {
-                Box::new(std::iter::once(AntCmp::new(self)))
+                Box::new(std::iter::once(AntCmp::base(self)))
             }
             _ => Box::new(
                 [
-                    AntCmp::new(self).with(0, &AntColor::Black),
-                    AntCmp::new(self).with(0, &AntColor::Red),
+                    AntCmp::base(self).with_color(&AntColor::Black),
+                    AntCmp::base(self).with_color(&AntColor::Red),
                 ]
                 .into_iter(),
             ),
@@ -253,7 +254,7 @@ impl Default for AntCmp {
 }
 
 impl AntCmp {
-    pub fn new(kind: &Ant) -> Self {
+    pub fn new(kind: &Ant, player: &Player) -> Self {
         match kind {
             Ant::Worker => Self {
                 kind: Ant::Worker,
@@ -286,7 +287,7 @@ impl AntCmp {
                 action: Action::Idle,
                 hatch_time: 10.,
                 description: "\
-                    The bullet ant expands the colonies territory digging \
+                    The excavator ants expands the colonies territory digging \
                     new tunnels. They move fast, but are weak in combat."
                     .to_string(),
                 ..default()
@@ -299,25 +300,37 @@ impl AntCmp {
                 price: 150.,
                 health: 50.,
                 max_health: 50.,
-                speed: DEFAULT_WALK_SPEED + 5.,
+                speed: DEFAULT_WALK_SPEED,
                 damage: 6.,
                 hatch_time: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
-                    The soldier ants form the colony's base defense. Their main \
+                    The soldiers form the colony's base defense. Their main \
                     task is to protect the workers and queen from any foe."
                     .to_string(),
                 ..default()
             },
             Ant::Queen => Self {
                 kind: Ant::Queen,
-                scale: 0.06,
+                scale: if player.has_trait(&Trait::SuperQueen) {
+                    0.1
+                } else {
+                    0.06
+                },
                 price: f32::MAX,
                 health: 1000.,
                 max_health: 1000.,
-                speed: DEFAULT_WALK_SPEED - 2.,
-                damage: 20.,
+                speed: if player.has_trait(&Trait::SuperQueen) {
+                    DEFAULT_WALK_SPEED - 6.
+                } else {
+                    DEFAULT_WALK_SPEED - 2.
+                },
+                damage: if player.has_trait(&Trait::SuperQueen) {
+                    40.
+                } else {
+                    20.
+                },
                 hatch_time: 30.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
@@ -336,15 +349,14 @@ impl AntCmp {
                 price: 200.,
                 health: 50.,
                 max_health: 50.,
-                speed: DEFAULT_WALK_SPEED,
+                speed: DEFAULT_WALK_SPEED + 5.,
                 damage: 9.,
                 hatch_time: 12.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
-                    The gold tail ant is a rare species that is known for its \
-                    golden tail. They are strong and fast, making them excellent \
-                    hunters."
+                    The warrior ants are the elite fighting units in the colony. \
+                    They are stronger and faster than the soldier ants."
                     .to_string(),
                 ..default()
             },
@@ -363,7 +375,7 @@ impl AntCmp {
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
-                    The flying ant, also known as alate, are the male individuals \
+                    The alates, also known as flying ants, are the male individuals \
                     in the colony. They are incredibly fast and powerful units."
                     .to_string(),
                 ..default()
@@ -371,7 +383,7 @@ impl AntCmp {
             Ant::Mastodon => Self {
                 kind: Ant::Mastodon,
                 key: Some(KeyCode::KeyB),
-                scale: 0.05,
+                scale: 0.06,
                 z_score: 0.7,
                 price: 250.,
                 health: 100.,
@@ -382,8 +394,8 @@ impl AntCmp {
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
-                    The trap jaw ant is a rare species that is known for its \
-                    powerful jaws. They are slow, but very strong individuals."
+                    Mastodon ants are a rare kind that is known for its \
+                    powerful jaws. They are slow, but very strong."
                     .to_string(),
                 ..default()
             },
@@ -414,9 +426,24 @@ impl AntCmp {
         }
     }
 
-    pub fn with(mut self, id: ClientId, color: &AntColor) -> Self {
-        self.owner = id;
-        self.team = id;
+    pub fn base(kind: &Ant) -> Self {
+        Self::new(kind, &Player::default())
+    }
+
+    pub fn from_player(kind: &Ant, player: &Player) -> Self {
+        let mut ant = Self::base(kind);
+        ant.owner = player.id;
+        ant.team = player.id;
+        ant.color = Some(player.color.clone());
+        ant
+    }
+
+    pub fn with_owner(mut self, owner: ClientId) -> Self {
+        self.owner = owner;
+        self
+    }
+
+    pub fn with_color(mut self, color: &AntColor) -> Self {
         self.color = Some(color.clone());
         self
     }

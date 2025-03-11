@@ -11,6 +11,7 @@ mod player;
 mod resources;
 mod states;
 mod systems;
+mod traits;
 mod utils;
 
 use crate::core::ants::events::*;
@@ -21,11 +22,14 @@ use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui};
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{setup_game_over, setup_in_game_menu, setup_menu};
+use crate::core::menu::systems::{
+    setup_game_over, setup_in_game_menu, setup_menu, setup_trait_selection,
+};
 use crate::core::network::*;
 use crate::core::pause::*;
 use crate::core::states::{AppState, AudioState, GameState};
-use crate::core::systems::{check_keys, initialize_game};
+use crate::core::systems::{check_keys, check_trait_timer, initialize_game};
+use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
@@ -53,6 +57,7 @@ impl Plugin for GamePlugin {
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             .add_event::<DamageAntEv>()
+            .add_event::<TraitSelectedEv>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
@@ -80,7 +85,9 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Update,
                 (move_camera, move_camera_keyboard)
-                    .run_if(not(in_state(GameState::InGameMenu)))
+                    .run_if(not(
+                        in_state(GameState::InGameMenu).or(in_state(GameState::TraitSelection))
+                    ))
                     .in_set(InGameSet),
             )
             // Audio
@@ -138,6 +145,8 @@ impl Plugin for GamePlugin {
         .add_systems(OnExit(GameState::Paused), unpause_game)
         .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
         .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
+        .add_systems(OnEnter(GameState::TraitSelection), setup_trait_selection)
+        .add_systems(OnExit(GameState::TraitSelection), despawn::<MenuCmp>)
         .add_systems(OnEnter(GameState::GameOver), setup_game_over)
         .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
@@ -146,6 +155,7 @@ impl Plugin for GamePlugin {
         .add_systems(
             Update,
             (
+                check_trait_timer,
                 check_keys,
                 hatch_eggs,
                 animate_ants,
@@ -167,6 +177,7 @@ impl Plugin for GamePlugin {
             PostUpdate,
             (
                 spawn_tile,
+                select_trait_event,
                 (
                     queue_ant_event,
                     spawn_egg_event,

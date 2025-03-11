@@ -1,4 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::traits::Trait;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy_renet::renet::ClientId;
@@ -18,6 +19,7 @@ pub struct Player {
     pub food: f32,
     pub colony: HashMap<Ant, u32>,
     pub queue: VecDeque<Ant>,
+    pub traits: Vec<Trait>,
 }
 
 impl Default for Player {
@@ -28,6 +30,7 @@ impl Default for Player {
             food: 100.,
             colony: HashMap::new(),
             queue: VecDeque::new(),
+            traits: Vec::new(),
         }
     }
 }
@@ -49,5 +52,10 @@ impl Player {
     /// Whether the player controls the ant (own colony)
     pub fn controls(&self, ant: &AntCmp) -> bool {
         self.id == ant.owner && ant.kind.is_ant()
+    }
+
+    /// Whether the player has the specified trait
+    pub fn has_trait(&self, t: &Trait) -> bool {
+        self.traits.contains(t)
     }
 }

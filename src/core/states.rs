@@ -17,6 +17,7 @@ pub enum GameState {
     Running,
     Paused,
     InGameMenu,
+    TraitSelection,
     GameOver,
 }
 

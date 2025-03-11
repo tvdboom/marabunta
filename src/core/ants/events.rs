@@ -47,7 +47,7 @@ pub fn queue_ant_event(
     assets: Local<WorldAssets>,
 ) {
     for ev in queue_ant_ev.read() {
-        let ant_c = AntCmp::new(&ev.ant);
+        let ant_c = AntCmp::base(&ev.ant);
 
         if ant_c.key.is_some() {
             if player.food >= ant_c.price {
@@ -148,7 +148,11 @@ pub fn spawn_ant_event(
                         .truncate()
                         .extend(ANT_Z_SCORE + ant.z_score),
                     rotation: transform.rotation,
-                    scale: Vec3::splat(ant.scale),
+                    scale: if transform.scale != Vec3::ONE {
+                        transform.scale
+                    } else {
+                        Vec3::splat(ant.scale)
+                    },
                     ..default()
                 },
                 AnimationCmp {
@@ -231,7 +235,9 @@ pub fn despawn_ant_event(
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
         if player.colony[&Ant::Queen] == 0 {
             // Show all enemies on the map
-            ant_q.iter_mut().for_each(|mut v| *v = Visibility::Inherited);
+            ant_q
+                .iter_mut()
+                .for_each(|mut v| *v = Visibility::Inherited);
 
             next_game_state.set(GameState::GameOver);
         } else {

@@ -14,6 +14,7 @@ pub const LERP_FACTOR: f32 = 0.05;
 // Game settings
 pub const MAX_GAME_SPEED: f32 = 3.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
+pub const TRAIT_TIMER: f32 = 10.;
 
 // Z-scores
 pub const TILE_Z_SCORE: f32 = 0.;

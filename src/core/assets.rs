@@ -118,6 +118,20 @@ impl FromWorld for WorldAssets {
             ("egg", assets.load("images/map/egg.png")),
             ("larva1", assets.load("images/map/larva_01.png")),
             ("larva2", assets.load("images/map/larva_02.png")),
+            // Traits
+            ("army", assets.load("images/traits/army.png")),
+            ("corpse", assets.load("images/traits/corpse.png")),
+            ("tunneling", assets.load("images/traits/tunneling.png")),
+            ("eggs", assets.load("images/traits/eggs.png")),
+            (
+                "double-queen",
+                assets.load("images/traits/double-queen.png"),
+            ),
+            ("super-queen", assets.load("images/traits/super-queen.png")),
+            ("ghost", assets.load("images/traits/ghost.png")),
+            ("scorpion", assets.load("images/traits/scorpion.png")),
+            ("hole", assets.load("images/traits/hole.png")),
+            ("harvest", assets.load("images/traits/harvest.png")),
         ]);
 
         for ant in Ant::iter() {

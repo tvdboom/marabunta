@@ -1,4 +1,5 @@
 use crate::core::ants::components::AntCmp;
+use crate::core::constants::TRAIT_TIMER;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy_renet::renet::ClientId;
@@ -17,6 +18,7 @@ pub enum GameMode {
 pub struct GameSettings {
     pub mode: GameMode,
     pub speed: f32,
+    pub trait_timer: Timer,
 }
 
 impl Default for GameSettings {
@@ -24,6 +26,7 @@ impl Default for GameSettings {
         Self {
             mode: GameMode::SinglePlayer,
             speed: 1.0,
+            trait_timer: Timer::from_seconds(TRAIT_TIMER, TimerMode::Repeating),
         }
     }
 }

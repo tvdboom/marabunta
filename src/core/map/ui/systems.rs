@@ -6,7 +6,6 @@ use crate::core::map::ui::utils::{add_text, despawn_ui};
 use crate::core::player::Player;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
-use std::fmt::Debug;
 use strum::IntoEnumIterator;
 
 #[derive(Component)]
@@ -21,10 +20,10 @@ pub struct ColonyLabelCmp(pub Ant);
 #[derive(Component)]
 pub struct InfoPanelUi;
 
-pub fn on_hover_info_panel<E: Debug + Clone + Reflect>(
+pub fn on_hover_info_panel(
     ant: AntCmp,
     i: usize,
-) -> impl FnMut(Trigger<E>, Commands, Local<WorldAssets>) {
+) -> impl FnMut(Trigger<Pointer<Over>>, Commands, Local<WorldAssets>) {
     move |_, mut commands: Commands, assets: Local<WorldAssets>| {
         commands
             .spawn((
@@ -132,7 +131,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
         ))
         .with_children(|parent| {
             for (i, ant) in Ant::iter().filter(|a| a.is_ant()).enumerate() {
-                let ant_c = AntCmp::new(&ant).with(player.id, &player.color);
+                let ant_c = AntCmp::from_player(&ant, &player);
                 let scale = match i {
                     0..3 => 1.,
                     _ => 1.2,
@@ -177,7 +176,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 ColonyButtonCmp(ant.clone()),
                             ))
                             .observe(on_click_ui_button)
-                            .observe(on_hover_info_panel::<Pointer<Over>>(ant_c.clone(), i))
+                            .observe(on_hover_info_panel(ant_c.clone(), i))
                             .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                             .with_children(|parent| {
                                 parent
