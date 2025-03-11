@@ -140,7 +140,7 @@ pub fn setup_trait_selection(
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    margin: UiRect::ZERO.with_top(Val::Px(50.)),
+                    margin: UiRect::ZERO.with_top(Val::Px(20.)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -163,7 +163,7 @@ pub fn setup_trait_selection(
                                     .spawn((Node {
                                         justify_content: JustifyContent::Center,
                                         align_items: AlignItems::Center,
-                                        margin: UiRect::ZERO.with_bottom(Val::Px(-20.)),
+                                        margin: UiRect::ZERO.with_bottom(Val::Px(-30.)),
                                         ..default()
                                     },))
                                     .with_children(|parent| {

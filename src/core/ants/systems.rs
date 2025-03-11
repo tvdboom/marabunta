@@ -185,7 +185,7 @@ pub fn resolve_digging(
                     } {
                         // Spawn an enemy on the newly dug tile
                         spawn_ant_ev.send(SpawnAntEv {
-                            ant: AntCmp::base(&enemy).with_owner(player.id),
+                            ant: AntCmp::new(&enemy, &player),
                             transform: Transform {
                                 translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
                                 rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
@@ -333,7 +333,7 @@ pub fn resolve_brood_action(
                 if timer.just_finished() {
                     if let Some(ant_queue) = player.queue.pop_front() {
                         spawn_egg_ev.send(SpawnEggEv {
-                            ant: AntCmp::from_player(&ant_queue, &player),
+                            ant: AntCmp::new(&ant_queue, &player),
                             transform: *ant_t,
                         });
                     }

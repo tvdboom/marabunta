@@ -259,6 +259,9 @@ impl AntCmp {
             Ant::Worker => Self {
                 kind: Ant::Worker,
                 key: Some(KeyCode::KeyZ),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 z_score: 0.1,
                 price: 30.,
                 health: 10.,
@@ -277,6 +280,9 @@ impl AntCmp {
             Ant::Excavator => Self {
                 kind: Ant::Excavator,
                 key: Some(KeyCode::KeyX),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 z_score: 0.2,
                 price: 100.,
                 health: 10.,
@@ -295,6 +301,9 @@ impl AntCmp {
             Ant::Soldier => Self {
                 kind: Ant::Soldier,
                 key: Some(KeyCode::KeyC),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 scale: 0.04,
                 z_score: 0.5,
                 price: 150.,
@@ -313,14 +322,25 @@ impl AntCmp {
             },
             Ant::Queen => Self {
                 kind: Ant::Queen,
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 scale: if player.has_trait(&Trait::SuperQueen) {
-                    0.1
+                    0.08
                 } else {
                     0.06
                 },
                 price: f32::MAX,
-                health: 1000.,
-                max_health: 1000.,
+                health: if player.has_trait(&Trait::SuperQueen) {
+                    1500.
+                } else {
+                    1000.
+                },
+                max_health: if player.has_trait(&Trait::SuperQueen) {
+                    1500.
+                } else {
+                    1000.
+                },
                 speed: if player.has_trait(&Trait::SuperQueen) {
                     DEFAULT_WALK_SPEED - 6.
                 } else {
@@ -344,6 +364,9 @@ impl AntCmp {
             Ant::Warrior => Self {
                 kind: Ant::Warrior,
                 key: Some(KeyCode::KeyV),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 scale: 0.04,
                 z_score: 0.6,
                 price: 200.,
@@ -363,6 +386,9 @@ impl AntCmp {
             Ant::Alate => Self {
                 kind: Ant::Alate,
                 key: Some(KeyCode::KeyN),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 scale: 0.05,
                 z_score: 0.9,
                 price: 350.,
@@ -383,6 +409,9 @@ impl AntCmp {
             Ant::Mastodon => Self {
                 kind: Ant::Mastodon,
                 key: Some(KeyCode::KeyB),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
                 scale: 0.06,
                 z_score: 0.7,
                 price: 250.,
@@ -401,6 +430,7 @@ impl AntCmp {
             },
             Ant::BlackScorpion => Self {
                 kind: Ant::BlackScorpion,
+                owner: player.id,
                 team: rng().random_range(100..10000),
                 scale: 0.05,
                 health: 100.,
@@ -413,6 +443,7 @@ impl AntCmp {
             },
             Ant::YellowScorpion => Self {
                 kind: Ant::YellowScorpion,
+                owner: player.id,
                 team: rng().random_range(100..10000),
                 scale: 0.05,
                 health: 300.,
@@ -428,19 +459,6 @@ impl AntCmp {
 
     pub fn base(kind: &Ant) -> Self {
         Self::new(kind, &Player::default())
-    }
-
-    pub fn from_player(kind: &Ant, player: &Player) -> Self {
-        let mut ant = Self::base(kind);
-        ant.owner = player.id;
-        ant.team = player.id;
-        ant.color = Some(player.color.clone());
-        ant
-    }
-
-    pub fn with_owner(mut self, owner: ClientId) -> Self {
-        self.owner = owner;
-        self
     }
 
     pub fn with_color(mut self, color: &AntColor) -> Self {

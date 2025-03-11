@@ -28,17 +28,23 @@ impl TraitCmp {
             Trait::DoubleQueen => Self {
                 kind: Trait::DoubleQueen,
                 image: "double-queen".to_string(),
-                description: "Your colony gains an extra queen.".to_string(),
+                description: "\
+                    Your colony gains an extra queen. The queens cooperate, increasing egg \
+                    production and colony growth. Both queens need to die to lose the game".to_string(),
             },
             Trait::Tunneling => Self {
                 kind: Trait::Tunneling,
                 image: "tunneling".to_string(),
-                description: "Excavator ants dig twice as fast.".to_string(),
+                description: "\
+                    Excavator ants dig twice as fast. A rapid expansion of the nest means \
+                    discovering more food sources, but also encountering enemies faster.".to_string(),
             },
             Trait::SuperQueen => Self {
                 kind: Trait::SuperQueen,
                 image: "super-queen".to_string(),
-                description: "The queen increases in size and strength, but walks slower.".to_string(),
+                description: "\
+                    The queen increases in health and strength, but walks slower. If you \
+                    have more than one queen, they all gain the bonuses.".to_string(),
             },
         }
     }
@@ -63,7 +69,7 @@ pub fn select_trait_event(
         match ev.0 {
             Trait::DoubleQueen => {
                 spawn_ant_ev.send(SpawnAntEv {
-                    ant: AntCmp::from_player(&Ant::Queen, &player),
+                    ant: AntCmp::new(&Ant::Queen, &player),
                     transform: Transform {
                         // Spawn the queen where the current one is located
                         translation: ant_q
@@ -78,11 +84,15 @@ pub fn select_trait_event(
                 });
             }
             Trait::SuperQueen => {
-                let queen = AntCmp::from_player(&Ant::Queen, &player);
+                let queen = AntCmp::new(&Ant::Queen, &player);
                 ant_q.iter_mut().filter(|(_, a)| a.kind == Ant::Queen && a.team == player.id).for_each(
                     |(mut t, mut a)| {
                         t.scale = Vec3::splat(queen.scale);
-                        *a = queen.clone();
+
+                        // Spawn with the same health ratio as it currently has
+                        let mut queen = queen.clone();
+                        queen.health = (a.health / a.max_health) * queen.max_health;
+                        *a = queen;
                     },
                 );
             }

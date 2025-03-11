@@ -131,7 +131,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
         ))
         .with_children(|parent| {
             for (i, ant) in Ant::iter().filter(|a| a.is_ant()).enumerate() {
-                let ant_c = AntCmp::from_player(&ant, &player);
+                let ant_c = AntCmp::new(&ant, &player);
                 let scale = match i {
                     0..3 => 1.,
                     _ => 1.2,

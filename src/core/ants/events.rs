@@ -148,11 +148,7 @@ pub fn spawn_ant_event(
                         .truncate()
                         .extend(ANT_Z_SCORE + ant.z_score),
                     rotation: transform.rotation,
-                    scale: if transform.scale != Vec3::ONE {
-                        transform.scale
-                    } else {
-                        Vec3::splat(ant.scale)
-                    },
+                    scale: Vec3::splat(ant.scale),
                     ..default()
                 },
                 AnimationCmp {
