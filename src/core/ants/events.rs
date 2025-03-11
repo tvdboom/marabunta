@@ -3,6 +3,7 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_Z_SCORE};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
+use crate::core::states::GameState;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
 use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
@@ -18,7 +19,7 @@ pub struct QueueAntEv {
 
 #[derive(Event)]
 pub struct SpawnEggEv {
-    pub ant: Ant,
+    pub ant: AntCmp,
     pub transform: Transform,
 }
 
@@ -67,15 +68,14 @@ pub fn spawn_egg_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
-        let ant_c = AntCmp::new(ant);
         let egg = Egg {
             id: Uuid::new_v4(),
             ant: ant.clone(),
             owner: player.id,
             team: player.id,
-            health: ant_c.max_health / 4.,
-            max_health: ant_c.max_health / 4.,
-            timer: Timer::from_seconds(ant_c.hatch_time, TimerMode::Once),
+            health: ant.max_health / 4.,
+            max_health: ant.max_health / 4.,
+            timer: Timer::from_seconds(ant.hatch_time, TimerMode::Once),
         };
 
         commands
@@ -87,7 +87,7 @@ pub fn spawn_egg_event(
                 Transform {
                     translation: transform.translation.truncate().extend(EGG_Z_SCORE),
                     rotation: transform.rotation,
-                    scale: Vec3::splat(0.5 * ant_c.scale),
+                    scale: Vec3::splat(0.5 * ant.scale),
                     ..default()
                 },
                 egg.clone(),
@@ -99,7 +99,7 @@ pub fn spawn_egg_event(
                     .spawn((
                         Sprite {
                             color: Color::from(BLACK),
-                            custom_size: Some(Vec2::new(egg.size().x * 0.8, egg.size().y * 0.1)),
+                            custom_size: Some(Vec2::new(ant.size().x * 0.8, ant.size().y * 0.1)),
                             ..default()
                         },
                         AntHealthWrapperCmp,
@@ -112,8 +112,8 @@ pub fn spawn_egg_event(
                             Sprite {
                                 color: Color::from(LIME),
                                 custom_size: Some(Vec2::new(
-                                    egg.size().x * 0.77,
-                                    egg.size().y * 0.08,
+                                    ant.size().x * 0.77,
+                                    ant.size().y * 0.08,
                                 )),
                                 ..default()
                             },
@@ -223,21 +223,20 @@ pub fn spawn_ant_event(
 
 pub fn despawn_ant_event(
     mut commands: Commands,
-    ant_q: Query<&AntCmp>,
+    mut ant_q: Query<&mut Visibility, With<AntCmp>>,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
-    mut player: ResMut<Player>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+    player: Res<Player>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        if let Ok(ant) = ant_q.get(*entity) {
-            if player.controls(ant) {
-                player
-                    .colony
-                    .entry(ant.kind.clone())
-                    .and_modify(|c| *c -= 1);
-            }
-        }
+        if player.colony[&Ant::Queen] == 0 {
+            // Show all enemies on the map
+            ant_q.iter_mut().for_each(|mut v| *v = Visibility::Inherited);
 
-        commands.entity(*entity).despawn_recursive();
+            next_game_state.set(GameState::GameOver);
+        } else {
+            commands.entity(*entity).despawn_recursive();
+        }
     }
 }
 
@@ -246,6 +245,9 @@ pub fn damage_event(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
+    mut player: ResMut<Player>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
         let damage = ant_q
@@ -262,6 +264,18 @@ pub fn damage_event(
             if defender.health == 0. {
                 defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
                 defender_t.translation.z = ANT_Z_SCORE;
+
+                if player.controls(&defender) {
+                    player
+                        .colony
+                        .entry(defender.kind.clone())
+                        .and_modify(|c| *c -= 1);
+
+                    // If the queen died, you lost the game
+                    if player.colony[&Ant::Queen] == 0 {
+                        audio.play(assets.audio("game-over"));
+                    }
+                }
             }
         } else if let Some((egg_e, mut egg)) = egg_q.iter_mut().find(|(_, a)| a.id == *defender) {
             egg.health = (egg.health - damage).max(0.);

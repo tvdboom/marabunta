@@ -77,23 +77,18 @@ impl Ant {
         }
     }
 
-    pub fn colors(&self) -> impl Iterator<Item = &Option<AntColor>> {
+    pub fn colors(&self) -> Box<dyn Iterator<Item = AntCmp>> {
         match self {
-            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion => [None].iter(),
-            _ => [Some(AntColor::Black), Some(AntColor::Red)].iter(),
-        }
-    }
-
-    pub fn size(&self) -> UVec2 {
-        match self {
-            Ant::Queen => UVec2::new(307, 525),
-            Ant::Worker => UVec2::new(307, 438),
-            Ant::Excavator => UVec2::new(307, 474),
-            Ant::Soldier => UVec2::new(367, 508),
-            Ant::Warrior => UVec2::new(466, 623),
-            Ant::Alate => UVec2::new(510, 512),
-            Ant::Mastodon => UVec2::new(513, 577),
-            Ant::BlackScorpion | Ant::YellowScorpion => UVec2::new(675, 785),
+            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion => {
+                Box::new(std::iter::once(AntCmp::new(self)))
+            }
+            _ => Box::new(
+                [
+                    AntCmp::new(self).with(0, &AntColor::Black),
+                    AntCmp::new(self).with(0, &AntColor::Red),
+                ]
+                .into_iter(),
+            ),
         }
     }
 
@@ -411,7 +406,7 @@ impl AntCmp {
                 health: 300.,
                 max_health: 300.,
                 speed: DEFAULT_WALK_SPEED,
-                damage: 9915.,
+                damage: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 ..default()
@@ -426,27 +421,43 @@ impl AntCmp {
         self
     }
 
+    pub fn folder(&self) -> String {
+        if self.kind.colors().count() > 1 {
+            if let Some(color) = &self.color {
+                return format!("{}_{}", color.to_snake(), self.kind.to_snake());
+            }
+        }
+
+        self.kind.to_snake()
+    }
+
+    pub fn atlas(&self, animation: &Animation) -> String {
+        format!("{}_{}", self.folder(), animation.to_snake())
+    }
+
     pub fn size(&self) -> Vec2 {
-        self.kind.size().as_vec2()
+        match self.kind {
+            Ant::Queen => Vec2::new(307., 525.),
+            Ant::Worker => Vec2::new(307., 438.),
+            Ant::Excavator => Vec2::new(307., 474.),
+            Ant::Soldier => match self.color {
+                Some(AntColor::Black) => Vec2::new(367., 508.),
+                Some(AntColor::Red) => Vec2::new(361., 510.),
+                _ => unreachable!(),
+            },
+            Ant::Warrior => match self.color {
+                Some(AntColor::Black) => Vec2::new(466., 623.),
+                Some(AntColor::Red) => Vec2::new(472., 560.),
+                _ => unreachable!(),
+            },
+            Ant::Alate => Vec2::new(510., 512.),
+            Ant::Mastodon => Vec2::new(513., 577.),
+            Ant::BlackScorpion | Ant::YellowScorpion => Vec2::new(675., 785.),
+        }
     }
 
     pub fn scaled_size(&self) -> Vec2 {
         self.size() * self.scale
-    }
-
-    pub fn atlas(&self, animation: &Animation) -> String {
-        if self.kind.colors().count() > 1 {
-            if let Some(color) = &self.color {
-                return format!(
-                    "{}_{}_{}",
-                    color.to_snake(),
-                    self.kind.to_snake(),
-                    animation.to_snake()
-                );
-            }
-        }
-
-        format!("{}_{}", self.kind.to_snake(), animation.to_snake())
     }
 
     pub fn animation(&self) -> Animation {
@@ -493,16 +504,12 @@ pub struct Egg {
     /// Time to hatch
     pub timer: Timer,
 
-    /// Type of ant in the egg
-    pub ant: Ant,
+    /// Ant in the egg
+    pub ant: AntCmp,
 }
 
 impl Egg {
-    pub fn size(&self) -> Vec2 {
-        self.ant.size().as_vec2()
-    }
-
     pub fn scaled_size(&self) -> Vec2 {
-        AntCmp::new(&self.ant).scaled_size() * 0.5
+        self.ant.scaled_size() * 0.5
     }
 }

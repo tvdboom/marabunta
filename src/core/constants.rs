@@ -27,7 +27,7 @@ pub const MAX_TERRAFORM_POINTS: f32 = 100.;
 pub const TILE_LEAF_CHANCE: f32 = 0.1;
 
 // Ants
-pub const BROODING_TIME: f32 = 0.001; //2.5; // Seconds the queen needs to place an egg
+pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg
 pub const DEATH_TIME: f32 = 5.; // Seconds a corpse remains on the map
 pub const DEFAULT_WALK_SPEED: f32 = 20.; // Base walking speed
 pub const DIG_SPEED: f32 = 50.; // Terraform points per ant per second

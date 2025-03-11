@@ -142,9 +142,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
 
                 parent
                     .spawn(Node {
-                        width: Val::Percent(
-                            (ant.size().x as f32 / ant.size().y as f32 * 120.).min(100.),
-                        ),
+                        width: Val::Percent((ant_c.size().x / ant_c.size().y * 120.).min(100.)),
                         height: Val::Percent(28.),
                         position_type: PositionType::Relative,
                         align_content: AlignContent::Center,

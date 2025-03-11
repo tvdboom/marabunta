@@ -1,5 +1,4 @@
 use crate::core::ants::components::Ant;
-use crate::utils::NameFromEnum;
 use bevy::asset::{AssetServer, Handle};
 use bevy::prelude::*;
 use bevy_kira_audio::AudioSource;
@@ -68,6 +67,7 @@ impl FromWorld for WorldAssets {
             ("message", assets.load("audio/message.ogg")),
             ("warning", assets.load("audio/warning.ogg")),
             ("error", assets.load("audio/error.ogg")),
+            ("game-over", assets.load("audio/game-over.ogg")),
             ("music", assets.load("audio/music.ogg")),
         ]);
 
@@ -122,19 +122,12 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for animation in ant.all_animations() {
-                for color in ant.colors() {
-                    let folder = if let Some(color) = color {
-                        format!("{}_{}", color.to_snake(), ant.to_snake())
-                    } else {
-                        ant.to_snake()
-                    };
-
-                    let name = Box::leak(Box::new(format!("{}_{}", folder, animation.to_snake())))
-                        .as_str();
+                for ant_c in ant.colors() {
+                    let name = Box::leak(Box::new(ant_c.atlas(&animation))).as_str();
 
                     images.insert(
                         name,
-                        assets.load(&format!("images/ants/{}/{}.png", folder, name)),
+                        assets.load(&format!("images/ants/{}/{}.png", ant_c.folder(), name)),
                     );
                 }
             }
@@ -158,21 +151,11 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for animation in ant.all_animations() {
-                for color in ant.colors() {
-                    let name = Box::leak(Box::new(if let Some(color) = color {
-                        format!(
-                            "{}_{}_{}",
-                            color.to_snake(),
-                            ant.to_snake(),
-                            animation.to_snake(),
-                        )
-                    } else {
-                        format!("{}_{}", ant.to_snake(), animation.to_snake(),)
-                    }))
-                    .as_str();
+                for ant_c in ant.colors() {
+                    let name = Box::leak(Box::new(ant_c.atlas(&animation))).as_str();
 
                     let layout = TextureAtlasLayout::from_grid(
-                        ant.size(),
+                        ant_c.size().as_uvec2(),
                         ant.frames(&animation),
                         1,
                         None,

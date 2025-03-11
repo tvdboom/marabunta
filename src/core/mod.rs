@@ -90,7 +90,7 @@ impl Plugin for GamePlugin {
             .add_systems(Update, (toggle_music, toggle_music_keyboard))
             //Networking
             .add_systems(
-                PreUpdate,
+                First,
                 (
                     (server_update, server_receive_status.in_set(InGameSet))
                         .run_if(resource_exists::<RenetServer>),
@@ -98,7 +98,7 @@ impl Plugin for GamePlugin {
                 ),
             )
             .add_systems(
-                PostUpdate,
+                Last,
                 (
                     server_send_status.run_if(resource_exists::<RenetServer>),
                     client_send_status.run_if(resource_exists::<RenetClient>),
@@ -127,7 +127,7 @@ impl Plugin for GamePlugin {
             OnEnter(AppState::Game),
             (despawn::<MapCmp>, draw_map, draw_ui),
         )
-        .add_systems(Update, (animate_ui, update_ui).in_set(InRunningGameSet))
+        .add_systems(Update, (animate_ui, update_ui).in_set(InGameSet))
         .add_systems(
             OnExit(AppState::Game),
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
@@ -142,6 +142,7 @@ impl Plugin for GamePlugin {
         .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
+        .add_systems(PreUpdate, resolve_pre_action)
         .add_systems(
             Update,
             (

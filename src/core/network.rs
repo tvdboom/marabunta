@@ -1,10 +1,12 @@
 use crate::core::ants::components::AntCmp;
+use crate::core::assets::WorldAssets;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::{AntColor, Player};
 use crate::core::resources::{GameSettings, Population, PopulationT};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
+use bevy_kira_audio::{Audio, AudioControl};
 use bevy_renet::netcode::*;
 use bevy_renet::renet::{
     ClientId, ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent,
@@ -83,6 +85,9 @@ pub fn server_update(
     mut server_ev: EventReader<ServerEvent>,
     app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
 ) {
     for ev in server_ev.read() {
         if *app_state != AppState::Game {
@@ -108,6 +113,8 @@ pub fn server_update(
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {client_id} disconnected: {reason}");
+                    audio.play(assets.audio("warning")).with_volume(0.5);
+                    next_game_state.set(GameState::InGameMenu);
                 }
             }
         }

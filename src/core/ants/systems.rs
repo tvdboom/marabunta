@@ -33,9 +33,9 @@ pub fn hatch_eggs(
             .tick(scale_duration(time.delta(), game_settings.speed));
 
         if egg.timer.just_finished() {
-            let mut ant = AntCmp::new(&egg.ant).with(player.id, &player.color);
+            let mut ant = egg.ant.clone();
 
-            // If the egg was damaged the ant spawns with the same health ratio
+            // If the egg was damaged, the ant spawns with the same health ratio
             if egg.health < egg.max_health {
                 ant.health = (egg.health / egg.max_health) * ant.max_health;
             }
@@ -112,25 +112,25 @@ pub fn animate_ants(
     }
 }
 
-pub fn resolve_pre_action(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
-) {
+pub fn resolve_pre_action(mut ant_q: Query<(&Transform, &mut AntCmp)>) {
     let enemies = ant_q
         .iter()
         .filter(|(_, a)| a.health > 0.)
         .map(|(t, a)| (a.id, a.team, t.translation, a.scaled_size()))
         .collect::<Vec<_>>();
 
-    for (ant_t, mut ant) in ant_q.iter_mut().filter(|(_, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_))) {
+    for (ant_t, mut ant) in ant_q
+        .iter_mut()
+        .filter(|(_, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
+    {
         for (id_t, _, pos_t, size_t) in enemies.iter().filter(|(_, t, _, _)| ant.team != *t) {
             if collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
-                ant.action = Action::Attack(*id_t);
+                ant.action = Action::TargetedWalk(*id_t);
                 break;
             }
         }
     }
 }
-
 
 pub fn resolve_digging(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
@@ -324,7 +324,8 @@ pub fn resolve_brood_action(
                 if timer.just_finished() {
                     if let Some(ant_queue) = player.queue.pop_front() {
                         spawn_egg_ev.send(SpawnEggEv {
-                            ant: ant_queue,
+                            ant: AntCmp::new(&ant_queue)
+                                .with(ant.owner, &ant.color.clone().unwrap()),
                             transform: *ant_t,
                         });
                     }
@@ -657,15 +658,15 @@ pub fn update_ant_components(
 
                     // Place the health bar on top of the egg on a distance dependent on the egg's rotation
                     wrapper_t.translation = Vec3::new(
-                        egg.size().x * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.sin(),
-                        egg.size().y * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.cos(),
+                        egg.ant.size().x * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.sin(),
+                        egg.ant.size().y * 0.5 * egg_t.rotation.to_euler(EulerRot::ZXY).0.cos(),
                         0.1,
                     );
 
                     for child in children_q.iter_descendants(wrapper_e) {
                         if let Ok((mut health_t, mut health_s)) = health_q.get_mut(child) {
                             if let Some(size) = health_s.custom_size.as_mut() {
-                                let full_size = egg.size().x * 0.77;
+                                let full_size = egg.ant.size().x * 0.77;
                                 size.x = full_size * egg.health / egg.max_health;
                                 health_t.translation.x = (size.x - full_size) * 0.5;
                             }
