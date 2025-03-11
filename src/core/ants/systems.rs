@@ -10,10 +10,10 @@ use crate::core::map::utils::reveal_tiles;
 use crate::core::player::Player;
 use crate::core::resources::{GameSettings, Population};
 use crate::core::utils::{collision, scale_duration};
-use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy::utils::HashSet;
-use rand::prelude::IndexedRandom;
+use rand::distr::weighted::WeightedIndex;
+use rand::distr::Distribution;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 
@@ -33,7 +33,7 @@ pub fn hatch_eggs(
             .tick(scale_duration(time.delta(), game_settings.speed));
 
         if egg.timer.just_finished() {
-            let mut ant = AntCmp::new(&egg.ant, player.id);
+            let mut ant = AntCmp::new(&egg.ant).with(player.id, &player.color);
 
             // If the egg was damaged the ant spawns with the same health ratio
             if egg.health < egg.max_health {
@@ -89,11 +89,7 @@ pub fn animate_ants(
             }
         } else {
             // Else adjust the atlas
-            let atlas = assets.atlas(&format!(
-                "{}_{}",
-                ant.kind.to_snake(),
-                ant.animation().to_snake()
-            ));
+            let atlas = assets.atlas(&ant.atlas(&ant.animation()));
 
             *sprite = Sprite {
                 image: atlas.image,
@@ -115,6 +111,26 @@ pub fn animate_ants(
         }
     }
 }
+
+pub fn resolve_pre_action(
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+) {
+    let enemies = ant_q
+        .iter()
+        .filter(|(_, a)| a.health > 0.)
+        .map(|(t, a)| (a.id, a.team, t.translation, a.scaled_size()))
+        .collect::<Vec<_>>();
+
+    for (ant_t, mut ant) in ant_q.iter_mut().filter(|(_, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_))) {
+        for (id_t, _, pos_t, size_t) in enemies.iter().filter(|(_, t, _, _)| ant.team != *t) {
+            if collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
+                ant.action = Action::Attack(*id_t);
+                break;
+            }
+        }
+    }
+}
+
 
 pub fn resolve_digging(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
@@ -152,16 +168,22 @@ pub fn resolve_digging(
             if tile.terraform > terraform {
                 tile.terraform -= terraform;
             } else {
-                if !tile.visible.contains(&player.id) && rng().random::<f32>() < TILE_ENEMY_CHANCE {
-                    // Spawn an enemy on the newly dug tile
-                    spawn_ant_ev.send(SpawnAntEv {
-                        ant: AntCmp::new(&Ant::BlackScorpion, 0),
-                        transform: Transform {
-                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
-                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                            ..default()
-                        },
-                    });
+                if !tile.visible.contains(&player.id) {
+                    if let Some(enemy) = match rng().random::<f32>() {
+                        0.95..0.99 => Some(Ant::BlackScorpion),
+                        0.99..=1. => Some(Ant::YellowScorpion),
+                        _ => None,
+                    } {
+                        // Spawn an enemy on the newly dug tile
+                        spawn_ant_ev.send(SpawnAntEv {
+                            ant: AntCmp::new(&enemy),
+                            transform: Transform {
+                                translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                                rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                                ..default()
+                            },
+                        });
+                    }
                 }
 
                 map.find_and_replace_tile(&tile, &directions, player.id);
@@ -239,7 +261,7 @@ pub fn resolve_healing(
                 let health = (ant.health + heal).min(ant.max_health);
                 let healed = health - ant.health;
                 ant.health = health;
-                leaf.quantity -= healed;
+                leaf.quantity -= healed / 4.;
 
                 if leaf.quantity == 0. {
                     tile.leaf = None;
@@ -247,7 +269,7 @@ pub fn resolve_healing(
             }
 
             if ant.health == ant.max_health || tile.leaf.is_none() {
-                ant.behavior = AntCmp::new(&ant.kind, player.id).behavior;
+                ant.behavior = AntCmp::new(&ant.kind).behavior;
                 ant.action = Action::Idle;
             }
         }
@@ -255,13 +277,16 @@ pub fn resolve_healing(
 }
 
 pub fn resolve_attack_action(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&Transform, &Visibility, &mut AntCmp)>,
     egg_q: Query<(&Transform, &Egg)>,
     player: Res<Player>,
 ) {
     let enemies: Vec<_> = ant_q
         .iter()
-        .filter_map(|(t, a)| (a.health > 0.).then(|| (a.id, t.translation, a.scaled_size())))
+        .filter_map(|(t, v, a)| {
+            (a.health > 0. && v != Visibility::Hidden)
+                .then(|| (a.id, t.translation, a.scaled_size()))
+        })
         .chain(
             egg_q
                 .iter()
@@ -269,7 +294,7 @@ pub fn resolve_attack_action(
         )
         .collect();
 
-    for (ant_t, mut ant) in ant_q.iter_mut().filter(|(_, a)| player.owns(a)) {
+    for (ant_t, _, mut ant) in ant_q.iter_mut().filter(|(_, _, a)| player.owns(a)) {
         if let Action::Attack(id) = ant.action {
             if let Some((_, pos_t, size_t)) = enemies.iter().find(|(i, _, _)| *i == id) {
                 if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
@@ -330,21 +355,21 @@ pub fn resolve_die_action(
 }
 
 pub fn resolve_idle_action(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&Transform, &Visibility, &mut AntCmp)>,
     egg_q: Query<(&Transform, &Egg)>,
     player: Res<Player>,
     map: Res<Map>,
 ) {
     let queen_id = ant_q
         .iter()
-        .find(|(_, a)| player.owns(a) && a.kind == Ant::BlackQueen)
-        .map(|(_, a)| a.id)
+        .find(|(_, _, a)| player.owns(a) && a.kind == Ant::Queen)
+        .map(|(_, _, a)| a.id)
         .unwrap_or_default();
 
     let enemies: Vec<_> = ant_q
         .iter()
-        .filter_map(|(t, a)| {
-            if a.health > 0. {
+        .filter_map(|(t, v, a)| {
+            if a.health > 0. && v != Visibility::Hidden {
                 Some((a.clone(), t.translation))
             } else {
                 None
@@ -352,12 +377,12 @@ pub fn resolve_idle_action(
         })
         .collect();
 
-    for (ant_t, mut ant) in ant_q
+    for (ant_t, _, mut ant) in ant_q
         .iter_mut()
-        .filter(|(_, a)| player.owns(a) && a.action == Action::Idle)
+        .filter(|(_, _, a)| player.owns(a) && a.action == Action::Idle)
     {
         // If hurt, go heal to a leaf
-        if ant.health < ant.max_health && ant.kind != Ant::BlackQueen && !ant.kind.is_monster() {
+        if ant.health < ant.max_health && ant.kind != Ant::Queen && ant.kind.is_ant() {
             if let Some(loc) = map.closest_leaf_loc(&ant_t.translation, player.id) {
                 ant.behavior = Behavior::Heal;
                 ant.action = Action::Walk(loc);
@@ -385,16 +410,17 @@ pub fn resolve_idle_action(
                         .or_else(|| map.random_loc(player.id, false))
                         .map(Action::Walk)
                         .unwrap()
-                } else if rng().random::<f32>() < ATTACK_CLOSEST_ENEMY_CHANCE {
-                    Action::TargetedWalk(
+                } else {
+                    // Attack the closest enemy on the map. Note this uses the direct
+                    // distance on the map, not pathing distance through tunnels
+                    let index = WeightedIndex::new(
                         enemies
                             .iter()
-                            .min_by_key(|(_, t)| t.distance(ant_t.translation) as u32)
-                            .unwrap()
-                            .0,
+                            .map(|(_, t)| 1. / t.distance(ant_t.translation).powi(2)),
                     )
-                } else {
-                    Action::TargetedWalk(enemies.choose(&mut rng()).unwrap().0)
+                    .unwrap();
+
+                    Action::TargetedWalk(enemies[index.sample(&mut rng())].0)
                 }
             }
             Behavior::Brood => Action::Walk(map.random_loc(player.id, true).unwrap()),
@@ -687,7 +713,7 @@ pub fn update_vision(
     let mut current_population = vec![];
     for (ant_e, mut ant_t, mut ant_v, ant) in ant_q
         .iter_mut()
-        .filter(|(_, _, _, a)| a.owner != player.id || a.kind.is_monster())
+        .filter(|(_, _, _, a)| a.owner != player.id || !a.kind.is_ant())
     {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
@@ -698,19 +724,19 @@ pub fn update_vision(
             {
                 // The ant is visible, reposition and show it
                 *ant_t = *t;
-                *ant_v = Visibility::Visible;
+                *ant_v = Visibility::Inherited;
             } else {
                 // The ant is no longer visible, hide it
                 *ant_v = Visibility::Hidden;
             }
         } else {
-            if ant.kind.is_monster() {
+            if !ant.kind.is_ant() {
                 if map
                     .get_tile_from_coord(&ant_t.translation)
                     .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
                 {
                     // The monster is visible, show it
-                    *ant_v = Visibility::Visible;
+                    *ant_v = Visibility::Inherited;
                 } else {
                     // The monster is no longer visible, hide it
                     *ant_v = Visibility::Hidden;

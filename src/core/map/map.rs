@@ -139,8 +139,12 @@ impl Map {
                         x,
                         y,
                         texture_index,
-                        base: Some(id),
-                        leaf: if texture_index == 18 {
+                        base: if i > 0 && i < 3 && j > 0 && j < 3 {
+                            Some(id)
+                        } else {
+                            None
+                        },
+                        leaf: if texture_index == 26 {
                             Some(Leaf::default())
                         } else {
                             None

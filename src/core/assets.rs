@@ -65,6 +65,8 @@ impl FromWorld for WorldAssets {
 
         let audio = HashMap::from([
             ("button", assets.load("audio/button.ogg")),
+            ("message", assets.load("audio/message.ogg")),
+            ("warning", assets.load("audio/warning.ogg")),
             ("error", assets.load("audio/error.ogg")),
             ("music", assets.load("audio/music.ogg")),
         ]);
@@ -79,7 +81,9 @@ impl FromWorld for WorldAssets {
             ("mute", assets.load("images/icons/mute.png")),
             ("sound", assets.load("images/icons/sound.png")),
             // Map
+            ("game-over", assets.load("images/map/game-over.png")),
             ("tiles", assets.load("images/map/soil_tileset.png")),
+            ("base", assets.load("images/map/base.png")),
             ("hole1", assets.load("images/map/soil_hole_01.png")),
             ("hole2", assets.load("images/map/soil_hole_02.png")),
             ("seed1", assets.load("images/map/seed_01.png")),
@@ -118,18 +122,21 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for animation in ant.all_animations() {
-                let name = Box::leak(Box::new(format!(
-                    "{}_{}",
-                    ant.to_snake(),
-                    animation.to_snake()
-                )))
-                .as_str();
+                for color in ant.colors() {
+                    let folder = if let Some(color) = color {
+                        format!("{}_{}", color.to_snake(), ant.to_snake())
+                    } else {
+                        ant.to_snake()
+                    };
 
-                // Load animation texture image
-                images.insert(
-                    name,
-                    assets.load(&format!("images/ants/{}/{}.png", ant.to_snake(), name)),
-                );
+                    let name = Box::leak(Box::new(format!("{}_{}", folder, animation.to_snake())))
+                        .as_str();
+
+                    images.insert(
+                        name,
+                        assets.load(&format!("images/ants/{}/{}.png", folder, name)),
+                    );
+                }
             }
         }
 
@@ -151,32 +158,39 @@ impl FromWorld for WorldAssets {
 
         for ant in Ant::iter() {
             for animation in ant.all_animations() {
-                let name = Box::leak(Box::new(format!(
-                    "{}_{}",
-                    ant.to_snake(),
-                    animation.to_snake()
-                )))
-                .as_str();
+                for color in ant.colors() {
+                    let name = Box::leak(Box::new(if let Some(color) = color {
+                        format!(
+                            "{}_{}_{}",
+                            color.to_snake(),
+                            ant.to_snake(),
+                            animation.to_snake(),
+                        )
+                    } else {
+                        format!("{}_{}", ant.to_snake(), animation.to_snake(),)
+                    }))
+                    .as_str();
 
-                let layout = TextureAtlasLayout::from_grid(
-                    ant.size(),
-                    ant.frames(&animation),
-                    1,
-                    None,
-                    None,
-                );
+                    let layout = TextureAtlasLayout::from_grid(
+                        ant.size(),
+                        ant.frames(&animation),
+                        1,
+                        None,
+                        None,
+                    );
 
-                atlas.insert(
-                    name,
-                    AtlasInfo {
-                        image: images[name].clone_weak(),
-                        texture: TextureAtlas {
-                            layout: texture.add(layout),
-                            index: 0,
+                    atlas.insert(
+                        name,
+                        AtlasInfo {
+                            image: images[name].clone_weak(),
+                            texture: TextureAtlas {
+                                layout: texture.add(layout),
+                                index: 0,
+                            },
+                            last_index: ant.frames(&animation) as usize - 1,
                         },
-                        last_index: ant.frames(&animation) as usize - 1,
-                    },
-                );
+                    );
+                }
             }
         }
 

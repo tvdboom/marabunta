@@ -1,6 +1,8 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
+use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
+use crate::core::constants::TILE_Z_SCORE;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
@@ -52,11 +54,13 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
 }
 
 pub fn draw_map(
+    mut commands: Commands,
     mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     map: Res<Map>,
     player: Res<Player>,
+    assets: Local<WorldAssets>,
 ) {
     for (i, tile) in map.world(player.id).iter_mut().enumerate() {
         let pos = Vec2::new(
@@ -71,8 +75,25 @@ pub fn draw_map(
 
         // Spawn queen
         if tile.texture_index == 9 {
+            commands.spawn((
+                Sprite {
+                    image: assets.image("base"),
+                    custom_size: Some(Vec2::splat(Tile::SIZE + 20.)),
+                    ..default()
+                },
+                Transform {
+                    translation: Vec3::new(
+                        pos.x + Tile::SIZE * 0.5,
+                        pos.y - Tile::SIZE * 0.5,
+                        TILE_Z_SCORE + 0.1,
+                    ),
+                    ..default()
+                },
+                MapCmp,
+            ));
+
             spawn_ant_ev.send(SpawnAntEv {
-                ant: AntCmp::new(&Ant::BlackQueen, player.id),
+                ant: AntCmp::new(&Ant::Queen).with(player.id, &player.color),
                 transform: Transform {
                     translation: pos.extend(0.),
                     rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),

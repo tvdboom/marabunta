@@ -23,23 +23,13 @@ pub struct InfoPanelUi;
 
 pub fn on_hover_info_panel<E: Debug + Clone + Reflect>(
     ant: AntCmp,
+    i: usize,
 ) -> impl FnMut(Trigger<E>, Commands, Local<WorldAssets>) {
     move |_, mut commands: Commands, assets: Local<WorldAssets>| {
-        // Insert pixel height manually since nodes are not childs of the button node
-        let height = match ant.kind {
-            Ant::BlackQueen => 160.,
-            Ant::BlackAnt => 240.,
-            Ant::BlackBullet => 320.,
-            Ant::BlackSoldier => 400.,
-            Ant::GoldTail => 480.,
-            Ant::TrapJaw => 565.,
-            _ => unreachable!(),
-        };
-
         commands
             .spawn((
                 Node {
-                    top: Val::Px(height),
+                    top: Val::Px(160. + i as f32 * 70.),
                     left: Val::Px(108.),
                     width: Val::Px(250.),
                     flex_direction: FlexDirection::Column,
@@ -141,22 +131,20 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             MapCmp,
         ))
         .with_children(|parent| {
-            for (i, ant) in Ant::iter().filter(|a| !a.is_monster()).enumerate() {
-                let ant_c = AntCmp::new(&ant, player.id);
+            for (i, ant) in Ant::iter().filter(|a| a.is_ant()).enumerate() {
+                let ant_c = AntCmp::new(&ant).with(player.id, &player.color);
                 let scale = match i {
                     0..3 => 1.,
                     _ => 1.2,
                 };
 
-                let atlas = assets.atlas(&format!(
-                    "{}_{}",
-                    ant.to_snake(),
-                    Animation::Idle.to_snake()
-                ));
+                let atlas = assets.atlas(&ant_c.atlas(&Animation::Idle));
 
                 parent
                     .spawn(Node {
-                        width: Val::Percent(100.),
+                        width: Val::Percent(
+                            (ant.size().x as f32 / ant.size().y as f32 * 120.).min(100.),
+                        ),
                         height: Val::Percent(28.),
                         position_type: PositionType::Relative,
                         align_content: AlignContent::Center,
@@ -191,7 +179,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 ColonyButtonCmp(ant.clone()),
                             ))
                             .observe(on_click_ui_button)
-                            .observe(on_hover_info_panel::<Pointer<Over>>(ant_c.clone()))
+                            .observe(on_hover_info_panel::<Pointer<Over>>(ant_c.clone(), i))
                             .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                             .with_children(|parent| {
                                 parent

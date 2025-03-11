@@ -4,7 +4,6 @@ use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_Z_SCORE};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
-use crate::utils::NameFromEnum;
 use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
@@ -47,7 +46,7 @@ pub fn queue_ant_event(
     assets: Local<WorldAssets>,
 ) {
     for ev in queue_ant_ev.read() {
-        let ant_c = AntCmp::new(&ev.ant, player.id);
+        let ant_c = AntCmp::new(&ev.ant);
 
         if ant_c.key.is_some() {
             if player.food >= ant_c.price {
@@ -68,10 +67,10 @@ pub fn spawn_egg_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
-        let ant_c = AntCmp::new(ant, player.id);
+        let ant_c = AntCmp::new(ant);
         let egg = Egg {
             id: Uuid::new_v4(),
-            ant: ant_c.kind.clone(),
+            ant: ant.clone(),
             owner: player.id,
             team: player.id,
             health: ant_c.max_health / 4.,
@@ -130,14 +129,11 @@ pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     mut player: ResMut<Player>,
+    audio: Res<Audio>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
-        let atlas = assets.atlas(&format!(
-            "{}_{}",
-            ant.kind.to_snake(),
-            ant.animation().to_snake()
-        ));
+        let atlas = assets.atlas(&ant.atlas(&ant.animation()));
 
         commands
             .spawn((
@@ -210,6 +206,10 @@ pub fn spawn_ant_event(
                     MapCmp,
                 ));
             });
+
+        if !ant.kind.is_ant() {
+            audio.play(assets.audio("warning")).with_volume(0.5);
+        }
 
         if player.controls(ant) {
             player

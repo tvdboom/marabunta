@@ -108,3 +108,15 @@ pub fn setup_in_game_menu(mut commands: Commands, assets: Local<WorldAssets>) {
             spawn_menu_button(parent, MenuBtn::Quit, &assets);
         });
 }
+
+pub fn setup_game_over(mut commands: Commands, assets: Local<WorldAssets>) {
+    commands
+        .spawn((add_root_node(), MenuCmp))
+        .with_children(|parent| {
+            parent.spawn((
+                ImageNode::new(assets.image("game-over")),
+                Transform::from_xyz(0., 0., 0.),
+            ));
+            spawn_menu_button(parent, MenuBtn::Quit, &assets);
+        });
+}

@@ -19,8 +19,7 @@ pub fn check_keys(
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
     for ant in Ant::iter() {
-        let ant_c = AntCmp::new(&ant, player.id);
-        if matches!(ant_c.key, Some(key) if keyboard.just_pressed(key)) {
+        if matches!(AntCmp::new(&ant).key, Some(key) if keyboard.just_pressed(key)) {
             queue_ant_ev.send(QueueAntEv { ant });
         }
     }

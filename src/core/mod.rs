@@ -21,7 +21,7 @@ use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui};
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{setup_in_game_menu, setup_menu};
+use crate::core::menu::systems::{setup_game_over, setup_in_game_menu, setup_menu};
 use crate::core::network::*;
 use crate::core::pause::*;
 use crate::core::states::{AppState, AudioState, GameState};
@@ -132,12 +132,14 @@ impl Plugin for GamePlugin {
             OnExit(AppState::Game),
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
-        // Pause
+        // In-game states
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(GameState::Paused), pause_game)
         .add_systems(OnExit(GameState::Paused), unpause_game)
         .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
         .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
+        .add_systems(OnEnter(GameState::GameOver), setup_game_over)
+        .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(

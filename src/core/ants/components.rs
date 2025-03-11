@@ -1,6 +1,8 @@
 use crate::core::constants::DEFAULT_WALK_SPEED;
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
+use crate::core::player::AntColor;
+use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy_renet::renet::ClientId;
 use rand::{rng, Rng};
@@ -43,41 +45,64 @@ pub enum Animation {
 
 #[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Ant {
-    BlackQueen,
-    BlackAnt,
-    BlackBullet,
-    BlackSoldier,
-    GoldTail,
-    TrapJaw,
-    BlackAlate,
+    Queen,
+    Worker,
+    Excavator,
+    Soldier,
+    Warrior,
+    Alate,
+    Mastodon,
     BlackScorpion,
+    YellowScorpion,
 }
 
 impl Ant {
-    pub fn is_monster(&self) -> bool {
+    pub fn is_ant(&self) -> bool {
         match self {
-            Ant::BlackScorpion => true,
+            Ant::Queen
+            | Ant::Worker
+            | Ant::Excavator
+            | Ant::Soldier
+            | Ant::Warrior
+            | Ant::Alate
+            | Ant::Mastodon => true,
             _ => false,
+        }
+    }
+
+    pub fn is_scorpion(&self) -> bool {
+        match self {
+            Ant::BlackScorpion | Ant::YellowScorpion => true,
+            _ => false,
+        }
+    }
+
+    pub fn colors(&self) -> impl Iterator<Item = &Option<AntColor>> {
+        match self {
+            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion => [None].iter(),
+            _ => [Some(AntColor::Black), Some(AntColor::Red)].iter(),
         }
     }
 
     pub fn size(&self) -> UVec2 {
         match self {
-            Ant::BlackQueen => UVec2::new(307, 525),
-            Ant::BlackAnt => UVec2::new(307, 438),
-            Ant::BlackBullet => UVec2::new(307, 474),
-            Ant::BlackSoldier => UVec2::new(367, 508),
-            Ant::GoldTail => UVec2::new(466, 623),
-            Ant::TrapJaw => UVec2::new(513, 577),
-            Ant::BlackAlate => UVec2::new(510, 512),
-            Ant::BlackScorpion => UVec2::new(675, 785),
+            Ant::Queen => UVec2::new(307, 525),
+            Ant::Worker => UVec2::new(307, 438),
+            Ant::Excavator => UVec2::new(307, 474),
+            Ant::Soldier => UVec2::new(367, 508),
+            Ant::Warrior => UVec2::new(466, 623),
+            Ant::Alate => UVec2::new(510, 512),
+            Ant::Mastodon => UVec2::new(513, 577),
+            Ant::BlackScorpion | Ant::YellowScorpion => UVec2::new(675, 785),
         }
     }
 
     pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
-            Ant::BlackAlate => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
-            Ant::BlackScorpion => vec![Animation::Bite, Animation::Fly, Animation::LookAround],
+            Ant::Alate => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
+            Ant::BlackScorpion | Ant::YellowScorpion => {
+                vec![Animation::Bite, Animation::Fly, Animation::LookAround]
+            }
             _ => vec![
                 Animation::Fly,
                 Animation::Pinch,
@@ -93,7 +118,7 @@ impl Ant {
 
     pub fn frames(&self, animation: &Animation) -> u32 {
         match self {
-            Ant::BlackScorpion => match animation {
+            Ant::BlackScorpion | Ant::YellowScorpion => match animation {
                 Animation::Die => 5,
                 Animation::Idle => 24,
                 Animation::Pinch | Animation::Sting => 10,
@@ -158,6 +183,9 @@ pub struct AntCmp {
     /// Team the ant corresponds to
     pub team: u64,
 
+    /// Color of the ant. None for monsters
+    pub color: Option<AntColor>,
+
     /// Scale factor of `Transform`
     /// Determines the size of the ant's sprite
     pub scale: f32,
@@ -206,10 +234,11 @@ impl Default for AntCmp {
     fn default() -> Self {
         Self {
             id: Uuid::new_v4(),
-            kind: Ant::BlackAnt,
+            kind: Ant::Worker,
             key: None,
             owner: 0,
             team: 0,
+            color: None,
             scale: 0.03,
             z_score: 0.9,
             price: 0.,
@@ -229,13 +258,11 @@ impl Default for AntCmp {
 }
 
 impl AntCmp {
-    pub fn new(kind: &Ant, id: ClientId) -> Self {
+    pub fn new(kind: &Ant) -> Self {
         match kind {
-            Ant::BlackAnt => Self {
-                kind: Ant::BlackAnt,
+            Ant::Worker => Self {
+                kind: Ant::Worker,
                 key: Some(KeyCode::KeyZ),
-                owner: id,
-                team: id,
                 z_score: 0.1,
                 price: 30.,
                 health: 10.,
@@ -251,11 +278,9 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
-            Ant::BlackBullet => Self {
-                kind: Ant::BlackBullet,
+            Ant::Excavator => Self {
+                kind: Ant::Excavator,
                 key: Some(KeyCode::KeyX),
-                owner: id,
-                team: id,
                 z_score: 0.2,
                 price: 100.,
                 health: 10.,
@@ -271,11 +296,9 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
-            Ant::BlackSoldier => Self {
-                kind: Ant::BlackSoldier,
+            Ant::Soldier => Self {
+                kind: Ant::Soldier,
                 key: Some(KeyCode::KeyC),
-                owner: id,
-                team: id,
                 scale: 0.04,
                 z_score: 0.5,
                 price: 150.,
@@ -292,10 +315,8 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
-            Ant::BlackQueen => Self {
-                kind: Ant::BlackQueen,
-                owner: id,
-                team: id,
+            Ant::Queen => Self {
+                kind: Ant::Queen,
                 scale: 0.06,
                 price: f32::MAX,
                 health: 1000.,
@@ -312,11 +333,9 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
-            Ant::GoldTail => Self {
-                kind: Ant::GoldTail,
+            Ant::Warrior => Self {
+                kind: Ant::Warrior,
                 key: Some(KeyCode::KeyV),
-                owner: id,
-                team: id,
                 scale: 0.04,
                 z_score: 0.6,
                 price: 200.,
@@ -334,32 +353,9 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
-            Ant::TrapJaw => Self {
-                kind: Ant::TrapJaw,
-                key: Some(KeyCode::KeyB),
-                owner: id,
-                team: id,
-                scale: 0.05,
-                z_score: 0.7,
-                price: 250.,
-                health: 100.,
-                max_health: 100.,
-                speed: DEFAULT_WALK_SPEED - 5.,
-                damage: 12.,
-                hatch_time: 20.,
-                behavior: Behavior::Attack,
-                action: Action::Idle,
-                description: "\
-                    The trap jaw ant is a rare species that is known for its \
-                    powerful jaws. They are slow, but very strong individuals."
-                    .to_string(),
-                ..default()
-            },
-            Ant::BlackAlate => Self {
-                kind: Ant::BlackAlate,
+            Ant::Alate => Self {
+                kind: Ant::Alate,
                 key: Some(KeyCode::KeyN),
-                owner: id,
-                team: id,
                 scale: 0.05,
                 z_score: 0.9,
                 price: 350.,
@@ -377,10 +373,28 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
+            Ant::Mastodon => Self {
+                kind: Ant::Mastodon,
+                key: Some(KeyCode::KeyB),
+                scale: 0.05,
+                z_score: 0.7,
+                price: 250.,
+                health: 100.,
+                max_health: 100.,
+                speed: DEFAULT_WALK_SPEED - 5.,
+                damage: 12.,
+                hatch_time: 20.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                description: "\
+                    The trap jaw ant is a rare species that is known for its \
+                    powerful jaws. They are slow, but very strong individuals."
+                    .to_string(),
+                ..default()
+            },
             Ant::BlackScorpion => Self {
                 kind: Ant::BlackScorpion,
-                owner: id,
-                team: rng().random_range(100..1000),
+                team: rng().random_range(100..10000),
                 scale: 0.05,
                 health: 100.,
                 max_health: 100.,
@@ -390,7 +404,26 @@ impl AntCmp {
                 action: Action::Idle,
                 ..default()
             },
+            Ant::YellowScorpion => Self {
+                kind: Ant::YellowScorpion,
+                team: rng().random_range(100..10000),
+                scale: 0.05,
+                health: 300.,
+                max_health: 300.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 9915.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
         }
+    }
+
+    pub fn with(mut self, id: ClientId, color: &AntColor) -> Self {
+        self.owner = id;
+        self.team = id;
+        self.color = Some(color.clone());
+        self
     }
 
     pub fn size(&self) -> Vec2 {
@@ -401,12 +434,30 @@ impl AntCmp {
         self.size() * self.scale
     }
 
+    pub fn atlas(&self, animation: &Animation) -> String {
+        if self.kind.colors().count() > 1 {
+            if let Some(color) = &self.color {
+                return format!(
+                    "{}_{}_{}",
+                    color.to_snake(),
+                    self.kind.to_snake(),
+                    animation.to_snake()
+                );
+            }
+        }
+
+        format!("{}_{}", self.kind.to_snake(), animation.to_snake())
+    }
+
     pub fn animation(&self) -> Animation {
         match self.action {
-            Action::Attack(_) => match self.kind {
-                Ant::BlackScorpion => Animation::Sting,
-                _ => Animation::Bite,
-            },
+            Action::Attack(_) => {
+                if self.kind.is_scorpion() {
+                    Animation::Sting
+                } else {
+                    Animation::Bite
+                }
+            }
             Action::Die(_) => Animation::Die,
             Action::Harvest | Action::Heal | Action::Dig(_) => Animation::LookAround,
             Action::Brood(_) | Action::Idle => Animation::Idle,
@@ -452,7 +503,6 @@ impl Egg {
     }
 
     pub fn scaled_size(&self) -> Vec2 {
-        let ant_c = AntCmp::new(&self.ant, self.owner);
-        ant_c.scaled_size() * 0.5
+        AntCmp::new(&self.ant).scaled_size() * 0.5
     }
 }

@@ -48,6 +48,6 @@ impl Player {
 
     /// Whether the player controls the ant (own colony)
     pub fn controls(&self, ant: &AntCmp) -> bool {
-        self.id == ant.owner && !ant.kind.is_monster()
+        self.id == ant.owner && ant.kind.is_ant()
     }
 }

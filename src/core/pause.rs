@@ -2,7 +2,7 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
 use crate::core::player::Player;
 use crate::core::resources::GameSettings;
-use crate::core::states::GameState;
+use crate::core::states::{AppState, GameState};
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
@@ -63,6 +63,7 @@ pub fn toggle_pause_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
     player: Res<Player>,
     game_state: Res<State<GameState>>,
+    mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut game_settings: ResMut<GameSettings>,
 ) {
@@ -73,6 +74,7 @@ pub fn toggle_pause_keyboard(
                 GameState::Running => next_game_state.set(GameState::InGameMenu),
                 GameState::Paused => next_game_state.set(GameState::InGameMenu),
                 GameState::InGameMenu => next_game_state.set(GameState::Running),
+                GameState::GameOver => next_app_state.set(AppState::MainMenu),
             }
         }
 
