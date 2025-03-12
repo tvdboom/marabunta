@@ -33,15 +33,12 @@ pub enum Behavior {
 
 #[derive(EnumIter, Clone, Debug, Eq, PartialEq)]
 pub enum Animation {
-    Bite,
+    Attack,
     Die,
     Fly,
     LookAround,
     Idle,
-    Pinch,
-    Sting,
     Walk,
-    WalkPincing,
 }
 
 #[derive(EnumIter, Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -55,6 +52,7 @@ pub enum Ant {
     Mastodon,
     BlackScorpion,
     YellowScorpion,
+    Wasp,
 }
 
 impl Ant {
@@ -80,7 +78,7 @@ impl Ant {
 
     pub fn colors(&self) -> Box<dyn Iterator<Item = AntCmp>> {
         match self {
-            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion => {
+            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion | Ant::Wasp => {
                 Box::new(std::iter::once(AntCmp::base(self)))
             }
             _ => Box::new(
@@ -95,16 +93,10 @@ impl Ant {
 
     pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
-            Ant::Alate => vec![Animation::Pinch, Animation::Sting, Animation::WalkPincing],
-            Ant::BlackScorpion | Ant::YellowScorpion => {
-                vec![Animation::Bite, Animation::Fly, Animation::LookAround]
-            }
-            _ => vec![
-                Animation::Fly,
-                Animation::Pinch,
-                Animation::Sting,
-                Animation::WalkPincing,
-            ],
+            Ant::Alate => vec![],
+            Ant::BlackScorpion | Ant::YellowScorpion => vec![Animation::Fly, Animation::LookAround],
+            Ant::Wasp => vec![Animation::LookAround],
+            _ => vec![Animation::Fly],
         };
 
         Animation::iter()
@@ -115,18 +107,25 @@ impl Ant {
     pub fn frames(&self, animation: &Animation) -> u32 {
         match self {
             Ant::BlackScorpion | Ant::YellowScorpion => match animation {
+                Animation::Attack => 10,
                 Animation::Die => 5,
-                Animation::Idle => 24,
-                Animation::Pinch | Animation::Sting => 10,
-                Animation::Walk | Animation::WalkPincing => 16,
+                Animation::Fly => 10,
+                Animation::Idle => 20,
+                Animation::Walk => 16,
                 _ => unreachable!(),
             },
+            Ant::Wasp => match animation {
+                Animation::Attack | Animation::Fly => 10,
+                Animation::Die => 5,
+                Animation::Idle => 12,
+                Animation::Walk => 16,
+                _ => unreachable!(),
+            }
             _ => match animation {
-                Animation::Bite | Animation::Walk => 8,
+                Animation::Attack | Animation::Walk => 8,
                 Animation::Die => 10,
                 Animation::Fly => 12,
                 Animation::LookAround | Animation::Idle => 20,
-                _ => unreachable!(),
             },
         }
     }
@@ -478,6 +477,19 @@ impl AntCmp {
                 health: 300.,
                 max_health: 300.,
                 speed: DEFAULT_WALK_SPEED,
+                damage: 25.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::Wasp => Self {
+                kind: Ant::Wasp,
+                owner: player.id,
+                team: 90,
+                scale: 0.05,
+                health: 300.,
+                max_health: 300.,
+                speed: DEFAULT_WALK_SPEED,
                 damage: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
@@ -527,6 +539,7 @@ impl AntCmp {
             Ant::Alate => Vec2::new(510., 512.),
             Ant::Mastodon => Vec2::new(513., 577.),
             Ant::BlackScorpion | Ant::YellowScorpion => Vec2::new(675., 785.),
+            Ant::Wasp => Vec2::new(832., 676.),
         }
     }
 
@@ -536,13 +549,7 @@ impl AntCmp {
 
     pub fn animation(&self) -> Animation {
         match self.action {
-            Action::Attack(_) => {
-                if self.kind.is_scorpion() {
-                    Animation::Sting
-                } else {
-                    Animation::Bite
-                }
-            }
+            Action::Attack(_) => Animation::Attack,
             Action::Die(_) => Animation::Die,
             Action::Dig(_) | Action::Harvest => Animation::LookAround,
             Action::Heal => {

@@ -119,7 +119,11 @@ pub fn animate_ants(
     }
 }
 
-pub fn resolve_pre_action(mut ant_q: Query<(&Transform, &mut AntCmp)>) {
+pub fn resolve_pre_action(
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    map: Res<Map>,
+    player: Res<Player>,
+) {
     let enemies = ant_q
         .iter()
         .filter(|(_, a)| a.health > 0.)
@@ -131,7 +135,17 @@ pub fn resolve_pre_action(mut ant_q: Query<(&Transform, &mut AntCmp)>) {
         .filter(|(_, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
     {
         for (id_t, _, pos_t, size_t) in enemies.iter().filter(|(_, t, _, _)| ant.team != *t) {
-            if collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
+            // The queen attacks enemies in the base, others attack when adjacent
+            if (ant.kind == Ant::Queen
+                && !player.has_trait(&Trait::WanderingQueen)
+                && map
+                    .get_tile_from_coord(&pos_t)
+                    .unwrap()
+                    .base
+                    .filter(|b| *b == player.id)
+                    .is_some())
+                || collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t)
+            {
                 ant.action = Action::TargetedWalk(*id_t);
                 break;
             }
@@ -318,8 +332,11 @@ pub fn resolve_attack_action(
     let enemies: Vec<_> = ant_q
         .iter()
         .filter_map(|(t, v, a)| {
-            (a.health > 0. && v != Visibility::Hidden)
-                .then(|| (a.id, t.translation, a.scaled_size()))
+            (a.health > 0. && v != Visibility::Hidden).then_some((
+                a.id,
+                t.translation,
+                a.scaled_size(),
+            ))
         })
         .chain(
             egg_q
@@ -392,7 +409,7 @@ pub fn resolve_idle_action(
     mut ant_q: Query<(&Transform, &Visibility, &mut AntCmp)>,
     egg_q: Query<(&Transform, &Egg)>,
     player: Res<Player>,
-    map: Res<Map>,
+    mut map: ResMut<Map>,
 ) {
     let queen_id = ant_q
         .iter()
@@ -403,11 +420,7 @@ pub fn resolve_idle_action(
     let enemies: Vec<_> = ant_q
         .iter()
         .filter_map(|(t, v, a)| {
-            if a.health > 0. && v != Visibility::Hidden {
-                Some((a.clone(), t.translation))
-            } else {
-                None
-            }
+            (a.health > 0. && v != Visibility::Hidden).then_some((a.clone(), t.translation))
         })
         .collect();
 
@@ -461,7 +474,17 @@ pub fn resolve_idle_action(
                     Action::TargetedWalk(enemies[index.sample(&mut rng())].0)
                 }
             }
-            Behavior::Brood => Action::Walk(map.random_loc(player.id, true).unwrap()),
+            Behavior::Brood => {
+                if player.has_trait(&Trait::WanderingQueen) {
+                    let current_loc = map.get_loc(&ant_t.translation);
+                    Action::Walk(
+                        map.random_loc_max_distance(player.id, &current_loc, 10)
+                            .unwrap(),
+                    )
+                } else {
+                    Action::Walk(map.random_loc(player.id, true).unwrap())
+                }
+            }
             Behavior::Dig => Action::Walk(
                 map.random_dig_loc(None, player.id)
                     .unwrap_or(map.random_loc(player.id, false).unwrap()),

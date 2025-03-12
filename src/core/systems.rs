@@ -1,5 +1,6 @@
+use std::f32::consts::PI;
 use crate::core::ants::components::{Ant, AntCmp};
-use crate::core::ants::events::QueueAntEv;
+use crate::core::ants::events::{QueueAntEv, SpawnAntEv};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::map::map::Map;
@@ -9,6 +10,7 @@ use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
+use rand::{rng, Rng};
 use strum::IntoEnumIterator;
 
 pub fn initialize_game(mut commands: Commands) {
@@ -52,5 +54,34 @@ pub fn check_keys(
                 player.food += 1e4;
             }
         }
+    }
+}
+
+pub fn spawn_enemies(
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    mut game_settings: ResMut<GameSettings>,
+    player: Res<Player>,
+    map: Res<Map>,
+    time: Res<Time>,
+) {
+    let time = scale_duration(time.delta(), game_settings.speed);
+    game_settings.enemy_timer.tick(time);
+
+    // Enemies only spawn from the host player's pc
+    if player.id == 0 {
+        map.tiles.iter().for_each(|tile| {
+            if tile.visible.contains(&player.id) {
+                if tile.texture_index == 64 && rng().random::<f32>() < 0.9 {
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::new(&Ant::Wasp, &player),
+                        transform: Transform {
+                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                    });
+                }
+            }
+        });
     }
 }

@@ -19,13 +19,16 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
     match &game_settings.mode {
         GameMode::SinglePlayer => {
             // Insert base in the center of the map
-            Map::from_base(
+            let mut map = Map::from_base(
                 UVec2::new(Map::MAP_SIZE.x / 2 - 2, Map::MAP_SIZE.y / 2 - 2),
                 0,
-            )
+            );
+            map.insert_holes(12);
+            map
         }
         GameMode::MultiPlayer(ids) => {
             let mut map = Map::default();
+            map.insert_holes(8);
 
             // Insert bases at random locations
             let mut bases: Vec<UVec2> = Vec::new();

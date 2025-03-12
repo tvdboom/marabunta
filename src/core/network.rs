@@ -175,13 +175,7 @@ pub fn client_send_status(
         map: map.clone(),
         population: ant_q
             .iter()
-            .filter_map(|(t, a)| {
-                if player.owns(a) {
-                    Some((a.id, (t.clone(), a.clone())))
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(t, a)| player.owns(a).then_some((a.id, (t.clone(), a.clone()))))
             .collect(),
     });
     client.send_message(DefaultChannel::ReliableOrdered, status.unwrap());

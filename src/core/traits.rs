@@ -1,5 +1,6 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
+use crate::core::ants::utils::transform_ant;
 use crate::core::assets::WorldAssets;
 use crate::core::player::Player;
 use crate::core::states::GameState;
@@ -8,7 +9,6 @@ use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 use strum_macros::EnumIter;
-use crate::core::ants::utils::transform_ant;
 
 #[derive(EnumIter, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Trait {
@@ -20,9 +20,11 @@ pub enum Trait {
     Haste,
     HealingQueen,
     Mastodon,
+    MegaColony,
     ScorpionKiller,
     SuperQueen,
     Tunneling,
+    WanderingQueen,
     Warlike,
 }
 
@@ -101,6 +103,14 @@ impl TraitCmp {
                     of damage."
                     .to_string(),
             },
+            Trait::MegaColony => Self {
+                kind: Trait::MegaColony,
+                image: "megacolony".to_string(),
+                description: "\
+                    All your ants cost 10% less food to produce. Quickly become the largest \
+                    colony around and overcome your enemies by the sheer numbers."
+                    .to_string(),
+            },
             Trait::Tunneling => Self {
                 kind: Trait::Tunneling,
                 image: "tunneling".to_string(),
@@ -123,6 +133,14 @@ impl TraitCmp {
                 description: "\
                     The queen increases in health and strength, but walks slower. If you \
                     have more than one queen, they all gain the bonuses."
+                    .to_string(),
+            },
+            Trait::WanderingQueen => Self {
+                kind: Trait::WanderingQueen,
+                image: "wandering".to_string(),
+                description: "\
+                    The queen moves outside the base. It lays eggs anywhere and wander \
+                    around the map."
                     .to_string(),
             },
             Trait::Warlike => Self {
@@ -183,6 +201,13 @@ pub fn select_trait_event(
                     .iter_mut()
                     .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
                     .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &worker));
+            }
+            Trait::EnhancedSoldiers => {
+                let soldier = AntCmp::new(&Ant::Soldier, &player);
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
             }
             _ => (),
         }

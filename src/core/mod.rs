@@ -28,7 +28,7 @@ use crate::core::menu::systems::{
 use crate::core::network::*;
 use crate::core::pause::*;
 use crate::core::states::{AppState, AudioState, GameState};
-use crate::core::systems::{check_keys, check_trait_timer, initialize_game};
+use crate::core::systems::{check_keys, check_trait_timer, initialize_game, spawn_enemies};
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
@@ -173,6 +173,7 @@ impl Plugin for GamePlugin {
                 resolve_walk_action,
                 update_ant_components,
                 update_vision,
+                spawn_enemies,
             )
                 .in_set(InRunningGameSet),
         )

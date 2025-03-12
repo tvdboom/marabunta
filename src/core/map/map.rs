@@ -7,7 +7,7 @@ use bevy::utils::HashSet;
 use bevy_renet::renet::ClientId;
 use pathfinding::prelude::astar;
 use rand;
-use rand::prelude::IndexedRandom;
+use rand::prelude::{IndexedRandom, IteratorRandom};
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -129,6 +129,53 @@ impl Map {
     }
 
     // Building methods =======================================================
+
+    pub fn insert_holes(&mut self, n: usize) -> &mut Self {
+        // Insert holes at random locations
+        let mut holes: Vec<UVec2> = Vec::new();
+
+        let base_positions: Vec<UVec2> = self
+            .tiles
+            .iter()
+            .filter_map(|t| (!t.is_soil()).then_some(UVec2::new(t.x, t.y)))
+            .collect();
+
+        while holes.len() < n {
+            let candidate = UVec2 {
+                x: rng().random_range(0..Map::MAP_SIZE.x - 3),
+                y: rng().random_range(0..Map::MAP_SIZE.y - 3),
+            };
+
+            if holes
+                .iter()
+                .chain(base_positions.iter())
+                .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) > 4.)
+            {
+                holes.push(candidate);
+            }
+        }
+
+        for pos in holes.iter() {
+            for (y, i) in (pos.y..pos.y + 3).zip([0, 1, 3]) {
+                for (x, j) in (pos.x..pos.x + 3).zip([0, 1, 3]) {
+                    if let Some(tile) = self.tiles.iter_mut().find(|t| t.x == x && t.y == y) {
+                        *tile = Tile {
+                            x,
+                            y,
+                            texture_index: if i == 1 && j == 1 {
+                                *[64, 65].choose(&mut rng()).unwrap()
+                            } else {
+                                i * Map::TEXTURE_SIZE.x as usize + j
+                            },
+                            ..default()
+                        };
+                    }
+                }
+            }
+        }
+
+        self
+    }
 
     pub fn insert_base(&mut self, pos: &UVec2, id: ClientId) -> &mut Self {
         for (i, y) in (pos.y..pos.y + 4).enumerate() {
@@ -280,6 +327,28 @@ impl Map {
             .collect();
 
         locations.choose(&mut rng()).copied()
+    }
+
+    pub fn random_loc_max_distance(&mut self, id: ClientId, loc: &Loc, d: usize) -> Option<Loc> {
+        let locations: Vec<_> = self
+            .tiles
+            .iter()
+            .filter(|tile| tile.visible.contains(&id))
+            .flat_map(|tile| {
+                (0..16).map(move |bit| Loc {
+                    x: tile.x,
+                    y: tile.y,
+                    bit,
+                })
+            })
+            .filter(|l| self.is_walkable(l))
+            .collect();
+
+        locations
+            .iter()
+            .filter(|l| self.shortest_path(loc, l).len() <= d)
+            .choose(&mut rng())
+            .copied()
     }
 
     pub fn random_leaf_loc(&self, id: ClientId) -> Option<Loc> {

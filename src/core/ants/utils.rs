@@ -1,10 +1,10 @@
+use crate::core::ants::components::AntCmp;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::resources::GameSettings;
 use bevy::math::{Quat, Vec3};
 use bevy::prelude::*;
 use std::f32::consts::PI;
-use crate::core::ants::components::AntCmp;
 
 pub fn transform_ant(transform: &mut Transform, ant: &mut AntCmp, new_ant: &AntCmp) {
     transform.scale = Vec3::splat(new_ant.scale);
@@ -34,7 +34,7 @@ pub fn walk(
             r.rotate_towards(
                 Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
                 // Rotate faster when closer to the target to avoid walking in circles
-                (1. + 3. / (1. + ((d.length() - 8.).exp())))
+                (2. + 3. / (1. + ((d.length() - 8.).exp())))
                     * game_settings.speed
                     * time.delta_secs(),
             )

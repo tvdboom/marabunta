@@ -163,7 +163,9 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             ));
         });
 
-    let ants = Ant::iter().filter(|a| player.has_ant(a)).collect::<Vec<_>>();
+    let ants = Ant::iter()
+        .filter(|a| player.has_ant(a))
+        .collect::<Vec<_>>();
 
     commands
         .spawn((
@@ -240,10 +242,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                     .with_children(|parent| {
                                         parent.spawn((
                                             add_text(
-                                                format!(
-                                                    "{}",
-                                                    player.colony.get(ant).unwrap_or(&0)
-                                                ),
+                                                format!("{}", player.colony.get(ant).unwrap_or(&0)),
                                                 30.,
                                                 &assets,
                                             ),

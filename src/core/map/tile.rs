@@ -151,7 +151,7 @@ impl Tile {
             y,
             texture_index: *Self::SOIL.choose(&mut rng()).unwrap(),
             rotation: *Self::ANGLES.choose(&mut rng()).unwrap(),
-            has_stone: rand::random::<f32>() < 0.1,
+            has_stone: rand::random::<f32>() < 0.2,
             ..default()
         }
     }

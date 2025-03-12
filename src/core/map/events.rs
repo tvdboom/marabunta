@@ -49,7 +49,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                 Transform {
                     translation: Vec3::new(0., 0., 0.1),
                     rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                    scale: Vec3::splat(rng().random_range(0.15..0.25)),
+                    scale: Vec3::splat(rng().random_range(0.1..0.25)),
                     ..default()
                 },
             ))

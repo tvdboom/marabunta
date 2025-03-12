@@ -14,8 +14,9 @@ pub const LERP_FACTOR: f32 = 0.05;
 // Game settings
 pub const MAX_GAME_SPEED: f32 = 3.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
-pub const TRAIT_TIMER: f32 = 10.;
+pub const TRAIT_TIMER: f32 = 100.;
 pub const MAX_TRAITS: usize = 5;
+pub const ENEMY_TIMER: f32 = 0.1;
 
 // Z-scores
 pub const TILE_Z_SCORE: f32 = 0.;
@@ -29,6 +30,7 @@ pub const MAX_TERRAFORM_POINTS: f32 = 100.;
 pub const TILE_LEAF_CHANCE: f32 = 0.1;
 
 // Ants
+pub const ANT_PRICE_FACTOR: f32 = 0.9; // Price reduction for trait megacolony
 pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg
 pub const EGG_HEALTH_FACTOR: f32 = 0.25; // Fraction of health the egg has compared to the ant
 pub const HATCH_SPEED_FACTOR: f32 = 2.; // Increase in egg hatching speed for the trait breeding

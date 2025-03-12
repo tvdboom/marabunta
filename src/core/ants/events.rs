@@ -1,6 +1,8 @@
 use crate::core::ants::components::*;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE};
+use crate::core::constants::{
+    ANT_PRICE_FACTOR, ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE,
+};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
@@ -51,8 +53,15 @@ pub fn queue_ant_event(
         let ant_c = AntCmp::base(&ev.ant);
 
         if ant_c.key.is_some() {
-            if player.food >= ant_c.price {
-                player.food -= ant_c.price;
+            let price = ant_c.price
+                * if player.has_trait(&Trait::MegaColony) {
+                    ANT_PRICE_FACTOR
+                } else {
+                    1.
+                };
+
+            if player.food >= price {
+                player.food -= price;
                 player.queue.push_back(ant_c.kind);
                 audio.play(assets.audio("button"));
             } else {
