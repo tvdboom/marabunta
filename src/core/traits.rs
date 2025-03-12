@@ -26,6 +26,7 @@ pub enum Trait {
     Tunneling,
     WanderingQueen,
     Warlike,
+    WaspKiller,
 }
 
 #[derive(Clone)]
@@ -149,6 +150,14 @@ impl TraitCmp {
                 description: "\
                     Your workers become stronger, gaining twice the health and damage, but \
                     reducing their harvesting speed by half."
+                    .to_string(),
+            },
+            Trait::WaspKiller => Self {
+                kind: Trait::WaspKiller,
+                image: "wasp".to_string(),
+                description: "\
+                    All your ants have double the damage against wasps. Wasps sometimes enter \
+                    the tunnels through chambers with holes that lead to the surface."
                     .to_string(),
             },
         }

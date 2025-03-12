@@ -16,7 +16,7 @@ pub const MAX_GAME_SPEED: f32 = 3.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
 pub const TRAIT_TIMER: f32 = 100.;
 pub const MAX_TRAITS: usize = 5;
-pub const ENEMY_TIMER: f32 = 0.1;
+pub const ENEMY_TIMER: f32 = 0.3;
 
 // Z-scores
 pub const TILE_Z_SCORE: f32 = 0.;

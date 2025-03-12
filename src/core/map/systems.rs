@@ -23,7 +23,7 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
                 UVec2::new(Map::MAP_SIZE.x / 2 - 2, Map::MAP_SIZE.y / 2 - 2),
                 0,
             );
-            map.insert_holes(12);
+            map.insert_holes(34);
             map
         }
         GameMode::MultiPlayer(ids) => {

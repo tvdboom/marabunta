@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::{QueueAntEv, SpawnAntEv};
 use crate::core::assets::WorldAssets;
@@ -11,6 +10,7 @@ use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
+use std::f32::consts::PI;
 use strum::IntoEnumIterator;
 
 pub fn initialize_game(mut commands: Commands) {
@@ -64,24 +64,26 @@ pub fn spawn_enemies(
     map: Res<Map>,
     time: Res<Time>,
 ) {
-    let time = scale_duration(time.delta(), game_settings.speed);
-    game_settings.enemy_timer.tick(time);
-
     // Enemies only spawn from the host player's pc
     if player.id == 0 {
-        map.tiles.iter().for_each(|tile| {
-            if tile.visible.contains(&player.id) {
-                if tile.texture_index == 64 && rng().random::<f32>() < 0.9 {
-                    spawn_ant_ev.send(SpawnAntEv {
-                        ant: AntCmp::new(&Ant::Wasp, &player),
-                        transform: Transform {
-                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
-                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                            ..default()
-                        },
-                    });
+        let time = scale_duration(time.delta(), game_settings.speed);
+        game_settings.enemy_timer.tick(time);
+
+        if game_settings.enemy_timer.just_finished() {
+            map.tiles.iter().for_each(|tile| {
+                if tile.visible.contains(&player.id) {
+                    if tile.texture_index == 64 && rng().random::<f32>() < 0.01 {
+                        spawn_ant_ev.send(SpawnAntEv {
+                            ant: AntCmp::new(&Ant::Wasp, &player),
+                            transform: Transform {
+                                translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                                rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                                ..default()
+                            },
+                        });
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 }

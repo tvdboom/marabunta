@@ -120,7 +120,7 @@ impl Ant {
                 Animation::Idle => 12,
                 Animation::Walk => 16,
                 _ => unreachable!(),
-            }
+            },
             _ => match animation {
                 Animation::Attack | Animation::Walk => 8,
                 Animation::Die => 10,

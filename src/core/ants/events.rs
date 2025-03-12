@@ -176,6 +176,11 @@ pub fn spawn_ant_event(
                     last_index: atlas.last_index,
                 },
                 ant.clone(),
+                if ant.kind.is_ant() && player.controls(ant) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
                 NoRotationParentCmp,
                 MapCmp,
             ))
@@ -278,8 +283,10 @@ pub fn damage_event(
         if let Some((mut defender_t, mut defender)) =
             ant_q.iter_mut().find(|(_, a)| a.id == *defender)
         {
-            // Apply extra bonus factors
+            // Apply extra bonus factors against monsters
             if defender.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller) {
+                damage *= 2.;
+            } else if defender.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller) {
                 damage *= 2.;
             }
 
