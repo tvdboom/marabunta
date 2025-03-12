@@ -4,9 +4,13 @@ use crate::core::assets::WorldAssets;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::ui::utils::{add_text, despawn_ui};
 use crate::core::player::Player;
+use crate::core::traits::TraitCmp;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use strum::IntoEnumIterator;
+
+#[derive(Component)]
+pub struct UiCmp;
 
 #[derive(Component)]
 pub struct FoodLabelCmp;
@@ -20,7 +24,7 @@ pub struct ColonyLabelCmp(pub Ant);
 #[derive(Component)]
 pub struct InfoPanelUi;
 
-pub fn on_hover_info_panel(
+pub fn ant_hover_info_panel(
     ant: AntCmp,
     i: usize,
 ) -> impl FnMut(Trigger<Pointer<Over>>, Commands, Local<WorldAssets>) {
@@ -93,6 +97,49 @@ pub fn on_hover_info_panel(
     }
 }
 
+pub fn trait_hover_info_panel(
+    t: TraitCmp,
+    i: usize,
+) -> impl FnMut(Trigger<Pointer<Over>>, Commands, Local<WorldAssets>) {
+    move |_, mut commands: Commands, assets: Local<WorldAssets>| {
+        commands
+            .spawn((
+                Node {
+                    top: Val::Px(110. + i as f32 * 110.),
+                    right: Val::Px(70.),
+                    width: Val::Px(250.),
+                    position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::Column,
+                    padding: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
+                BackgroundColor(Color::srgba_u8(88, 57, 39, 200)),
+                BorderRadius::all(Val::Px(10.)),
+                InfoPanelUi,
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn((Node {
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        margin: UiRect::ZERO.with_bottom(Val::Px(15.)),
+                        ..default()
+                    },))
+                    .with_children(|parent| {
+                        parent.spawn(add_text(t.kind.to_title(), 20., &assets));
+                    });
+
+                parent.spawn((
+                    Text::new(&t.description),
+                    TextFont {
+                        font_size: 13.,
+                        ..default()
+                    },
+                ));
+            });
+    }
+}
+
 pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldAssets>) {
     commands
         .spawn((
@@ -105,6 +152,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                 ..default()
             },
             PickingBehavior::IGNORE,
+            UiCmp,
             MapCmp,
         ))
         .with_children(|parent| {
@@ -115,22 +163,25 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
             ));
         });
 
+    let ants = Ant::iter().filter(|a| player.has_ant(a)).collect::<Vec<_>>();
+
     commands
         .spawn((
             Node {
                 top: Val::Px(150.),
                 left: Val::Px(50.),
                 width: Val::Px(50.),
-                height: Val::Px(500.),
+                height: Val::Px(70. * ants.len() as f32),
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
             PickingBehavior::IGNORE,
+            UiCmp,
             MapCmp,
         ))
         .with_children(|parent| {
-            for (i, ant) in Ant::iter().filter(|a| a.is_ant()).enumerate() {
+            for (i, ant) in ants.iter().enumerate() {
                 let ant_c = AntCmp::new(&ant, &player);
                 let scale = match i {
                     0..3 => 1.,
@@ -176,7 +227,7 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                 ColonyButtonCmp(ant.clone()),
                             ))
                             .observe(on_click_ui_button)
-                            .observe(on_hover_info_panel(ant_c.clone(), i))
+                            .observe(ant_hover_info_panel(ant_c.clone(), i))
                             .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                             .with_children(|parent| {
                                 parent
@@ -191,13 +242,13 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                             add_text(
                                                 format!(
                                                     "{}",
-                                                    player.colony.get(&ant).unwrap_or(&0)
+                                                    player.colony.get(ant).unwrap_or(&0)
                                                 ),
                                                 30.,
                                                 &assets,
                                             ),
                                             Transform::from_scale(Vec3::splat(1. / scale)),
-                                            ColonyLabelCmp(ant),
+                                            ColonyLabelCmp(ant.clone()),
                                         ));
                                     });
                             });
@@ -222,6 +273,39 @@ pub fn draw_ui(mut commands: Commands, player: Res<Player>, assets: Local<WorldA
                                     ),));
                                 });
                         }
+                    });
+            }
+        });
+
+    commands
+        .spawn((
+            Node {
+                width: Val::Px(60.),
+                height: Val::Px(630.),
+                top: Val::Px(100.),
+                right: Val::Px(15.),
+                position_type: PositionType::Absolute,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            UiCmp,
+            MapCmp,
+        ))
+        .with_children(|parent| {
+            for (i, t) in player.traits.iter().enumerate() {
+                let trait_c = TraitCmp::new(t);
+
+                parent
+                    .spawn(Node {
+                        width: Val::Px(60.),
+                        height: Val::Px(90.),
+                        margin: UiRect::all(Val::Px(10.)),
+                        ..default()
+                    })
+                    .observe(trait_hover_info_panel(trait_c.clone(), i))
+                    .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
+                    .with_children(|parent| {
+                        parent.spawn(ImageNode::new(assets.image(&trait_c.image)));
                     });
             }
         });

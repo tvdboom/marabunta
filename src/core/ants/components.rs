@@ -2,6 +2,7 @@ use crate::core::constants::DEFAULT_WALK_SPEED;
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
 use crate::core::player::{AntColor, Player};
+use crate::core::traits::Trait;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy_renet::renet::ClientId;
@@ -10,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use uuid::Uuid;
-use crate::core::traits::Trait;
 
 #[derive(Component)]
 pub struct AntHealthWrapperCmp;
@@ -262,11 +262,28 @@ impl AntCmp {
                 owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
+                scale: if player.has_trait(&Trait::Warlike) {
+                    0.04
+                } else {
+                    0.03
+                },
                 z_score: 0.1,
                 price: 30.,
-                health: 10.,
-                max_health: 10.,
-                damage: 2.,
+                health: if player.has_trait(&Trait::Warlike) {
+                    20.
+                } else {
+                    10.
+                },
+                max_health: if player.has_trait(&Trait::Warlike) {
+                    20.
+                } else {
+                    10.
+                },
+                damage: if player.has_trait(&Trait::Warlike) {
+                    4.
+                } else {
+                    2.
+                },
                 hatch_time: 5.,
                 max_carry: 30.,
                 behavior: Behavior::Harvest,
@@ -304,13 +321,25 @@ impl AntCmp {
                 owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
-                scale: 0.04,
+                scale: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    0.05
+                } else {
+                    0.04
+                },
                 z_score: 0.5,
                 price: 150.,
                 health: 50.,
                 max_health: 50.,
-                speed: DEFAULT_WALK_SPEED,
-                damage: 6.,
+                speed: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    DEFAULT_WALK_SPEED + 10.
+                } else {
+                    DEFAULT_WALK_SPEED
+                },
+                damage: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    9.
+                } else {
+                    6.
+                },
                 hatch_time: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
@@ -515,7 +544,14 @@ impl AntCmp {
                 }
             }
             Action::Die(_) => Animation::Die,
-            Action::Harvest | Action::Heal | Action::Dig(_) => Animation::LookAround,
+            Action::Dig(_) | Action::Harvest => Animation::LookAround,
+            Action::Heal => {
+                if self.kind == Ant::Queen {
+                    Animation::Idle
+                } else {
+                    Animation::LookAround
+                }
+            }
             Action::Brood(_) | Action::Idle => Animation::Idle,
             Action::TargetedWalk(_) => {
                 if self.can_fly {

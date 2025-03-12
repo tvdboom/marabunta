@@ -119,19 +119,24 @@ impl FromWorld for WorldAssets {
             ("larva1", assets.load("images/map/larva_01.png")),
             ("larva2", assets.load("images/map/larva_02.png")),
             // Traits
+            ("alate", assets.load("images/traits/alate.png")),
             ("army", assets.load("images/traits/army.png")),
             ("corpse", assets.load("images/traits/corpse.png")),
-            ("tunneling", assets.load("images/traits/tunneling.png")),
+            ("double-queen", assets.load("images/traits/two-queens.png")),
             ("eggs", assets.load("images/traits/eggs.png")),
-            (
-                "double-queen",
-                assets.load("images/traits/double-queen.png"),
-            ),
-            ("super-queen", assets.load("images/traits/super-queen.png")),
             ("ghost", assets.load("images/traits/ghost.png")),
-            ("scorpion", assets.load("images/traits/scorpion.png")),
-            ("hole", assets.load("images/traits/hole.png")),
             ("harvest", assets.load("images/traits/harvest.png")),
+            ("haste", assets.load("images/traits/haste.png")),
+            ("healing", assets.load("images/traits/healing.png")),
+            ("hole", assets.load("images/traits/hole.png")),
+            ("mastodon", assets.load("images/traits/mastodon.png")),
+            ("scorpion", assets.load("images/traits/scorpion.png")),
+            ("soldiers", assets.load("images/traits/soldiers.png")),
+            ("super-queen", assets.load("images/traits/super-queen.png")),
+            ("termites", assets.load("images/traits/termites.png")),
+            ("tunneling", assets.load("images/traits/tunneling.png")),
+            ("wasp", assets.load("images/traits/wasp.png")),
+            ("workers", assets.load("images/traits/workers.png")),
         ]);
 
         for ant in Ant::iter() {

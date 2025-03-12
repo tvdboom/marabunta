@@ -30,8 +30,14 @@ pub fn hatch_eggs(
         .iter_mut()
         .filter(|(_, egg, _)| egg.owner == player.id)
     {
-        egg.timer
-            .tick(scale_duration(time.delta(), game_settings.speed));
+        egg.timer.tick(scale_duration(
+            scale_duration(time.delta(), game_settings.speed),
+            if player.has_trait(&Trait::Breeding) {
+                HATCH_SPEED_FACTOR
+            } else {
+                1.
+            },
+        ));
 
         if egg.timer.just_finished() {
             let mut ant = egg.ant.clone();
@@ -169,7 +175,7 @@ pub fn resolve_digging(
                 * game_settings.speed
                 * time.delta_secs()
                 * if player.has_trait(&Trait::Tunneling) {
-                    2.
+                    TUNNEL_SPEED_FACTOR
                 } else {
                     1.
                 };
@@ -228,8 +234,20 @@ pub fn resolve_harvesting(
     {
         if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
             if let Some(ref mut leaf) = &mut tile.leaf {
-                let carry =
-                    (HARVEST_SPEED * game_settings.speed * time.delta_secs()).min(leaf.quantity);
+                let carry = (HARVEST_SPEED
+                    * game_settings.speed
+                    * time.delta_secs()
+                    * if player.has_trait(&Trait::Harvest) {
+                        HARVEST_SPEED_FACTOR
+                    } else {
+                        1.
+                    }
+                    * if player.has_trait(&Trait::Warlike) {
+                        HARVEST_DECREASE_FACTOR
+                    } else {
+                        1.
+                    })
+                .min(leaf.quantity);
 
                 if ant.carry + carry > ant.max_carry {
                     ant.carry = ant.max_carry;
@@ -261,12 +279,19 @@ pub fn resolve_healing(
         .iter_mut()
         .filter(|(_, a)| player.owns(a) && a.action == Action::Heal)
     {
-        if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
-            if let Some(ref mut leaf) = &mut tile.leaf {
-                let heal =
-                    (HEAL_SPEED_RATIO * ant.max_health * game_settings.speed * time.delta_secs())
-                        .min(leaf.quantity);
+        let heal = HEAL_SPEED_RATIO * ant.max_health * game_settings.speed * time.delta_secs();
 
+        if ant.kind == Ant::Queen {
+            // A queen heals herself (no food required)
+            ant.health = (ant.health + heal).min(ant.max_health);
+
+            if ant.health == ant.max_health {
+                ant.behavior = AntCmp::base(&ant.kind).behavior;
+                ant.action = Action::Idle;
+            }
+        } else if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
+            if let Some(ref mut leaf) = &mut tile.leaf {
+                let heal = heal.min(leaf.quantity);
                 let health = (ant.health + heal).min(ant.max_health);
                 let healed = health - ant.health;
                 ant.health = health;
@@ -391,11 +416,15 @@ pub fn resolve_idle_action(
         .filter(|(_, _, a)| player.owns(a) && a.action == Action::Idle)
     {
         // If hurt, go heal to a leaf
-        if ant.health < ant.max_health && ant.kind != Ant::Queen && ant.kind.is_ant() {
-            if let Some(loc) = map.closest_leaf_loc(&ant_t.translation, player.id) {
-                ant.behavior = Behavior::Heal;
-                ant.action = Action::Walk(loc);
-                return;
+        if ant.health < ant.max_health && ant.kind.is_ant() {
+            if ant.kind != Ant::Queen {
+                if let Some(loc) = map.closest_leaf_loc(&ant_t.translation, player.id) {
+                    ant.behavior = Behavior::Heal;
+                    ant.action = Action::Walk(loc);
+                    return;
+                }
+            } else if player.has_trait(&Trait::HealingQueen) {
+                ant.action = Action::Heal;
             }
         }
 
@@ -481,7 +510,12 @@ pub fn resolve_targeted_walk_action(
                         let speed = ant.speed
                             * game_settings.speed
                             * time.delta_secs()
-                            * if ant.can_fly { FLY_SPEED_FACTOR } else { 1. };
+                            * if ant.can_fly { FLY_SPEED_FACTOR } else { 1. }
+                            * if player.has_trait(&Trait::Haste) {
+                                HASTE_SPEED_FACTOR
+                            } else {
+                                1.
+                            };
 
                         walk(
                             &mut ant_t,
@@ -533,10 +567,19 @@ pub fn resolve_walk_action(
         if let Action::Walk(target_loc) = ant.action {
             let current_loc = map.get_loc(&ant_t.translation);
             if current_loc != target_loc {
+                let speed = ant.speed
+                    * game_settings.speed
+                    * time.delta_secs()
+                    * if player.has_trait(&Trait::Haste) {
+                        HASTE_SPEED_FACTOR
+                    } else {
+                        1.
+                    };
+
                 walk(
                     &mut ant_t,
                     &target_loc,
-                    ant.speed * game_settings.speed * time.delta_secs(),
+                    speed,
                     &mut map,
                     &game_settings,
                     &time,

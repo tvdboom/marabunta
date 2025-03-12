@@ -20,7 +20,7 @@ use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
-use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui};
+use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{
     setup_game_over, setup_in_game_menu, setup_menu, setup_trait_selection,
@@ -146,7 +146,10 @@ impl Plugin for GamePlugin {
         .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
         .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
         .add_systems(OnEnter(GameState::TraitSelection), setup_trait_selection)
-        .add_systems(OnExit(GameState::TraitSelection), despawn::<MenuCmp>)
+        .add_systems(
+            OnExit(GameState::TraitSelection),
+            (despawn::<MenuCmp>, despawn::<UiCmp>, draw_ui).chain(),
+        )
         .add_systems(OnEnter(GameState::GameOver), setup_game_over)
         .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))

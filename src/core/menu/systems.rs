@@ -133,14 +133,20 @@ pub fn setup_trait_selection(
     commands
         .spawn((add_root_node(), MenuCmp))
         .with_children(|parent| {
-            parent.spawn(add_text("Choose a trait", 50., &assets));
+            parent
+                .spawn(Node {
+                    bottom: Val::Percent(8.),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(add_text("Choose a trait", 50., &assets));
+                });
 
             parent
                 .spawn(Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    margin: UiRect::ZERO.with_top(Val::Px(20.)),
                     ..default()
                 })
                 .with_children(|parent| {

@@ -1,9 +1,10 @@
 use crate::core::ants::components::*;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_Z_SCORE};
+use crate::core::constants::{ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE};
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
+use crate::core::traits::Trait;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
 use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
@@ -68,13 +69,19 @@ pub fn spawn_egg_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
+        let health_factor = if player.has_trait(&Trait::Breeding) {
+            2. * EGG_HEALTH_FACTOR
+        } else {
+            EGG_HEALTH_FACTOR
+        };
+
         let egg = Egg {
             id: Uuid::new_v4(),
             ant: ant.clone(),
             owner: player.id,
             team: player.id,
-            health: ant.max_health / 4.,
-            max_health: ant.max_health / 4.,
+            health: ant.max_health / health_factor,
+            max_health: ant.max_health / health_factor,
             timer: Timer::from_seconds(ant.hatch_time, TimerMode::Once),
         };
 
@@ -252,7 +259,7 @@ pub fn damage_event(
     assets: Local<WorldAssets>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
-        let damage = ant_q
+        let mut damage = ant_q
             .iter_mut()
             .find(|(_, a)| a.id == *attacker)
             .unwrap()
@@ -262,6 +269,11 @@ pub fn damage_event(
         if let Some((mut defender_t, mut defender)) =
             ant_q.iter_mut().find(|(_, a)| a.id == *defender)
         {
+            // Apply extra bonus factors
+            if defender.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller) {
+                damage *= 2.;
+            }
+
             defender.health = (defender.health - damage).max(0.);
             if defender.health == 0. {
                 defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));

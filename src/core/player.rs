@@ -58,4 +58,14 @@ impl Player {
     pub fn has_trait(&self, t: &Trait) -> bool {
         self.traits.contains(t)
     }
+
+    /// Whether the player can breed this ant type
+    pub fn has_ant(&self, ant: &Ant) -> bool {
+        match ant {
+            Ant::Alate => self.has_trait(&Trait::Alate),
+            Ant::Mastodon => self.has_trait(&Trait::Mastodon),
+            a if a.is_ant() => true,
+            _ => false,
+        }
+    }
 }
