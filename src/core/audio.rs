@@ -13,7 +13,7 @@ pub struct ToggleMusicEv;
 
 pub fn play_music(
     mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
-    mut game_settings: ResMut<GameSettings>,
+    game_settings: Option<ResMut<GameSettings>>,
     assets: Local<WorldAssets>,
     audio: Res<Audio>,
 ) {
@@ -26,7 +26,10 @@ pub fn play_music(
         .with_volume(0.03)
         .looped();
 
-    game_settings.audio = AudioState::Playing;
+    if let Some(mut game_settings) = game_settings {
+        game_settings.audio = AudioState::Playing;
+    }
+
     if let Ok(mut node) = btn_q.get_single_mut() {
         node.image = assets.image("sound");
     }

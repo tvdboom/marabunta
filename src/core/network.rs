@@ -1,19 +1,19 @@
 use crate::core::ants::components::AntCmp;
 use crate::core::assets::WorldAssets;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
+use crate::core::persistence::{PopulationT, SaveAll};
 use crate::core::player::{AntColor, Player};
-use crate::core::game_settings::{GameSettings};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
 use bevy_kira_audio::{Audio, AudioControl};
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
-use bevy::utils::hashbrown::HashMap;
-use crate::core::persistence::{PopulationT, SaveAll};
 
 const PROTOCOL_ID: u64 = 7;
 
@@ -220,7 +220,10 @@ pub fn client_receive_message(
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
             }
-            ServerMessage::Status { save, mut game_state } => {
+            ServerMessage::Status {
+                save,
+                mut game_state,
+            } => {
                 commands.insert_resource(save.game_settings);
                 map.update(save.map);
 
@@ -230,7 +233,8 @@ pub fn client_receive_message(
                 next_game_state.set(game_state);
 
                 // The client takes all population not owned by self
-                population.0 = save.population
+                population.0 = save
+                    .population
                     .into_iter()
                     .filter(|(_, (_, a))| a.owner != player.id)
                     .collect();

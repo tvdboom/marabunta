@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Ant};
+use crate::core::ants::components::Ant;
 use crate::core::constants::{ENEMY_TIMER, TRAIT_TIMER};
 use crate::core::states::AudioState;
 use bevy::prelude::*;

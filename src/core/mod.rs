@@ -28,13 +28,16 @@ use crate::core::menu::systems::{
 };
 use crate::core::network::*;
 use crate::core::pause::*;
-use crate::core::persistence::{load_game, save_game, LoadGameEv, SaveGameEv};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::core::persistence::{load_game, save_game};
+use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::states::{AppState, AudioState, GameState};
 use crate::core::systems::{check_keys, check_trait_timer, initialize_game, spawn_enemies};
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use strum::IntoEnumIterator;
 
 pub struct GamePlugin;
 
@@ -118,12 +121,7 @@ impl Plugin for GamePlugin {
             );
 
         // Menu
-        for state in [
-            AppState::MainMenu,
-            AppState::MultiPlayerMenu,
-            AppState::Lobby,
-            AppState::ConnectedLobby,
-        ] {
+        for state in AppState::iter().filter(|s| *s != AppState::Game) {
             app.add_systems(OnEnter(state), setup_menu)
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
@@ -133,8 +131,6 @@ impl Plugin for GamePlugin {
             PostUpdate,
             update_transform_no_rotation.before(TransformSystem::TransformPropagate),
         )
-        // Persistence
-        .add_systems(Update, (load_game, save_game))
         // Map
         .add_systems(
             OnEnter(AppState::Game),
@@ -198,5 +194,9 @@ impl Plugin for GamePlugin {
                     .in_set(InRunningGameSet),
             ),
         );
+
+        // Persistence
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Update, (load_game, save_game));
     }
 }

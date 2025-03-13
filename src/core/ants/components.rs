@@ -99,7 +99,10 @@ impl Ant {
 
     pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
-            Ant::Alate | Ant::BlackWingedTermite | Ant::BrownWingedTermite => vec![],
+            Ant::Alate
+            | Ant::BlackWingedTermite
+            | Ant::BrownWingedTermite
+            | Ant::WhiteWingedTermite => vec![],
             Ant::BlackScorpion | Ant::YellowScorpion => vec![Animation::Fly, Animation::LookAround],
             Ant::Wasp => vec![Animation::LookAround],
             _ => vec![Animation::Fly],

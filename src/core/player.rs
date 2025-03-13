@@ -29,7 +29,7 @@ impl Default for Player {
             color: AntColor::Black,
             food: 100.,
             colony: HashMap::new(),
-            queue: VecDeque::new(),
+            queue: VecDeque::from([Ant::Worker, Ant::Worker, Ant::Worker]),
             traits: Vec::new(),
         }
     }
