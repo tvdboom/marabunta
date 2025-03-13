@@ -1,7 +1,7 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
+use crate::core::game_settings::GameSettings;
 use crate::core::player::Player;
-use crate::core::resources::GameSettings;
 use crate::core::states::{AppState, GameState};
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;

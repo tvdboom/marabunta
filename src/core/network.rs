@@ -3,19 +3,28 @@ use crate::core::assets::WorldAssets;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::player::{AntColor, Player};
-use crate::core::resources::{GameSettings, Population, PopulationT};
+use crate::core::game_settings::{GameSettings};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
 use bevy_renet::netcode::*;
-use bevy_renet::renet::{
-    ClientId, ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent,
-};
+use bevy_renet::renet::*;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
+use bevy::utils::hashbrown::HashMap;
+use crate::core::persistence::{PopulationT, SaveAll};
 
 const PROTOCOL_ID: u64 = 7;
+
+#[derive(Resource)]
+pub struct Population(pub PopulationT);
+
+impl Default for Population {
+    fn default() -> Self {
+        Self(HashMap::new())
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
@@ -27,10 +36,8 @@ pub enum ServerMessage {
         map: Map,
     },
     Status {
-        settings: GameSettings,
-        pause: GameState,
-        map: Map,
-        population: PopulationT,
+        save: SaveAll,
+        game_state: GameState,
     },
 }
 
@@ -125,17 +132,21 @@ pub fn server_send_status(
     mut server: ResMut<RenetServer>,
     ant_q: Query<(&Transform, &AntCmp)>,
     game_settings: Res<GameSettings>,
+    player: Res<Player>,
     map: Res<Map>,
     game_state: Res<State<GameState>>,
 ) {
     let status = bincode::serialize(&ServerMessage::Status {
-        settings: game_settings.clone(),
-        pause: *game_state.get(),
-        map: map.clone(),
-        population: ant_q
-            .iter()
-            .map(|(t, a)| (a.id, (t.clone(), a.clone())))
-            .collect(),
+        save: SaveAll {
+            game_settings: game_settings.clone(),
+            player: player.clone(),
+            map: map.clone(),
+            population: ant_q
+                .iter()
+                .map(|(t, a)| (a.id, (t.clone(), a.clone())))
+                .collect(),
+        },
+        game_state: *game_state.get(),
     });
 
     server.broadcast_message(DefaultChannel::ReliableOrdered, status.unwrap());
@@ -209,22 +220,17 @@ pub fn client_receive_message(
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
             }
-            ServerMessage::Status {
-                settings,
-                mut pause,
-                map: new_map,
-                population: new_population,
-            } => {
-                commands.insert_resource(settings);
-                map.update(new_map);
+            ServerMessage::Status { save, mut game_state } => {
+                commands.insert_resource(save.game_settings);
+                map.update(save.map);
 
-                if pause == GameState::InGameMenu {
-                    pause = GameState::Paused;
+                if game_state == GameState::InGameMenu {
+                    game_state = GameState::Paused;
                 }
-                next_game_state.set(pause);
+                next_game_state.set(game_state);
 
                 // The client takes all population not owned by self
-                population.0 = new_population
+                population.0 = save.population
                     .into_iter()
                     .filter(|(_, (_, a))| a.owner != player.id)
                     .collect();

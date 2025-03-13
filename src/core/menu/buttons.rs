@@ -1,10 +1,11 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
+use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::player::{AntColor, Player};
-use crate::core::resources::{GameMode, GameSettings};
 use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -17,12 +18,15 @@ pub struct MenuCmp;
 #[derive(Component, Clone, Debug)]
 pub enum MenuBtn {
     Singleplayer,
+    NewGame,
+    LoadGame,
     Multiplayer,
     HostGame,
     FindGame,
     Play,
     Back,
     Continue,
+    SaveGame,
     Quit,
 }
 
@@ -33,6 +37,8 @@ pub fn on_click_menu_button(
     click: Trigger<Pointer<Click>>,
     mut commands: Commands,
     btn_q: Query<&MenuBtn>,
+    mut load_game_ev: EventWriter<LoadGameEv>,
+    mut save_game_ev: EventWriter<SaveGameEv>,
     app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
@@ -40,6 +46,25 @@ pub fn on_click_menu_button(
     mut client: Option<ResMut<RenetClient>>,
 ) {
     match btn_q.get(click.entity()).unwrap() {
+        MenuBtn::Singleplayer => {
+            next_app_state.set(AppState::SinglePlayerMenu);
+        }
+        MenuBtn::NewGame => {
+            let game_settings = GameSettings {
+                mode: GameMode::SinglePlayer,
+                ..default()
+            };
+            let map = create_map(&game_settings);
+
+            commands.insert_resource(game_settings);
+            commands.insert_resource(Player::new(0, AntColor::Black));
+            commands.insert_resource(map);
+
+            next_app_state.set(AppState::Game);
+        }
+        MenuBtn::LoadGame => {
+            load_game_ev.send(LoadGameEv);
+        }
         MenuBtn::Multiplayer => {
             next_app_state.set(AppState::MultiPlayerMenu);
         }
@@ -62,19 +87,6 @@ pub fn on_click_menu_button(
             commands.insert_resource(transport);
 
             next_app_state.set(AppState::Lobby);
-        }
-        MenuBtn::Singleplayer => {
-            let game_settings = GameSettings {
-                mode: GameMode::SinglePlayer,
-                ..default()
-            };
-            let map = create_map(&game_settings);
-
-            commands.insert_resource(game_settings);
-            commands.insert_resource(Player::new(0, AntColor::Black));
-            commands.insert_resource(map);
-
-            next_app_state.set(AppState::Game);
         }
         MenuBtn::Play => {
             // Multiplayer context
@@ -107,10 +119,11 @@ pub fn on_click_menu_button(
 
             next_app_state.set(AppState::Game);
         }
-        MenuBtn::Back => {
-            if *app_state.get() == AppState::MultiPlayerMenu {
+        MenuBtn::Back => match *app_state.get() {
+            AppState::SinglePlayerMenu | AppState::MultiPlayerMenu => {
                 next_app_state.set(AppState::MainMenu);
-            } else {
+            }
+            AppState::Lobby => {
                 if let Some(client) = client.as_mut() {
                     client.disconnect();
                 } else if let Some(mut server) = server {
@@ -121,9 +134,13 @@ pub fn on_click_menu_button(
 
                 next_app_state.set(AppState::MultiPlayerMenu);
             }
-        }
+            _ => unreachable!(),
+        },
         MenuBtn::Continue => {
             next_game_state.set(GameState::Running);
+        }
+        MenuBtn::SaveGame => {
+            save_game_ev.send(SaveGameEv);
         }
         MenuBtn::Quit => match *app_state.get() {
             AppState::Game => {

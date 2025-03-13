@@ -3,12 +3,12 @@ use crate::core::ants::events::{DamageAntEv, DespawnAntEv, SpawnAntEv, SpawnEggE
 use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
+use crate::core::game_settings::{GameSettings};
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
 use crate::core::map::utils::reveal_tiles;
 use crate::core::player::Player;
-use crate::core::resources::{GameSettings, Population};
 use crate::core::traits::Trait;
 use crate::core::utils::{collision, scale_duration};
 use bevy::prelude::*;
@@ -17,6 +17,7 @@ use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use crate::core::network::Population;
 
 pub fn hatch_eggs(
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
@@ -438,6 +439,7 @@ pub fn resolve_idle_action(
                 }
             } else if player.has_trait(&Trait::HealingQueen) {
                 ant.action = Action::Heal;
+                return;
             }
         }
 
@@ -533,7 +535,11 @@ pub fn resolve_targeted_walk_action(
                         let speed = ant.speed
                             * game_settings.speed
                             * time.delta_secs()
-                            * if ant.can_fly { FLY_SPEED_FACTOR } else { 1. }
+                            * if ant.kind.can_fly() {
+                                FLY_SPEED_FACTOR
+                            } else {
+                                1.
+                            }
                             * if player.has_trait(&Trait::Haste) {
                                 HASTE_SPEED_FACTOR
                             } else {

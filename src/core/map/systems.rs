@@ -3,11 +3,11 @@ use crate::core::ants::events::SpawnAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
 use crate::core::constants::TILE_Z_SCORE;
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
 use crate::core::player::Player;
-use crate::core::resources::{GameMode, GameSettings};
 use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
@@ -23,7 +23,7 @@ pub fn create_map(game_settings: &GameSettings) -> Map {
                 UVec2::new(Map::MAP_SIZE.x / 2 - 2, Map::MAP_SIZE.y / 2 - 2),
                 0,
             );
-            map.insert_holes(34);
+            map.insert_holes(12);
             map
         }
         GameMode::MultiPlayer(ids) => {

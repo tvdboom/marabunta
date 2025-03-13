@@ -3,12 +3,13 @@ mod assets;
 mod audio;
 mod camera;
 mod constants;
+mod game_settings;
 mod map;
 mod menu;
 mod network;
 mod pause;
+mod persistence;
 mod player;
-mod resources;
 mod states;
 mod systems;
 mod traits;
@@ -27,6 +28,7 @@ use crate::core::menu::systems::{
 };
 use crate::core::network::*;
 use crate::core::pause::*;
+use crate::core::persistence::{load_game, save_game, LoadGameEv, SaveGameEv};
 use crate::core::states::{AppState, AudioState, GameState};
 use crate::core::systems::{check_keys, check_trait_timer, initialize_game, spawn_enemies};
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
@@ -51,6 +53,8 @@ impl Plugin for GamePlugin {
             .init_state::<AudioState>()
             // Events
             .add_event::<ToggleMusicEv>()
+            .add_event::<LoadGameEv>()
+            .add_event::<SaveGameEv>()
             .add_event::<SpawnTileEv>()
             .add_event::<QueueAntEv>()
             .add_event::<SpawnEggEv>()
@@ -129,6 +133,8 @@ impl Plugin for GamePlugin {
             PostUpdate,
             update_transform_no_rotation.before(TransformSystem::TransformPropagate),
         )
+        // Persistence
+        .add_systems(Update, (load_game, save_game))
         // Map
         .add_systems(
             OnEnter(AppState::Game),

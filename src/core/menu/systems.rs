@@ -49,6 +49,12 @@ pub fn setup_menu(
                         spawn_menu_button(parent, MenuBtn::Quit, &assets);
                     }
                 }
+                AppState::SinglePlayerMenu => {
+                    spawn_menu_button(parent, MenuBtn::NewGame, &assets);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    spawn_menu_button(parent, MenuBtn::LoadGame, &assets);
+                    spawn_menu_button(parent, MenuBtn::Back, &assets);
+                }
                 AppState::MultiPlayerMenu => {
                     spawn_menu_button(parent, MenuBtn::HostGame, &assets);
                     spawn_menu_button(parent, MenuBtn::FindGame, &assets);
@@ -111,6 +117,8 @@ pub fn setup_in_game_menu(mut commands: Commands, assets: Local<WorldAssets>) {
         .spawn((add_root_node(), MenuCmp))
         .with_children(|parent| {
             spawn_menu_button(parent, MenuBtn::Continue, &assets);
+            #[cfg(not(target_arch = "wasm32"))]
+            spawn_menu_button(parent, MenuBtn::SaveGame, &assets);
             spawn_menu_button(parent, MenuBtn::Quit, &assets);
         });
 }

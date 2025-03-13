@@ -12,7 +12,7 @@ pub enum AntColor {
     Red,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: ClientId,
     pub color: AntColor,

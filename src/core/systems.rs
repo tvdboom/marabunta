@@ -2,12 +2,14 @@ use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::{QueueAntEv, SpawnAntEv};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_TRAITS;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
+use crate::core::network::Population;
 use crate::core::player::Player;
-use crate::core::resources::{GameSettings, Population};
 use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashMap;
 use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
@@ -28,12 +30,15 @@ pub fn check_trait_timer(
     audio: Res<Audio>,
     assets: Local<WorldAssets>,
 ) {
-    let time = scale_duration(time.delta(), game_settings.speed);
-    game_settings.trait_timer.tick(time);
+    // Only the host switches states -> the clients follow after the update
+    if player.id == 0 {
+        let time = scale_duration(time.delta(), game_settings.speed);
+        game_settings.trait_timer.tick(time);
 
-    if game_settings.trait_timer.finished() && player.traits.len() < MAX_TRAITS {
-        audio.play(assets.audio("message"));
-        next_game_state.set(GameState::TraitSelection);
+        if game_settings.trait_timer.finished() && player.traits.len() < MAX_TRAITS {
+            audio.play(assets.audio("message"));
+            next_game_state.set(GameState::TraitSelection);
+        }
     }
 }
 
@@ -72,7 +77,7 @@ pub fn spawn_enemies(
         if game_settings.enemy_timer.just_finished() {
             map.tiles.iter().for_each(|tile| {
                 if tile.visible.contains(&player.id) {
-                    if tile.texture_index == 64 && rng().random::<f32>() < 0.01 {
+                    if tile.texture_index == 64 && rng().random::<f32>() < 0.001 {
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::new(&Ant::Wasp, &player),
                             transform: Transform {
@@ -81,9 +86,40 @@ pub fn spawn_enemies(
                                 ..default()
                             },
                         });
+                    } else if tile.texture_index == 65 && rng().random::<f32>() < 0.01 {
+                        // Create random termite queue
+                        let mut queue = vec![];
+                        for _ in 1..=rng().random_range(2..=10) {
+                            queue.push(match rng().random::<f32>() {
+                                0.6..0.7 => Ant::BlackWingedTermite,
+                                0.7..0.85 => Ant::BrownTermite,
+                                0.85..0.9 => Ant::BrownWingedTermite,
+                                0.95..0.99 => Ant::WhiteTermite,
+                                0.99..1. => Ant::WhiteWingedTermite,
+                                _ => Ant::BlackTermite,
+                            });
+                        }
+
+                        game_settings.termite_queue = HashMap::from([((tile.x, tile.y), queue)]);
                     }
                 }
             });
+
+            // Spawn termites gradually from the termite queue
+            for ((x, y), queue) in game_settings.termite_queue.iter_mut() {
+                if rng().random::<f32>() < 0.2 {
+                    if let Some(ant) = queue.pop() {
+                        spawn_ant_ev.send(SpawnAntEv {
+                            ant: AntCmp::new(&ant, &player),
+                            transform: Transform {
+                                translation: Map::get_coord_from_xy(*x, *y).extend(0.),
+                                rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                                ..default()
+                            },
+                        });
+                    }
+                }
+            }
         }
     }
 }

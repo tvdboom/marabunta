@@ -1,4 +1,5 @@
 use crate::core::assets::WorldAssets;
+use crate::core::game_settings::GameSettings;
 use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
@@ -12,6 +13,7 @@ pub struct ToggleMusicEv;
 
 pub fn play_music(
     mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
+    mut game_settings: ResMut<GameSettings>,
     assets: Local<WorldAssets>,
     audio: Res<Audio>,
 ) {
@@ -24,6 +26,7 @@ pub fn play_music(
         .with_volume(0.03)
         .looped();
 
+    game_settings.audio = AudioState::Playing;
     if let Ok(mut node) = btn_q.get_single_mut() {
         node.image = assets.image("sound");
     }
@@ -31,11 +34,13 @@ pub fn play_music(
 
 pub fn stop_music(
     mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
+    mut game_settings: ResMut<GameSettings>,
     assets: Local<WorldAssets>,
     audio: Res<Audio>,
 ) {
     audio.stop();
 
+    game_settings.audio = AudioState::Stopped;
     if let Ok(mut node) = btn_q.get_single_mut() {
         node.image = assets.image("mute");
     }

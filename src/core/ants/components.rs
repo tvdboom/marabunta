@@ -52,6 +52,12 @@ pub enum Ant {
     Mastodon,
     BlackScorpion,
     YellowScorpion,
+    BlackTermite,
+    BlackWingedTermite,
+    BrownTermite,
+    BrownWingedTermite,
+    WhiteTermite,
+    WhiteWingedTermite,
     Wasp,
 }
 
@@ -70,30 +76,30 @@ impl Ant {
     }
 
     pub fn is_scorpion(&self) -> bool {
-        match self {
-            Ant::BlackScorpion | Ant::YellowScorpion => true,
-            _ => false,
-        }
+        self.to_lowername().contains("scorpion")
+    }
+
+    pub fn is_termite(&self) -> bool {
+        self.to_lowername().contains("termite")
     }
 
     pub fn colors(&self) -> Box<dyn Iterator<Item = AntCmp>> {
-        match self {
-            Ant::Mastodon | Ant::BlackScorpion | Ant::YellowScorpion | Ant::Wasp => {
-                Box::new(std::iter::once(AntCmp::base(self)))
-            }
-            _ => Box::new(
+        if *self == Ant::Mastodon || !self.is_ant() {
+            Box::new(std::iter::once(AntCmp::base(self)))
+        } else {
+            Box::new(
                 [
                     AntCmp::base(self).with_color(&AntColor::Black),
                     AntCmp::base(self).with_color(&AntColor::Red),
                 ]
                 .into_iter(),
-            ),
+            )
         }
     }
 
     pub fn all_animations(&self) -> Vec<Animation> {
         let exclude_animations = match self {
-            Ant::Alate => vec![],
+            Ant::Alate | Ant::BlackWingedTermite | Ant::BrownWingedTermite => vec![],
             Ant::BlackScorpion | Ant::YellowScorpion => vec![Animation::Fly, Animation::LookAround],
             Ant::Wasp => vec![Animation::LookAround],
             _ => vec![Animation::Fly],
@@ -114,6 +120,12 @@ impl Ant {
                 Animation::Walk => 16,
                 _ => unreachable!(),
             },
+            a if a.is_termite() => match animation {
+                Animation::Attack | Animation::Fly | Animation::LookAround => 10,
+                Animation::Die => 5,
+                Animation::Idle => 20,
+                Animation::Walk => 16,
+            },
             Ant::Wasp => match animation {
                 Animation::Attack | Animation::Fly => 10,
                 Animation::Die => 5,
@@ -132,6 +144,10 @@ impl Ant {
 
     pub fn interval(&self, animation: &Animation) -> f32 {
         1. / self.frames(animation) as f32
+    }
+
+    pub fn can_fly(&self) -> bool {
+        self.all_animations().contains(&Animation::Fly)
     }
 }
 
@@ -212,9 +228,6 @@ pub struct AntCmp {
     /// Maximum resource carry capacity
     pub max_carry: f32,
 
-    /// Whether the ant can fly
-    pub can_fly: bool,
-
     /// Default behavior of the ant
     pub behavior: Behavior,
 
@@ -244,7 +257,6 @@ impl Default for AntCmp {
             hatch_time: 0.,
             carry: 0.,
             max_carry: 1.,
-            can_fly: false,
             behavior: Behavior::Attack,
             action: Action::Idle,
             description: "".to_string(),
@@ -425,7 +437,6 @@ impl AntCmp {
                 speed: DEFAULT_WALK_SPEED,
                 damage: 10.,
                 hatch_time: 30.,
-                can_fly: true,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
@@ -482,13 +493,91 @@ impl AntCmp {
                 action: Action::Idle,
                 ..default()
             },
+            Ant::BlackTermite => Self {
+                kind: Ant::BlackTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.02,
+                health: 15.,
+                max_health: 15.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 7.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::BlackWingedTermite => Self {
+                kind: Ant::BlackWingedTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.02,
+                health: 20.,
+                max_health: 20.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 9.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::BrownTermite => Self {
+                kind: Ant::BrownTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.02,
+                health: 40.,
+                max_health: 40.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 12.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::BrownWingedTermite => Self {
+                kind: Ant::BrownWingedTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.02,
+                health: 50.,
+                max_health: 50.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 15.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::WhiteTermite => Self {
+                kind: Ant::WhiteTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.03,
+                health: 80.,
+                max_health: 80.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 18.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
+            Ant::WhiteWingedTermite => Self {
+                kind: Ant::WhiteWingedTermite,
+                owner: player.id,
+                team: 80,
+                scale: 0.03,
+                health: 120.,
+                max_health: 120.,
+                speed: DEFAULT_WALK_SPEED,
+                damage: 22.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                ..default()
+            },
             Ant::Wasp => Self {
                 kind: Ant::Wasp,
                 owner: player.id,
                 team: 90,
                 scale: 0.05,
-                health: 300.,
-                max_health: 300.,
+                health: 200.,
+                max_health: 200.,
                 speed: DEFAULT_WALK_SPEED,
                 damage: 15.,
                 behavior: Behavior::Attack,
@@ -539,6 +628,10 @@ impl AntCmp {
             Ant::Alate => Vec2::new(510., 512.),
             Ant::Mastodon => Vec2::new(513., 577.),
             Ant::BlackScorpion | Ant::YellowScorpion => Vec2::new(675., 785.),
+            Ant::BlackTermite | Ant::BrownTermite | Ant::WhiteTermite => Vec2::new(561., 652.),
+            Ant::BlackWingedTermite | Ant::BrownWingedTermite | Ant::WhiteWingedTermite => {
+                Vec2::new(710., 763.)
+            }
             Ant::Wasp => Vec2::new(832., 676.),
         }
     }
@@ -561,7 +654,7 @@ impl AntCmp {
             }
             Action::Brood(_) | Action::Idle => Animation::Idle,
             Action::TargetedWalk(_) => {
-                if self.can_fly {
+                if self.kind.can_fly() {
                     Animation::Fly
                 } else {
                     Animation::Walk

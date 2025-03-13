@@ -8,9 +8,10 @@ use bevy::prelude::*;
 use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 
-#[derive(EnumIter, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(EnumIter, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Trait {
     Alate,
     Breeding,
@@ -23,6 +24,7 @@ pub enum Trait {
     MegaColony,
     ScorpionKiller,
     SuperQueen,
+    TermiteKiller,
     Tunneling,
     WanderingQueen,
     Warlike,
@@ -112,14 +114,6 @@ impl TraitCmp {
                     colony around and overcome your enemies by the sheer numbers."
                     .to_string(),
             },
-            Trait::Tunneling => Self {
-                kind: Trait::Tunneling,
-                image: "tunneling".to_string(),
-                description: "\
-                    Excavator ants dig twice as fast. A rapid expansion of the nest means \
-                    discovering more food sources, but also encountering enemies faster."
-                    .to_string(),
-            },
             Trait::ScorpionKiller => Self {
                 kind: Trait::ScorpionKiller,
                 image: "scorpion".to_string(),
@@ -134,6 +128,22 @@ impl TraitCmp {
                 description: "\
                     The queen increases in health and strength, but walks slower. If you \
                     have more than one queen, they all gain the bonuses."
+                    .to_string(),
+            },
+            Trait::TermiteKiller => Self {
+                kind: Trait::TermiteKiller,
+                image: "termites".to_string(),
+                description: "\
+                    All your ants have double the damage against termites. Termites attack \
+                    in groups."
+                    .to_string(),
+            },
+            Trait::Tunneling => Self {
+                kind: Trait::Tunneling,
+                image: "tunneling".to_string(),
+                description: "\
+                    Excavator ants dig twice as fast. A rapid expansion of the nest means \
+                    discovering more food sources, but also encountering enemies faster."
                     .to_string(),
             },
             Trait::WanderingQueen => Self {

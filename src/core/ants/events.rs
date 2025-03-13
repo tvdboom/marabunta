@@ -284,9 +284,10 @@ pub fn damage_event(
             ant_q.iter_mut().find(|(_, a)| a.id == *defender)
         {
             // Apply extra bonus factors against monsters
-            if defender.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller) {
-                damage *= 2.;
-            } else if defender.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller) {
+            if (defender.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller))
+                || (defender.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller))
+                || (defender.kind.is_termite() && player.has_trait(&Trait::TermiteKiller))
+            {
                 damage *= 2.;
             }
 
@@ -296,10 +297,9 @@ pub fn damage_event(
                 defender_t.translation.z = ANT_Z_SCORE;
 
                 if player.controls(&defender) {
-                    player
-                        .colony
-                        .entry(defender.kind.clone())
-                        .and_modify(|c| *c -= 1);
+                    player.colony.entry(defender.kind.clone()).and_modify(|c| {
+                        *c = c.saturating_sub(1);
+                    });
 
                     // If the queen died, you lost the game
                     if player.colony[&Ant::Queen] == 0 {

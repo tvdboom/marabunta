@@ -18,7 +18,7 @@ impl Default for Leaf {
     fn default() -> Self {
         Self {
             image: "leaf1".to_string(),
-            quantity: 1000.,
+            quantity: 2000.,
         }
     }
 }
@@ -182,9 +182,9 @@ impl Tile {
                 (((bitmap >> 12) & 1) << 3)
                     | (((bitmap >> 8) & 1) << 2)
                     | (((bitmap >> 4) & 1) << 1)
-                    | ((bitmap) & 1)
+                    | (bitmap & 1)
             }
-            Direction::SouthEast => (bitmap >> 4) & 1,
+            Direction::SouthEast => bitmap & 1,
             Direction::South => bitmap & 0b1111,
             Direction::SouthWest => (bitmap >> 3) & 1,
             Direction::West => {

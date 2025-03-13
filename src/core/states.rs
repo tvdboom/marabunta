@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum AppState {
     #[default]
     MainMenu,
+    SinglePlayerMenu,
     MultiPlayerMenu,
     Lobby,
     ConnectedLobby,
@@ -21,7 +22,7 @@ pub enum GameState {
     GameOver,
 }
 
-#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default)]
+#[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum AudioState {
     #[default]
     Playing,
