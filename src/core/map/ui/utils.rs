@@ -56,7 +56,7 @@ pub fn add_text(
         Text::new(text),
         TextFont {
             font: assets.font(font),
-            font_size: font_size * window.width() / window.height(),
+            font_size: font_size * window.height() / 460.,
             ..default()
         },
         TextSize(font_size),

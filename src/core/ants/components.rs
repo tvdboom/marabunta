@@ -413,10 +413,22 @@ impl AntCmp {
                 scale: 0.04,
                 z_score: 0.6,
                 price: 200.,
-                health: 50.,
-                max_health: 50.,
+                health: if player.has_trait(&Trait::EnhancedWarriors) {
+                    65.
+                } else {
+                    50.
+                },
+                max_health: if player.has_trait(&Trait::EnhancedWarriors) {
+                    65.
+                } else {
+                    50.
+                },
                 speed: DEFAULT_WALK_SPEED + 5.,
-                damage: 9.,
+                damage: if player.has_trait(&Trait::EnhancedWarriors) {
+                    12.
+                } else {
+                    9.
+                },
                 hatch_time: 12.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,

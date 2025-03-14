@@ -14,6 +14,7 @@ use crate::core::traits::Trait;
 use crate::core::utils::{collision, scale_duration};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
+use bevy_kira_audio::{Audio, AudioControl};
 use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
@@ -162,6 +163,8 @@ pub fn resolve_digging(
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
 ) {
     for mut tile in tile_q.iter_mut() {
         // Select ants that were digging on that tile
@@ -204,6 +207,8 @@ pub fn resolve_digging(
                         0.99..=1. => Some(Ant::YellowScorpion),
                         _ => None,
                     } {
+                        audio.play(assets.audio("warning")).with_volume(0.5);
+
                         // Spawn an enemy on the newly dug tile
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::new(&enemy, &player),

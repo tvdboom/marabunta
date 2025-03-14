@@ -12,6 +12,7 @@ use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
+use bevy::utils::HashSet;
 use bevy_kira_audio::{Audio, AudioControl};
 use uuid::Uuid;
 
@@ -145,7 +146,6 @@ pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     mut player: ResMut<Player>,
-    audio: Res<Audio>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
@@ -228,10 +228,6 @@ pub fn spawn_ant_event(
                 ));
             });
 
-        if !ant.kind.is_ant() {
-            audio.play(assets.audio("warning")).with_volume(0.5);
-        }
-
         if player.controls(ant) {
             player
                 .colony
@@ -269,6 +265,7 @@ pub fn damage_event(
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     mut player: ResMut<Player>,
+    mut killed: Local<HashSet<Uuid>>,
     audio: Res<Audio>,
     assets: Local<WorldAssets>,
 ) {
@@ -280,24 +277,24 @@ pub fn damage_event(
             .1
             .damage;
 
-        if let Some((mut defender_t, mut defender)) =
-            ant_q.iter_mut().find(|(_, a)| a.id == *defender)
-        {
+        if let Some((mut ant_t, mut ant_c)) = ant_q.iter_mut().find(|(_, a)| a.id == *defender) {
             // Apply extra bonus factors against monsters
-            if (defender.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller))
-                || (defender.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller))
-                || (defender.kind.is_termite() && player.has_trait(&Trait::TermiteKiller))
+            if (ant_c.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller))
+                || (ant_c.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller))
+                || (ant_c.kind.is_termite() && player.has_trait(&Trait::TermiteKiller))
             {
                 damage *= 2.;
             }
 
-            defender.health = (defender.health - damage).max(0.);
-            if defender.health == 0. {
-                defender.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
-                defender_t.translation.z = ANT_Z_SCORE;
+            ant_c.health = (ant_c.health - damage).max(0.);
+            if ant_c.health == 0. && !killed.contains(defender) {
+                killed.insert(*defender);
 
-                if player.controls(&defender) {
-                    player.colony.entry(defender.kind.clone()).and_modify(|c| {
+                ant_c.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
+                ant_t.translation.z = ANT_Z_SCORE;
+
+                if player.controls(&ant_c) {
+                    player.colony.entry(ant_c.kind.clone()).and_modify(|c| {
                         *c = c.saturating_sub(1);
                     });
 

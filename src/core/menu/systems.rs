@@ -26,13 +26,13 @@ pub fn setup_menu(
             parent
                 .spawn(Node {
                     position_type: PositionType::Absolute,
-                    top: Val::VMin(5.),
+                    top: Val::VMin(8.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(add_text(TITLE, "medium", 70., &assets, &window));
+                    parent.spawn(add_text(TITLE, "medium", 60., &assets, &window));
                 });
 
             match app_state.get() {

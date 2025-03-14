@@ -17,6 +17,7 @@ pub enum Trait {
     Breeding,
     DoubleQueen,
     EnhancedSoldiers,
+    EnhancedWarriors,
     Harvest,
     Haste,
     HealingQueen,
@@ -71,6 +72,14 @@ impl TraitCmp {
                 description: "\
                     Soldier ants increase their damage and speed. Use this trait to create a \
                     powerful army."
+                    .to_string(),
+            },
+            Trait::EnhancedWarriors => Self {
+                kind: Trait::EnhancedWarriors,
+                image: "battle".to_string(),
+                description: "\
+                    Warriors ants increase their damage and health. Use this trait to create \
+                    a powerful army."
                     .to_string(),
             },
             Trait::Harvest => Self {
@@ -225,8 +234,15 @@ pub fn select_trait_event(
                 let soldier = AntCmp::new(&Ant::Soldier, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .filter(|(_, a)| a.kind == Ant::Soldier && a.team == player.id)
                     .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
+            }
+            Trait::EnhancedWarriors => {
+                let warrior = AntCmp::new(&Ant::Warrior, &player);
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.kind == Ant::Warrior && a.team == player.id)
+                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &warrior));
             }
             _ => (),
         }
