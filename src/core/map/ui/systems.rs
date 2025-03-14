@@ -113,7 +113,7 @@ pub fn trait_hover_info_panel(
             .spawn((
                 Node {
                     top: Val::Percent(15. + 10.5 * i as f32),
-                    left: Val::Percent(68.),
+                    left: Val::Percent(69.),
                     width: Val::Percent(25.),
                     flex_direction: FlexDirection::Column,
                     padding: UiRect::all(Val::Percent(1.5)),

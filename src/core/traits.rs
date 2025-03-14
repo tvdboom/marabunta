@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::ants::components::{Action, Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
 use crate::core::assets::WorldAssets;
@@ -23,7 +23,10 @@ pub enum Trait {
     HealingQueen,
     Mastodon,
     MegaColony,
+    Metamorfosis,
+    Necromancer,
     ScorpionKiller,
+    SuddenArmy,
     SuperQueen,
     TermiteKiller,
     Tunneling,
@@ -123,12 +126,36 @@ impl TraitCmp {
                     colony around and overcome your enemies by the sheer numbers."
                     .to_string(),
             },
+            Trait::Metamorfosis => Self {
+                kind: Trait::Metamorfosis,
+                image: "metamorfosis".to_string(),
+                description: "\
+                    All your workers turn into soldiers. This is a one-time transformation \
+                    for the current workers. Queued ants remain the same."
+                    .to_string(),
+            },
+            Trait::Necromancer => Self {
+                kind: Trait::Necromancer,
+                image: "necromancer".to_string(),
+                description: "\
+                    All the current corpses of your ants come back to live with full health. \
+                    This includes the queen if you were about to lose the game!"
+                    .to_string(),
+            },
             Trait::ScorpionKiller => Self {
                 kind: Trait::ScorpionKiller,
                 image: "scorpion".to_string(),
                 description: "\
                     All your ants have double the damage against scorpions. Scorpions are \
                     dangerous enemies, often encountered by excavators when digging tunnels."
+                    .to_string(),
+            },
+            Trait::SuddenArmy => Self {
+                kind: Trait::SuddenArmy,
+                image: "sudden-army".to_string(),
+                description: "\
+                    A random number of soldier and warrior ants immediately spawn around your \
+                    queen. Surprise your enemies with a sudden army."
                     .to_string(),
             },
             Trait::SuperQueen => Self {
@@ -216,20 +243,6 @@ pub fn select_trait_event(
                     },
                 });
             }
-            Trait::SuperQueen => {
-                let queen = AntCmp::new(&Ant::Queen, &player);
-                ant_q
-                    .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &queen));
-            }
-            Trait::Warlike => {
-                let worker = AntCmp::new(&Ant::Worker, &player);
-                ant_q
-                    .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &worker));
-            }
             Trait::EnhancedSoldiers => {
                 let soldier = AntCmp::new(&Ant::Soldier, &player);
                 ant_q
@@ -243,6 +256,60 @@ pub fn select_trait_event(
                     .iter_mut()
                     .filter(|(_, a)| a.kind == Ant::Warrior && a.team == player.id)
                     .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &warrior));
+            }
+            Trait::Metamorfosis => {
+                let soldier = AntCmp::new(&Ant::Soldier, &player);
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
+            }
+            Trait::Necromancer => {
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.team == player.id)
+                    .for_each(|(_, mut a)| {
+                        a.health = a.max_health;
+                        a.action = Action::Idle
+                    });
+            }
+            Trait::SuddenArmy => {
+                for _ in 0..rng().random_range(8..15) {
+                    let ant = if rng().random::<f32>() < 0.5 {
+                        Ant::Soldier
+                    } else {
+                        Ant::Warrior
+                    };
+
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::new(&ant, &player),
+                        transform: Transform {
+                            // Spawn the queen where the current one is located
+                            translation: ant_q
+                                .iter()
+                                .find(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
+                                .unwrap()
+                                .0
+                                .translation,
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                    });
+                }
+            }
+            Trait::SuperQueen => {
+                let queen = AntCmp::new(&Ant::Queen, &player);
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
+                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &queen));
+            }
+            Trait::Warlike => {
+                let worker = AntCmp::new(&Ant::Worker, &player);
+                ant_q
+                    .iter_mut()
+                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &worker));
             }
             _ => (),
         }
