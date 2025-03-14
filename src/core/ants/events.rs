@@ -1,7 +1,7 @@
 use crate::core::ants::components::*;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{
-    ANT_PRICE_FACTOR, ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE,
+    ANT_PRICE_FACTOR, ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE, MAX_QUEUE_LENGTH,
 };
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
@@ -60,7 +60,7 @@ pub fn queue_ant_event(
                     1.
                 };
 
-            if player.food >= price {
+            if player.food >= price && player.queue.len() < MAX_QUEUE_LENGTH {
                 player.food -= price;
                 player.queue.push_back(ant_c.kind);
                 audio.play(assets.audio("button"));

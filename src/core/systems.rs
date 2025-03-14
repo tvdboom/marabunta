@@ -4,12 +4,14 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
+use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
 use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
+use bevy::window::WindowResized;
 use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
@@ -20,6 +22,17 @@ pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
+}
+
+pub fn on_resize_system(
+    mut resize_reader: EventReader<WindowResized>,
+    mut text: Query<(&mut TextFont, &TextSize)>,
+) {
+    for ev in resize_reader.read() {
+        for (mut text, size) in text.iter_mut() {
+            text.font_size = size.0 * ev.height / 460.
+        }
+    }
 }
 
 pub fn check_trait_timer(

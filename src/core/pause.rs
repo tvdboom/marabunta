@@ -1,6 +1,7 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
 use crate::core::game_settings::GameSettings;
+use crate::core::map::ui::utils::add_text;
 use crate::core::player::Player;
 use crate::core::states::{AppState, GameState};
 use bevy::color::palettes::basic::WHITE;
@@ -10,7 +11,11 @@ use bevy_kira_audio::{Audio, AudioControl};
 #[derive(Component)]
 pub struct PauseCmp;
 
-pub fn spawn_pause_banner(mut commands: Commands, assets: Local<WorldAssets>) {
+pub fn spawn_pause_banner(
+    mut commands: Commands,
+    assets: Local<WorldAssets>,
+    window: Single<&Window>,
+) {
     commands
         .spawn((
             Node {
@@ -26,14 +31,9 @@ pub fn spawn_pause_banner(mut commands: Commands, assets: Local<WorldAssets>) {
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::from("Paused"),
+                add_text("Paused", "bold", 45., &assets, &window),
                 TextColor(Color::from(WHITE)),
                 TextLayout::new_with_justify(JustifyText::Center),
-                TextFont {
-                    font: assets.font("FiraSans-Bold"),
-                    font_size: 55.,
-                    ..default()
-                },
                 Transform::from_xyz(0., 0., MAX_Z_SCORE),
             ));
         });

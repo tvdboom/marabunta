@@ -53,10 +53,10 @@ pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            width: Val::Px(40.),
-            height: Val::Px(40.),
-            right: Val::Px(20.),
-            top: Val::Px(20.),
+            width: Val::Percent(5.),
+            height: Val::Percent(5.),
+            right: Val::Percent(0.),
+            top: Val::Percent(3.),
             ..default()
         })
         .with_children(|parent| {

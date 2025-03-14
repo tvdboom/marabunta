@@ -85,7 +85,7 @@ impl TraitCmp {
                 kind: Trait::Haste,
                 image: "haste".to_string(),
                 description: "\
-                    All your ants move 10% faster. Speed is the key to productivity. Faster \
+                    All your ants move 20% faster. Speed is the key to productivity. Faster \
                     ants means faster food collection and reaching the enemy earlier."
                     .to_string(),
             },

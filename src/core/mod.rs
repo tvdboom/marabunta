@@ -32,7 +32,9 @@ use crate::core::pause::*;
 use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::states::{AppState, AudioState, GameState};
-use crate::core::systems::{check_keys, check_trait_timer, initialize_game, spawn_enemies};
+use crate::core::systems::{
+    check_keys, check_trait_timer, initialize_game, on_resize_system, spawn_enemies,
+};
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
@@ -129,7 +131,10 @@ impl Plugin for GamePlugin {
         // Utilities
         app.add_systems(
             PostUpdate,
-            update_transform_no_rotation.before(TransformSystem::TransformPropagate),
+            (
+                on_resize_system,
+                update_transform_no_rotation.before(TransformSystem::TransformPropagate),
+            ),
         )
         // Map
         .add_systems(

@@ -2,6 +2,9 @@ use crate::core::assets::WorldAssets;
 use bevy::prelude::*;
 use std::fmt::Debug;
 
+#[derive(Component)]
+pub struct TextSize(pub f32);
+
 /// Change the background color of an entity
 pub fn recolor<E: Debug + Clone + Reflect>(
     color: Color,
@@ -44,15 +47,18 @@ pub fn add_root_node() -> (Node, PickingBehavior) {
 /// Add a standard text component
 pub fn add_text(
     text: impl Into<String>,
-    size: f32,
-    assets: &Local<WorldAssets>,
-) -> (Text, TextFont) {
+    font: &str,
+    font_size: f32,
+    assets: &WorldAssets,
+    window: &Window,
+) -> (Text, TextFont, TextSize) {
     (
         Text::new(text),
         TextFont {
-            font: assets.font("FiraSans-Bold"),
-            font_size: size,
+            font: assets.font(font),
+            font_size: font_size * window.width() / window.height(),
             ..default()
         },
+        TextSize(font_size),
     )
 }

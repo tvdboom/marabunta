@@ -72,8 +72,8 @@ impl FromWorld for WorldAssets {
         ]);
 
         let fonts = HashMap::from([
-            ("FiraSans-Bold", assets.load("fonts/FiraSans-Bold.ttf")),
-            ("FiraMono-Medium", assets.load("fonts/FiraMono-Medium.ttf")),
+            ("bold", assets.load("fonts/FiraSans-Bold.ttf")),
+            ("medium", assets.load("fonts/FiraMono-Medium.ttf")),
         ]);
 
         let mut images: HashMap<&'static str, Handle<Image>> = HashMap::from([
@@ -92,6 +92,7 @@ impl FromWorld for WorldAssets {
             ("stick1", assets.load("images/map/stick_01.png")),
             ("stick2", assets.load("images/map/stick_02.png")),
             ("stick3", assets.load("images/map/stick_03.png")),
+            ("leaf-ui", assets.load("images/map/leaf_ui.png")),
             ("leaf1", assets.load("images/map/leaf_01.png")),
             ("leaf2", assets.load("images/map/leaf_02.png")),
             ("leaf3", assets.load("images/map/leaf_03.png")),

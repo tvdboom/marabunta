@@ -1,5 +1,7 @@
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::core::constants::{
+    BUTTON_TEXT_SIZE, HOVERED_BUTTON_COLOR, NORMAL_BUTTON_COLOR, PRESSED_BUTTON_COLOR,
+};
 use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
@@ -153,28 +155,38 @@ pub fn on_click_menu_button(
     }
 }
 
-pub fn spawn_menu_button(parent: &mut ChildBuilder, btn: MenuBtn, assets: &Local<WorldAssets>) {
+pub fn spawn_menu_button(
+    parent: &mut ChildBuilder,
+    btn: MenuBtn,
+    assets: &WorldAssets,
+    window: &Window,
+) {
     parent
         .spawn((
             Node {
                 display: Display::Flex,
-                width: Val::Px(350.),
-                height: Val::Px(80.),
+                width: Val::Percent(25.),
+                height: Val::Percent(10.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                margin: UiRect::all(Val::Px(15.)),
-                padding: UiRect::all(Val::Px(15.)),
+                margin: UiRect::all(Val::Percent(1.)),
                 ..default()
             },
-            BackgroundColor(NORMAL_BUTTON.into()),
+            BackgroundColor(NORMAL_BUTTON_COLOR.into()),
             btn.clone(),
         ))
-        .observe(recolor::<Pointer<Over>>(HOVERED_BUTTON))
-        .observe(recolor::<Pointer<Out>>(NORMAL_BUTTON))
-        .observe(recolor::<Pointer<Down>>(PRESSED_BUTTON))
-        .observe(recolor::<Pointer<Up>>(HOVERED_BUTTON))
+        .observe(recolor::<Pointer<Over>>(HOVERED_BUTTON_COLOR))
+        .observe(recolor::<Pointer<Out>>(NORMAL_BUTTON_COLOR))
+        .observe(recolor::<Pointer<Down>>(PRESSED_BUTTON_COLOR))
+        .observe(recolor::<Pointer<Up>>(HOVERED_BUTTON_COLOR))
         .observe(on_click_menu_button)
         .with_children(|parent| {
-            parent.spawn(add_text(btn.to_title(), 40., assets));
+            parent.spawn(add_text(
+                btn.to_title(),
+                "bold",
+                BUTTON_TEXT_SIZE,
+                assets,
+                window,
+            ));
         });
 }

@@ -1,9 +1,10 @@
 use bevy::color::Color;
 
 // Menu
-pub const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
-pub const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-pub const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.65, 0.35);
+pub const BUTTON_TEXT_SIZE: f32 = 20.;
+pub const NORMAL_BUTTON_COLOR: Color = Color::srgb(0.15, 0.15, 0.15);
+pub const HOVERED_BUTTON_COLOR: Color = Color::srgb(0.25, 0.25, 0.25);
+pub const PRESSED_BUTTON_COLOR: Color = Color::srgb(0.35, 0.65, 0.35);
 
 // Camera
 pub const MIN_ZOOM: f32 = 0.2;
@@ -14,7 +15,8 @@ pub const LERP_FACTOR: f32 = 0.05;
 // Game settings
 pub const MAX_GAME_SPEED: f32 = 3.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
-pub const TRAIT_TIMER: f32 = 100.;
+pub const MAX_QUEUE_LENGTH: usize = 12;
+pub const TRAIT_TIMER: f32 = 10.;
 pub const MAX_TRAITS: usize = 5;
 pub const ENEMY_TIMER: f32 = 0.3;
 
@@ -43,5 +45,5 @@ pub const HARVEST_SPEED_FACTOR: f32 = 2.; // Harvesting speed increase for trait
 pub const HARVEST_DECREASE_FACTOR: f32 = 0.5; // Harvesting speed decrease for trait warlike
 pub const HEAL_SPEED_RATIO: f32 = 0.1; // Health ratio healed per second
 pub const FLY_SPEED_FACTOR: f32 = 2.; // Times flying is faster than base
-pub const HASTE_SPEED_FACTOR: f32 = 2.; // Walk speed increase for the trait haste
+pub const HASTE_SPEED_FACTOR: f32 = 1.2; // Walk speed increase for the trait haste
 pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel

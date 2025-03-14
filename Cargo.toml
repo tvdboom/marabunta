@@ -51,3 +51,11 @@ strum_macros = "0.27.1"
 pathfinding = "4.14.0"
 uuid = { version = "1.12.1", features = ["v4"] }
 winit = "0.30.9"
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
