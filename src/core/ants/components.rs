@@ -19,6 +19,9 @@ pub struct AntHealthWrapperCmp;
 pub struct AntHealthCmp;
 
 #[derive(Component)]
+pub struct SelectedCmp;
+
+#[derive(Component)]
 pub struct LeafCarryCmp;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

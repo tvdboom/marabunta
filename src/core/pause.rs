@@ -31,7 +31,7 @@ pub fn spawn_pause_banner(
         ))
         .with_children(|parent| {
             parent.spawn((
-                add_text("Paused", "bold", 45., &assets, &window),
+                add_text("Paused", "bold", 35., &assets, &window),
                 TextColor(Color::from(WHITE)),
                 TextLayout::new_with_justify(JustifyText::Center),
                 Transform::from_xyz(0., 0., MAX_Z_SCORE),

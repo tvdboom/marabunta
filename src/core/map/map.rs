@@ -1,4 +1,4 @@
-use crate::core::constants::{MAX_TERRAFORM_POINTS, TILE_LEAF_CHANCE};
+use crate::core::constants::{MAX_TERRAFORM_POINTS, NON_MAP_ID, TILE_LEAF_CHANCE};
 use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::{Leaf, Tile};
 use bevy::prelude::*;
@@ -215,7 +215,7 @@ impl Map {
                 if !(Self::OFFSET.x..Self::OFFSET.x + Self::MAP_SIZE.x).contains(&x)
                     || !(Self::OFFSET.y..Self::OFFSET.y + Self::MAP_SIZE.y).contains(&y)
                 {
-                    Tile::soil(9999, 9999)
+                    Tile::soil(NON_MAP_ID, NON_MAP_ID)
                 } else {
                     let tile = self
                         .tiles

@@ -267,10 +267,10 @@ pub fn select_trait_event(
             Trait::Necromancer => {
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.team == player.id)
+                    .filter(|(_, a)| player.controls(a) && a.health == 0.)
                     .for_each(|(_, mut a)| {
                         a.health = a.max_health;
-                        a.action = Action::Idle
+                        a.action = Action::Idle;
                     });
             }
             Trait::SuddenArmy => {

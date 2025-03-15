@@ -40,6 +40,7 @@ use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
 use strum::IntoEnumIterator;
+use crate::core::map::selection::select_ants;
 
 pub struct GamePlugin;
 
@@ -146,6 +147,8 @@ impl Plugin for GamePlugin {
             OnExit(AppState::Game),
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
+        // Selection
+        .add_systems(Update, select_ants.in_set(InRunningGameSet)
         // In-game states
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(GameState::Paused), pause_game)

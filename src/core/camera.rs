@@ -46,6 +46,7 @@ pub fn move_camera(
     >,
     mut scroll_ev: EventReader<MouseWheel>,
     mut motion_ev: EventReader<MouseMotion>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     window_s: Single<(Entity, &Window)>,
 ) {
@@ -75,24 +76,26 @@ pub fn move_camera(
         }
     }
 
-    if mouse.pressed(MouseButton::Left) {
-        commands
-            .entity(window_e)
-            .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grab));
-        for ev in motion_ev.read() {
+    if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
+        if mouse.pressed(MouseButton::Left) {
             commands
                 .entity(window_e)
-                .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grabbing));
-            if ev.delta.x.is_nan() || ev.delta.y.is_nan() {
-                continue;
+                .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grab));
+            for ev in motion_ev.read() {
+                commands
+                    .entity(window_e)
+                    .insert(Into::<CursorIcon>::into(SystemCursorIcon::Grabbing));
+                if ev.delta.x.is_nan() || ev.delta.y.is_nan() {
+                    continue;
+                }
+                camera_t.translation.x -= ev.delta.x * projection.scale;
+                camera_t.translation.y += ev.delta.y * projection.scale;
             }
-            camera_t.translation.x -= ev.delta.x * projection.scale;
-            camera_t.translation.y += ev.delta.y * projection.scale;
+        } else {
+            commands
+                .entity(window_e)
+                .insert(Into::<CursorIcon>::into(SystemCursorIcon::Default));
         }
-    } else {
-        commands
-            .entity(window_e)
-            .insert(Into::<CursorIcon>::into(SystemCursorIcon::Default));
     }
 
     let mut position = camera_t.translation.truncate();

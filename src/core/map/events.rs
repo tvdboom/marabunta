@@ -1,5 +1,5 @@
 use crate::core::assets::WorldAssets;
-use crate::core::constants::TILE_Z_SCORE;
+use crate::core::constants::{NON_MAP_ID, TILE_Z_SCORE};
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
@@ -17,11 +17,12 @@ pub struct SpawnTileEv {
 pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Local<WorldAssets>) {
     let texture = assets.texture("tiles");
 
-    let tile_e = commands
+    let id = commands
         .spawn((
             Sprite {
                 image: texture.image,
                 custom_size: Some(Vec2::splat(Tile::SIZE)),
+                color: Color::srgba(1., 1., 1., 0.5),
                 texture_atlas: Some(TextureAtlas {
                     layout: texture.layout,
                     index: tile.texture_index,
@@ -33,45 +34,45 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                 rotation: Quat::from_rotation_z((-tile.rotation as f32).to_radians()),
                 ..default()
             },
-            tile.clone(),
             NoRotationParentCmp,
             MapCmp,
         ))
+        .with_children(|parent| {
+            if tile.has_stone {
+                parent.spawn((
+                    Sprite {
+                        image: assets.image(&format!("stone{}", rng().random_range(1..=18))),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(0., 0., 0.1),
+                        rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                        scale: Vec3::splat(rng().random_range(0.1..0.25)),
+                        ..default()
+                    },
+                ));
+            }
+
+            if let Some(leaf) = &tile.leaf {
+                parent.spawn((
+                    Sprite {
+                        image: assets.image(&leaf.image),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(0., 0., 0.2),
+                        scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
+                        ..default()
+                    },
+                    leaf.clone(),
+                    NoRotationChildCmp,
+                ));
+            }
+        })
         .id();
 
-    if tile.has_stone {
-        commands
-            .spawn((
-                Sprite {
-                    image: assets.image(&format!("stone{}", rng().random_range(1..=18))),
-                    ..default()
-                },
-                Transform {
-                    translation: Vec3::new(0., 0., 0.1),
-                    rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                    scale: Vec3::splat(rng().random_range(0.1..0.25)),
-                    ..default()
-                },
-            ))
-            .set_parent(tile_e);
-    }
-
-    if let Some(leaf) = &tile.leaf {
-        commands
-            .spawn((
-                Sprite {
-                    image: assets.image(&leaf.image),
-                    ..default()
-                },
-                Transform {
-                    translation: Vec3::new(0., 0., 0.2),
-                    scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
-                    ..default()
-                },
-                leaf.clone(),
-                NoRotationChildCmp,
-            ))
-            .set_parent(tile_e);
+    if tile.x != NON_MAP_ID {
+        commands.entity(id).insert(tile.clone());
     }
 }
 

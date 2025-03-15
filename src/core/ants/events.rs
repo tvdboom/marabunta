@@ -146,6 +146,8 @@ pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     mut player: ResMut<Player>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
@@ -195,7 +197,6 @@ pub fn spawn_ant_event(
                         AntHealthWrapperCmp,
                         Visibility::Hidden,
                         NoRotationChildCmp,
-                        MapCmp,
                     ))
                     .with_children(|parent| {
                         parent.spawn((
@@ -212,6 +213,17 @@ pub fn spawn_ant_event(
                         ));
                     });
 
+                let r = 0.9 * ant.size().min_element();
+                parent.spawn((
+                    Mesh2d(meshes.add(Annulus::new(r, 1.1 * r))),
+                    MeshMaterial2d(
+                        materials.add(ColorMaterial::from(Color::srgba(0., 0., 0., 0.8))),
+                    ),
+                    Transform::from_translation(Vec3::new(0., 0., 0.1)),
+                    SelectedCmp,
+                    Visibility::Hidden,
+                ));
+
                 parent.spawn((
                     Sprite {
                         image: assets.image("leaf2"),
@@ -224,7 +236,6 @@ pub fn spawn_ant_event(
                     },
                     LeafCarryCmp,
                     Visibility::Hidden,
-                    MapCmp,
                 ));
             });
 

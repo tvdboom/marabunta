@@ -121,6 +121,7 @@ impl FromWorld for WorldAssets {
             ("larva2", assets.load("images/map/larva_02.png")),
             // Traits
             ("alate", assets.load("images/traits/alate.png")),
+            ("battle", assets.load("images/traits/battle.png")),
             ("corpse", assets.load("images/traits/corpse.png")),
             ("double-queen", assets.load("images/traits/two-queens.png")),
             ("eggs", assets.load("images/traits/eggs.png")),
@@ -130,7 +131,10 @@ impl FromWorld for WorldAssets {
             ("hole", assets.load("images/traits/hole.png")),
             ("mastodon", assets.load("images/traits/mastodon.png")),
             ("megacolony", assets.load("images/traits/megacolony.png")),
-            ("metamorfosis", assets.load("images/traits/metamorfosis.png")),
+            (
+                "metamorfosis",
+                assets.load("images/traits/metamorfosis.png"),
+            ),
             ("necromancer", assets.load("images/traits/necromancer.png")),
             ("scorpion", assets.load("images/traits/scorpion.png")),
             ("soldiers", assets.load("images/traits/soldiers.png")),

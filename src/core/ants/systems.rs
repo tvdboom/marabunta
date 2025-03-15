@@ -6,7 +6,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
-use crate::core::map::tile::Tile;
+use crate::core::map::tile::{Leaf, Tile};
 use crate::core::map::utils::reveal_tiles;
 use crate::core::network::Population;
 use crate::core::player::Player;
@@ -19,6 +19,7 @@ use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use crate::core::map::selection::SelectedAnts;
 
 pub fn hatch_eggs(
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
@@ -522,7 +523,9 @@ pub fn resolve_targeted_walk_action(
 ) {
     let ant_elem: Vec<_> = ant_q
         .iter()
-        .map(|(t, a)| (a.id, a.team, t.translation, a.scaled_size()))
+        .filter_map(|(t, a)| {
+            (a.health > 0.).then_some((a.id, a.team, t.translation, a.scaled_size()))
+        })
         .chain(
             egg_q
                 .iter()
@@ -693,11 +696,21 @@ pub fn update_ant_components(
         (With<AntHealthWrapperCmp>, Without<AntHealthCmp>),
     >,
     mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealthCmp>>,
-    mut leaf_q: Query<&mut Visibility, (With<LeafCarryCmp>, Without<AntHealthWrapperCmp>)>,
+    mut selected_q: Query<&mut Visibility, (With<SelectedCmp>, Without<AntHealthWrapperCmp>)>,
+    mut leaf_q: Query<&mut Visibility, (With<LeafCarryCmp>, Without<SelectedCmp>, Without<AntHealthWrapperCmp>)>,
     children_q: Query<&Children>,
+    selected_ants: Res<SelectedAnts>,
 ) {
     for (ant_e, ant_t, ant) in ant_q.iter() {
         for child in children_q.iter_descendants(ant_e) {
+            if let Ok(mut selected_v) = selected_q.get_mut(child) {
+                *selected_v = if selected_ants.0.contains(&ant.id) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+
             if let Ok(mut leaf_v) = leaf_q.get_mut(child) {
                 *leaf_v = if ant.carry >= ant.max_carry / 2. {
                     Visibility::Inherited
@@ -767,6 +780,9 @@ pub fn update_ant_components(
 
 pub fn update_vision(
     mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
+    mut tile_q: Query<(Entity, &mut Sprite, &Tile)>,
+    mut leaf_q: Query<&mut Sprite, (With<Leaf>, Without<Tile>)>,
+    children_q: Query<&Children>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
@@ -785,6 +801,7 @@ pub fn update_vision(
             visible_tiles.extend(reveal_tiles(current_tile, &map, None, 0))
         });
 
+    // Spawn new tiles if they are visible
     visible_tiles.iter().for_each(|(x, y)| {
         let tile = map.get_tile_mut(*x, *y).unwrap();
 
@@ -795,11 +812,30 @@ pub fn update_vision(
         });
     });
 
+    // Adjust fog of war on the map
+    tile_q.iter_mut().for_each(|(tile_e, mut sprite, tile)| {
+        let color = if visible_tiles.contains(&(tile.x, tile.y)) {
+            Color::WHITE
+        } else {
+            Color::srgba(1., 1., 1., 0.5)
+        };
+
+        sprite.color = color;
+
+        // Update child (leaf) sprite color
+        if let Ok(children) = children_q.get(tile_e) {
+            for &child in children.iter() {
+                if let Ok(mut leaf_s) = leaf_q.get_mut(child) {
+                    leaf_s.color = color;
+                }
+            }
+        }
+    });
+
     // Show/hide enemies on the map
     let mut current_population = vec![];
-    for (ant_e, mut ant_t, mut ant_v, ant) in ant_q
-        .iter_mut()
-        .filter(|(_, _, _, a)| a.owner != player.id || !a.kind.is_ant())
+    for (ant_e, mut ant_t, mut ant_v, ant) in
+        ant_q.iter_mut().filter(|(_, _, _, a)| !player.controls(a))
     {
         current_population.push(ant.id);
         if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
