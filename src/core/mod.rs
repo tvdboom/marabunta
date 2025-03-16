@@ -20,7 +20,7 @@ use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
-use crate::core::map::selection::select_ants_from_rect;
+use crate::core::map::selection::{select_ants_from_rect, select_ants_to_res, SelectAntsEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::menu::buttons::MenuCmp;
@@ -33,9 +33,7 @@ use crate::core::pause::*;
 use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::states::{AppState, AudioState, GameState};
-use crate::core::systems::{
-    check_keys, check_trait_timer, initialize_game, on_resize_system, spawn_enemies,
-};
+use crate::core::systems::*;
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
@@ -70,6 +68,7 @@ impl Plugin for GamePlugin {
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             .add_event::<DamageAntEv>()
+            .add_event::<SelectAntsEv>()
             .add_event::<TraitSelectedEv>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
@@ -115,7 +114,7 @@ impl Plugin for GamePlugin {
             .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
                 Update,
-                (move_camera, move_camera_keyboard).in_set(InRunningOrPausedGameSet)
+                (move_camera, move_camera_keyboard).in_set(InRunningOrPausedGameSet),
             )
             // Audio
             .add_systems(Startup, setup_music_btn)
@@ -154,6 +153,7 @@ impl Plugin for GamePlugin {
                 update_transform_no_rotation.before(TransformSystem::TransformPropagate),
             ),
         )
+        .add_systems(Update, check_keys.in_set(InGameSet))
         // Map
         .add_systems(
             OnEnter(AppState::Game),
@@ -165,7 +165,10 @@ impl Plugin for GamePlugin {
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
         // Selection
-        .add_systems(PreUpdate, select_ants_from_rect.in_set(InRunningOrPausedGameSet))
+        .add_systems(
+            PreUpdate,
+            (select_ants_from_rect, select_ants_to_res).in_set(InRunningOrPausedGameSet),
+        )
         // In-game states
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(GameState::Paused), pause_game)
@@ -182,12 +185,15 @@ impl Plugin for GamePlugin {
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(PreUpdate, resolve_pre_action)
-        .add_systems(Update, update_ant_components.in_set(InRunningOrPausedGameSet))
+        .add_systems(
+            Update,
+            update_ant_components.in_set(InRunningOrPausedGameSet),
+        )
         .add_systems(
             Update,
             (
                 check_trait_timer,
-                check_keys,
+                queue_ants_keyboard,
                 hatch_eggs,
                 animate_ants,
                 resolve_digging,

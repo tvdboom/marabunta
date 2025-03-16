@@ -1,5 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
-use crate::core::ants::events::{QueueAntEv, SpawnAntEv};
+use crate::core::ants::events::SpawnAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
@@ -16,7 +16,6 @@ use bevy::window::WindowResized;
 use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
-use strum::IntoEnumIterator;
 
 pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(GameSettings::default());
@@ -57,17 +56,7 @@ pub fn check_trait_timer(
     }
 }
 
-pub fn check_keys(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    mut player: ResMut<Player>,
-    mut queue_ant_ev: EventWriter<QueueAntEv>,
-) {
-    for ant in Ant::iter().filter(|a| player.has_ant(a)) {
-        if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
-            queue_ant_ev.send(QueueAntEv { ant });
-        }
-    }
-
+pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player>) {
     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
             if keyboard.just_pressed(KeyCode::ArrowUp) {

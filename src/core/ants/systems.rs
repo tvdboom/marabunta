@@ -1,5 +1,5 @@
 use crate::core::ants::components::*;
-use crate::core::ants::events::{DamageAntEv, DespawnAntEv, SpawnAntEv, SpawnEggEv};
+use crate::core::ants::events::{DamageAntEv, DespawnAntEv, QueueAntEv, SpawnAntEv, SpawnEggEv};
 use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
@@ -20,6 +20,7 @@ use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use strum::IntoEnumIterator;
 
 pub fn hatch_eggs(
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
@@ -889,6 +890,18 @@ pub fn update_vision(
                 ant: ant.clone(),
                 transform: ant_t.clone(),
             });
+        }
+    }
+}
+
+pub fn queue_ants_keyboard(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    player: Res<Player>,
+    mut queue_ant_ev: EventWriter<QueueAntEv>,
+) {
+    for ant in Ant::iter().filter(|a| player.has_ant(a)) {
+        if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
+            queue_ant_ev.send(QueueAntEv { ant });
         }
     }
 }
