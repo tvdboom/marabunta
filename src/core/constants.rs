@@ -28,7 +28,7 @@ pub const MAX_Z_SCORE: f32 = 10.;
 
 // Map
 pub const NON_MAP_ID: u32 = 9999;
-pub const VISION_RANGE: u32 = 3;
+pub const VISION_RANGE: u32 = 2;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
 pub const TILE_LEAF_CHANCE: f32 = 0.15;
 

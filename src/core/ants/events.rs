@@ -213,7 +213,7 @@ pub fn spawn_ant_event(
                         ));
                     });
 
-                let r = 0.9 * ant.size().min_element();
+                let r = 0.5 * ant.size().min_element();
                 parent.spawn((
                     Mesh2d(meshes.add(Annulus::new(r, 1.1 * r))),
                     MeshMaterial2d(

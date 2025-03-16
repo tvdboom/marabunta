@@ -1,82 +1,69 @@
 use crate::core::ants::components::AntCmp;
 use crate::core::player::Player;
 use bevy::prelude::*;
+use bevy::utils::hashbrown::HashSet;
 use uuid::Uuid;
-use crate::core::constants::MAX_Z_SCORE;
 
-#[derive(Resource)]
-pub struct SelectedAnts(pub Vec<Uuid>);
+#[derive(Resource, Default)]
+pub struct SelectedAnts(pub HashSet<Uuid>);
 
-impl Default for SelectedAnts {
-    fn default() -> Self {
-        Self(Vec::new())
-    }
-}
-
-#[derive(Component)]
-pub struct SelectionBoxCmp {
-    start_pos: Option<Vec2>,
-    current_pos: Option<Vec2>,
-}
-
-impl SelectionBoxCmp {
-    fn from(pos: Vec2) -> Self {
-        Self {
-            start_pos: Some(pos),
-            current_pos: None,
-        }
-    }
+#[derive(Default, PartialEq)]
+pub struct SelectionBox {
+    start: Vec2,
 }
 
 pub fn select_ants(
-    mut commands: Commands,
+    mut gizmos: Gizmos,
     ant_q: Query<(&Transform, &AntCmp)>,
-    mut box_q: Query<(&mut Mesh2d, &mut SelectionBoxCmp)>,
+    camera_q: Query<(&GlobalTransform, &Camera)>,
     player: Res<Player>,
     mut selected: ResMut<SelectedAnts>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut sbox: Local<SelectionBox>,
     mouse: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     window: Single<&Window>,
 ) {
     if let Some(cursor) = window.cursor_position() {
-        if mouse.pressed(MouseButton::Left) {
-            if let Ok((mut mesh, mut sbox)) = box_q.get_single_mut() {
-                // mesh.set
+        // Transform global cursor coord to world coord
+        let (camera_t, camera) = camera_q.get_single().unwrap();
+        let cursor = camera.viewport_to_world_2d(camera_t, cursor).unwrap();
 
+        if mouse.just_pressed(MouseButton::Left) {
+            sbox.start = cursor;
+        } else if mouse.pressed(MouseButton::Left) {
+            gizmos.rect_2d(
+                Isometry2d::from_translation((sbox.start + cursor) / 2.),
+                (cursor - sbox.start).abs(),
+                Color::BLACK,
+            );
+        } else if mouse.just_released(MouseButton::Left) && *sbox != SelectionBox::default() {
+            let min = Vec2::new(sbox.start.x.min(cursor.x), sbox.start.y.min(cursor.y));
+            let max = Vec2::new(sbox.start.x.max(cursor.x), sbox.start.y.max(cursor.y));
 
-                sbox.current_pos = Some(cursor);
-            } else {
-                commands.spawn((
-                    Mesh2d(meshes.add(Rectangle::new(0., 0.))),
-                    MeshMaterial2d(
-                        materials.add(ColorMaterial::from(Color::srgba(0., 0., 0., 0.8))),
-                    ),
-                    Transform::from_translation(cursor.extend(MAX_Z_SCORE)),
-                    SelectionBoxCmp::from(cursor),
-                    ));
+            // CLear any selection unless ctrl is pressed
+            if !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+                selected.0.clear();
             }
-        } else if mouse.just_released(MouseButton::Left) {
-            // Mouse released, finalize the selection box
-            if let (Some(start), Some(end)) = (selection_box.start_pos, selection_box.current_pos) {
-                let min = Vec2::new(start.x.min(end.x), start.y.min(end.y));
-                let max = Vec2::new(start.x.max(end.x), start.y.max(end.y));
 
-                for (transform, ant) in ant_q
-                    .iter()
-                    .filter(|(_, a)| player.controls(a) && a.health > 0.)
+            for (ant_t, ant) in ant_q
+                .iter()
+                .filter(|(_, a)| player.controls(a) && a.health > 0.)
+            {
+                // Check if the ant is within the rectangle's bounds
+                // or if the cursor is upon an ant
+                let p1_min = pos1 - Vec3::new(size1.x / 4., size1.y / 4., 0.);
+                let p1_max = pos1 + Vec3::new(size1.x / 4., size1.y / 4., 0.);
+
+                if (ant_t.translation.x >= min.x
+                    && ant_t.translation.x <= max.x
+                    && ant_t.translation.y >= min.y
+                    && ant_t.translation.y <= max.y) || (ant_t.)
                 {
-                    if transform.translation.x >= min.x
-                        && transform.translation.x <= max.x
-                        && transform.translation.y >= min.y
-                        && transform.translation.y <= max.y
-                    {
-                        selected.0.push(ant.id);
-                    }
+                    selected.0.insert(ant.id);
                 }
             }
 
-            *selection_box = SelectionBox::default();
+            *sbox = SelectionBox::default();
         }
     }
 }

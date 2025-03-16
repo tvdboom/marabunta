@@ -6,6 +6,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
+use crate::core::map::selection::SelectedAnts;
 use crate::core::map::tile::{Leaf, Tile};
 use crate::core::map::utils::reveal_tiles;
 use crate::core::network::Population;
@@ -19,7 +20,6 @@ use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
-use crate::core::map::selection::SelectedAnts;
 
 pub fn hatch_eggs(
     mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
@@ -697,7 +697,14 @@ pub fn update_ant_components(
     >,
     mut health_q: Query<(&mut Transform, &mut Sprite), With<AntHealthCmp>>,
     mut selected_q: Query<&mut Visibility, (With<SelectedCmp>, Without<AntHealthWrapperCmp>)>,
-    mut leaf_q: Query<&mut Visibility, (With<LeafCarryCmp>, Without<SelectedCmp>, Without<AntHealthWrapperCmp>)>,
+    mut leaf_q: Query<
+        &mut Visibility,
+        (
+            With<LeafCarryCmp>,
+            Without<SelectedCmp>,
+            Without<AntHealthWrapperCmp>,
+        ),
+    >,
     children_q: Query<&Children>,
     selected_ants: Res<SelectedAnts>,
 ) {
