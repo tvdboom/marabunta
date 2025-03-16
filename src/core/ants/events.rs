@@ -1,8 +1,7 @@
 use crate::core::ants::components::*;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{
-    ANT_PRICE_FACTOR, ANT_Z_SCORE, DEATH_TIME, EGG_HEALTH_FACTOR, EGG_Z_SCORE, MAX_QUEUE_LENGTH,
-};
+use crate::core::constants::*;
+use crate::core::map::selection::AntSelection;
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
@@ -142,6 +141,34 @@ pub fn spawn_egg_event(
     }
 }
 
+pub fn select_ant_on_click(
+    id: Uuid,
+) -> impl FnMut(
+    Trigger<Pointer<Click>>,
+    Query<&AntCmp>,
+    Res<Player>,
+    ResMut<AntSelection>,
+    Res<ButtonInput<KeyCode>>,
+) {
+    move |_,
+          ant_q: Query<&AntCmp>,
+          player: Res<Player>,
+          mut select: ResMut<AntSelection>,
+          keyboard: Res<ButtonInput<KeyCode>>| {
+        let ant = ant_q.iter().find(|a| a.id == id).unwrap();
+
+        if player.controls(ant) && ant.health > 0. {
+            if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+                if !select.0.remove(&id) {
+                    select.0.insert(id);
+                }
+            } else {
+                select.0 = HashSet::from([id]);
+            }
+        }
+    }
+}
+
 pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
@@ -186,6 +213,7 @@ pub fn spawn_ant_event(
                 NoRotationParentCmp,
                 MapCmp,
             ))
+            .observe(select_ant_on_click(ant.id))
             .with_children(|parent| {
                 parent
                     .spawn((
@@ -213,13 +241,13 @@ pub fn spawn_ant_event(
                         ));
                     });
 
-                let r = 0.5 * ant.size().min_element();
+                let r = 0.4 * ant.size().min_element();
                 parent.spawn((
                     Mesh2d(meshes.add(Annulus::new(r, 1.1 * r))),
                     MeshMaterial2d(
                         materials.add(ColorMaterial::from(Color::srgba(0., 0., 0., 0.8))),
                     ),
-                    Transform::from_translation(Vec3::new(0., 0., 0.1)),
+                    Transform::from_translation(Vec3::new(0., 0., -0.1)),
                     SelectedCmp,
                     Visibility::Hidden,
                 ));

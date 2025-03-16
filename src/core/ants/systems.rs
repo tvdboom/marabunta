@@ -6,7 +6,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
-use crate::core::map::selection::SelectedAnts;
+use crate::core::map::selection::AntSelection;
 use crate::core::map::tile::{Leaf, Tile};
 use crate::core::map::utils::reveal_tiles;
 use crate::core::network::Population;
@@ -706,7 +706,7 @@ pub fn update_ant_components(
         ),
     >,
     children_q: Query<&Children>,
-    selected_ants: Res<SelectedAnts>,
+    selected_ants: Res<AntSelection>,
 ) {
     for (ant_e, ant_t, ant) in ant_q.iter() {
         for child in children_q.iter_descendants(ant_e) {

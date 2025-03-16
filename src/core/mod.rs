@@ -20,7 +20,7 @@ use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
-use crate::core::map::selection::select_ants;
+use crate::core::map::selection::select_ants_from_rect;
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::menu::buttons::MenuCmp;
@@ -148,7 +148,7 @@ impl Plugin for GamePlugin {
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
         // Selection
-        .add_systems(Update, select_ants.in_set(InRunningGameSet))
+        .add_systems(Update, select_ants_from_rect.in_set(InRunningGameSet))
         // In-game states
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(GameState::Paused), pause_game)

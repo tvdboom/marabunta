@@ -4,7 +4,7 @@ use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
-use crate::core::map::selection::SelectedAnts;
+use crate::core::map::selection::AntSelection;
 use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
@@ -23,7 +23,7 @@ pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
-    commands.insert_resource(SelectedAnts::default());
+    commands.insert_resource(AntSelection::default());
 }
 
 pub fn on_resize_system(
