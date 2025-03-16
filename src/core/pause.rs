@@ -1,6 +1,7 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
 use crate::core::game_settings::GameSettings;
+use crate::core::map::ui::utils::add_root_node;
 use crate::core::map::ui::utils::add_text;
 use crate::core::player::Player;
 use crate::core::states::{AppState, GameState};
@@ -17,18 +18,7 @@ pub fn spawn_pause_banner(
     window: Single<&Window>,
 ) {
     commands
-        .spawn((
-            Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            Visibility::Hidden,
-            PickingBehavior::IGNORE,
-            PauseCmp,
-        ))
+        .spawn((add_root_node(), Visibility::Hidden, PauseCmp))
         .with_children(|parent| {
             parent.spawn((
                 add_text("Paused", "bold", 35., &assets, &window),

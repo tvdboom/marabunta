@@ -145,27 +145,62 @@ pub fn select_ant_on_click(
     id: Uuid,
 ) -> impl FnMut(
     Trigger<Pointer<Click>>,
-    Query<&AntCmp>,
+    Query<(&Transform, &AntCmp)>,
+    Single<(&Camera, &OrthographicProjection)>,
     Res<Player>,
     ResMut<AntSelection>,
     Res<ButtonInput<KeyCode>>,
+    Local<f32>,
+    Res<Time>,
 ) {
     move |_,
-          ant_q: Query<&AntCmp>,
+          ant_q: Query<(&Transform, &AntCmp)>,
+          camera: Single<(&Camera, &OrthographicProjection)>,
           player: Res<Player>,
           mut select: ResMut<AntSelection>,
-          keyboard: Res<ButtonInput<KeyCode>>| {
-        let ant = ant_q.iter().find(|a| a.id == id).unwrap();
+          keyboard: Res<ButtonInput<KeyCode>>,
+          mut last_clicked_t: Local<f32>,
+          time: Res<Time>| {
+        let ant = ant_q.iter().find(|(_, a)| a.id == id).unwrap().1;
 
+        // Only select own ants
         if player.controls(ant) && ant.health > 0. {
-            if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-                if !select.0.remove(&id) {
-                    select.0.insert(id);
+            // If double-clicked, select all ants of the same kind in viewport
+            if time.elapsed_secs() - *last_clicked_t < 0.3 {
+                let ids = ant_q
+                    .iter()
+                    .filter_map(|(t, a)| {
+                        let viewport = camera.1.area;
+                        println!("{:?}", viewport);
+
+                        // Check if ant is in the camera's viewport
+                        let in_view = t.translation.x >= viewport.min.x
+                            && t.translation.x <= viewport.max.x
+                            && t.translation.y >= viewport.min.y
+                            && t.translation.y <= viewport.max.y;
+
+                        (in_view && player.controls(a) && a.health > 0. && a.kind == ant.kind)
+                            .then_some(a.id)
+                    })
+                    .collect::<HashSet<_>>();
+
+                if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+                    select.0.extend(ids);
+                } else {
+                    select.0 = ids;
                 }
             } else {
-                select.0 = HashSet::from([id]);
+                if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+                    if !select.0.remove(&id) {
+                        select.0.insert(id);
+                    }
+                } else {
+                    select.0 = HashSet::from([id]);
+                }
             }
         }
+
+        *last_clicked_t = time.elapsed_secs();
     }
 }
 

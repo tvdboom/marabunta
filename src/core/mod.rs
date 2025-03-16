@@ -50,6 +50,9 @@ struct InGameSet;
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 struct InRunningGameSet;
 
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct InRunningOrPausedGameSet;
+
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app
@@ -90,15 +93,29 @@ impl Plugin for GamePlugin {
                     .run_if(in_state(GameState::Running))
                     .in_set(InGameSet),
             )
+            .configure_sets(
+                PreUpdate,
+                InRunningOrPausedGameSet
+                    .run_if(in_state(GameState::Running).or(in_state(GameState::Paused)))
+                    .in_set(InGameSet),
+            )
+            .configure_sets(
+                Update,
+                InRunningGameSet
+                    .run_if(in_state(GameState::Running).or(in_state(GameState::Paused)))
+                    .in_set(InGameSet),
+            )
+            .configure_sets(
+                PostUpdate,
+                InRunningGameSet
+                    .run_if(in_state(GameState::Running).or(in_state(GameState::Paused)))
+                    .in_set(InGameSet),
+            )
             // Camera
             .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
                 Update,
-                (move_camera, move_camera_keyboard)
-                    .run_if(not(
-                        in_state(GameState::InGameMenu).or(in_state(GameState::TraitSelection))
-                    ))
-                    .in_set(InGameSet),
+                (move_camera, move_camera_keyboard).in_set(InRunningOrPausedGameSet)
             )
             // Audio
             .add_systems(Startup, setup_music_btn)
@@ -148,7 +165,7 @@ impl Plugin for GamePlugin {
             (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
         )
         // Selection
-        .add_systems(Update, select_ants_from_rect.in_set(InRunningGameSet))
+        .add_systems(PreUpdate, select_ants_from_rect.in_set(InRunningOrPausedGameSet))
         // In-game states
         .add_systems(Startup, spawn_pause_banner)
         .add_systems(OnEnter(GameState::Paused), pause_game)
@@ -165,6 +182,7 @@ impl Plugin for GamePlugin {
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
         .add_systems(PreUpdate, resolve_pre_action)
+        .add_systems(Update, update_ant_components.in_set(InRunningOrPausedGameSet))
         .add_systems(
             Update,
             (
@@ -181,7 +199,6 @@ impl Plugin for GamePlugin {
                 resolve_idle_action,
                 resolve_targeted_walk_action,
                 resolve_walk_action,
-                update_ant_components,
                 update_vision,
                 spawn_enemies,
             )

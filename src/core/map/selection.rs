@@ -38,7 +38,9 @@ pub fn select_ants_from_rect(
                     (cursor - sbox.start).abs(),
                     Color::BLACK,
                 );
-            } else if mouse.just_released(MouseButton::Left) && (sbox.start - cursor).length().abs() > 5. {
+            } else if mouse.just_released(MouseButton::Left)
+                && (sbox.start - cursor).length().abs() > 5.
+            {
                 // Clear any selection unless ctrl is pressed
                 if !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
                     select.0.clear();
