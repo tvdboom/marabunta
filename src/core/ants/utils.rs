@@ -9,9 +9,12 @@ use std::f32::consts::PI;
 pub fn transform_ant(transform: &mut Transform, ant: &mut AntCmp, new_ant: &AntCmp) {
     transform.scale = Vec3::splat(new_ant.scale);
 
-    // Keep the same health ratio as it currently has
     let mut new_ant = new_ant.clone();
+    new_ant.id = ant.id;
+
+    // Keep the same health ratio as it currently has
     new_ant.health = (ant.health / ant.max_health) * new_ant.max_health;
+
     *ant = new_ant;
 }
 

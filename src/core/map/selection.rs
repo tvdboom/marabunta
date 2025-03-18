@@ -1,5 +1,6 @@
 use crate::core::ants::components::AntCmp;
 use crate::core::player::Player;
+use crate::core::states::{GameState, PreviousGameState};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 use uuid::Uuid;
@@ -28,6 +29,7 @@ pub fn select_ant_on_click(
     Local<f32>,
     Res<Time>,
     Single<(&Camera, &GlobalTransform)>,
+    Res<ButtonInput<MouseButton>>,
     Single<&Window>,
 ) {
     move |_,
@@ -37,39 +39,43 @@ pub fn select_ant_on_click(
           mut last_clicked_t: Local<f32>,
           time: Res<Time>,
           camera: Single<(&Camera, &GlobalTransform)>,
+          mouse: Res<ButtonInput<MouseButton>>,
           window: Single<&Window>| {
         let (camera, global_t) = camera.into_inner();
-        let ant = ant_q.iter().find(|(_, a)| a.id == id).unwrap().1;
 
-        // Only select own ants
-        if player.controls(ant) && ant.health > 0. {
-            // If double-clicked, select all ants of the same kind in viewport
-            if time.elapsed_secs() - *last_clicked_t < 0.3 {
-                ant_q
-                    .iter()
-                    .filter(|(t, a)| {
-                        let view_pos = camera.world_to_viewport(global_t, t.translation).unwrap();
+        if mouse.just_released(MouseButton::Left) {
+            if let Some((_, ant)) = ant_q.iter().find(|(_, a)| a.id == id) {
+                if player.controls(ant) && ant.health > 0. {
+                    // If double-clicked, select all ants of the same kind in viewport
+                    if time.elapsed_secs() - *last_clicked_t < 0.3 {
+                        ant_q
+                            .iter()
+                            .filter(|(t, a)| {
+                                let view_pos =
+                                    camera.world_to_viewport(global_t, t.translation).unwrap();
 
-                        player.controls(a)
-                            && a.health > 0.
-                            && a.kind == ant.kind
-                            && view_pos.x >= 0.
-                            && view_pos.x <= window.width()
-                            && view_pos.y >= 0.
-                            && view_pos.y <= window.height()
-                    })
-                    .for_each(|(_, a)| {
-                        select_ants_ev.send(SelectAntsEv {
-                            id: a.id,
-                            clean: false,
-                        });
-                    });
-            } else {
-                select_ants_ev.send(SelectAntsEv { id, clean: true });
+                                player.controls(a)
+                                    && a.health > 0.
+                                    && a.kind == ant.kind
+                                    && view_pos.x >= 0.
+                                    && view_pos.x <= window.width()
+                                    && view_pos.y >= 0.
+                                    && view_pos.y <= window.height()
+                            })
+                            .for_each(|(_, a)| {
+                                select_ants_ev.send(SelectAntsEv {
+                                    id: a.id,
+                                    clean: false,
+                                });
+                            });
+                    } else {
+                        select_ants_ev.send(SelectAntsEv { id, clean: true });
+                    }
+                }
             }
-        }
 
-        *last_clicked_t = time.elapsed_secs();
+            *last_clicked_t = time.elapsed_secs();
+        }
     }
 }
 
@@ -78,7 +84,6 @@ pub fn select_ants_from_rect(
     ant_q: Query<(&Transform, &AntCmp)>,
     mut select_ants_ev: EventWriter<SelectAntsEv>,
     player: Res<Player>,
-    mut select: ResMut<AntSelection>,
     mut sbox: Local<SelectionBox>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -102,11 +107,6 @@ pub fn select_ants_from_rect(
                     Color::BLACK,
                 );
             } else if mouse.just_released(MouseButton::Left) {
-                // Clear any selection unless ctrl is pressed
-                if !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-                    select.0.clear();
-                }
-
                 let min = Vec2::new(sbox.start.x.min(cursor.x), sbox.start.y.min(cursor.y));
                 let max = Vec2::new(sbox.start.x.max(cursor.x), sbox.start.y.max(cursor.y));
 
@@ -137,10 +137,25 @@ pub fn select_ants_from_rect(
 pub fn select_ants_to_res(
     mut select_ant_ev: EventReader<SelectAntsEv>,
     mut selection: ResMut<AntSelection>,
+    previous_game_state: Res<PreviousGameState>,
+    mouse: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
+    if mouse.just_released(MouseButton::Left)
+        && !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+        && previous_game_state.0 != GameState::TraitSelection
+    {
+        selection.0.clear();
+    }
+
     for SelectAntsEv { id, clean } in select_ant_ev.read() {
-        if !clean || !selection.0.remove(id) {
+        if !clean || !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
             selection.0.insert(*id);
+        } else {
+            // Toggle selection state (insert if not present, remove if present)
+            if !selection.0.remove(id) {
+                selection.0.insert(*id);
+            }
         }
     }
 }

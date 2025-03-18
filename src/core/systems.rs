@@ -8,7 +8,7 @@ use crate::core::map::selection::AntSelection;
 use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
-use crate::core::states::GameState;
+use crate::core::states::{GameState, PreviousGameState};
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -19,6 +19,7 @@ use std::f32::consts::PI;
 
 pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(GameSettings::default());
+    commands.insert_resource(PreviousGameState::default());
     commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
@@ -81,7 +82,7 @@ pub fn spawn_enemies(
         if game_settings.enemy_timer.just_finished() {
             map.tiles.iter().for_each(|tile| {
                 if tile.visible.contains(&player.id) {
-                    if tile.texture_index == 64 && rng().random::<f32>() < 0.001 {
+                    if tile.texture_index == 64 && rng().random::<f32>() < 0.005 {
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::new(&Ant::Wasp, &player),
                             transform: Transform {
@@ -95,11 +96,11 @@ pub fn spawn_enemies(
                         let mut queue = vec![];
                         for _ in 1..=rng().random_range(2..=10) {
                             queue.push(match rng().random::<f32>() {
-                                0.6..0.7 => Ant::BlackWingedTermite,
-                                0.7..0.85 => Ant::BrownTermite,
-                                0.85..0.9 => Ant::BrownWingedTermite,
-                                0.95..0.99 => Ant::WhiteTermite,
-                                0.99..1. => Ant::WhiteWingedTermite,
+                                0.5..0.6 => Ant::BlackWingedTermite,
+                                0.6..0.8 => Ant::BrownTermite,
+                                0.8..0.9 => Ant::BrownWingedTermite,
+                                0.9..0.97 => Ant::WhiteTermite,
+                                0.97..1. => Ant::WhiteWingedTermite,
                                 _ => Ant::BlackTermite,
                             });
                         }

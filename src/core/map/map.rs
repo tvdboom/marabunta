@@ -10,8 +10,6 @@ use rand;
 use rand::prelude::{IndexedRandom, IteratorRandom};
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
-use std::thread;
-use std::time::Duration;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PathCache {
@@ -495,7 +493,7 @@ impl Map {
 
     /// Use A* to find the shortest path between two locations
     fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
-        let p = astar(
+        astar(
             start,
             |loc| {
                 self.get_neighbors(loc)
@@ -507,15 +505,8 @@ impl Map {
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
             |loc| loc == end,
         )
-        .map(|(path, _)| path);
-
-        if let Some(p) = p {
-            p
-        } else {
-            thread::sleep(Duration::new(1000, 0)); // Waits for 10 seconds
-            panic!("No path found from {:?} to {:?}.", start, end);
-        }
-        // .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
+        .map(|(path, _)| path)
+        .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
     }
 
     /// Find the shortest path between two locations (using the cache if available)

@@ -304,8 +304,8 @@ pub fn resolve_healing(
         let heal = HEAL_SPEED_RATIO * ant.max_health * game_settings.speed * time.delta_secs();
 
         if ant.kind == Ant::Queen {
-            // A queen heals herself (no food required)
-            ant.health = (ant.health + heal).min(ant.max_health);
+            // A queen heals herself very slowly (but no food required)
+            ant.health = (ant.health + heal * 0.1).min(ant.max_health);
 
             if ant.health == ant.max_health {
                 ant.behavior = AntCmp::base(&ant.kind).behavior;
@@ -543,7 +543,7 @@ pub fn resolve_targeted_walk_action(
                     if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
                         let speed = ant.speed
                             * game_settings.speed
-                            * time.delta_secs()
+                            * time.delta_secs().min(CAPPED_DELTA_SECS_SPEED)
                             * if ant.kind.can_fly() {
                                 FLY_SPEED_FACTOR
                             } else {
@@ -578,7 +578,7 @@ pub fn resolve_targeted_walk_action(
                             3. * game_settings.speed * time.delta_secs(),
                         );
 
-                        ant.action = if ant_t.rotation == rotation {
+                        ant.action = if ant_t.rotation.angle_between(rotation) < 0.1 {
                             Action::Attack(id)
                         } else {
                             ant_t.rotation = rotation;
@@ -607,7 +607,7 @@ pub fn resolve_walk_action(
             if current_loc != target_loc {
                 let speed = ant.speed
                     * game_settings.speed
-                    * time.delta_secs()
+                    * time.delta_secs().min(CAPPED_DELTA_SECS_SPEED)
                     * if player.has_trait(&Trait::Haste) {
                         HASTE_SPEED_FACTOR
                     } else {

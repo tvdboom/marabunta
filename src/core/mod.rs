@@ -24,20 +24,19 @@ use crate::core::map::selection::{select_ants_from_rect, select_ants_to_res, Sel
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{
-    setup_game_over, setup_in_game_menu, setup_menu, setup_trait_selection,
-};
+use crate::core::menu::systems::{setup_game_over, setup_in_game_menu, setup_menu};
 use crate::core::network::*;
 use crate::core::pause::*;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
-use crate::core::states::{AppState, AudioState, GameState};
+use crate::core::states::{update_previous_game_state, AppState, AudioState, GameState};
 use crate::core::systems::*;
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
+use map::ui::systems::setup_trait_selection;
 use strum::IntoEnumIterator;
 
 pub struct GamePlugin;
@@ -153,7 +152,10 @@ impl Plugin for GamePlugin {
                 update_transform_no_rotation.before(TransformSystem::TransformPropagate),
             ),
         )
-        .add_systems(Update, check_keys.in_set(InGameSet))
+        .add_systems(
+            Update,
+            (update_previous_game_state, check_keys).in_set(InGameSet),
+        )
         // Map
         .add_systems(
             OnEnter(AppState::Game),
@@ -167,7 +169,11 @@ impl Plugin for GamePlugin {
         // Selection
         .add_systems(
             PreUpdate,
-            (select_ants_from_rect, select_ants_to_res).in_set(InRunningOrPausedGameSet),
+            select_ants_from_rect.in_set(InRunningOrPausedGameSet),
+        )
+        .add_systems(
+            PostUpdate,
+            select_ants_to_res.in_set(InRunningOrPausedGameSet),
         )
         // In-game states
         .add_systems(Startup, spawn_pause_banner)
@@ -184,7 +190,7 @@ impl Plugin for GamePlugin {
         .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
         .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
         // Ants
-        .add_systems(PreUpdate, resolve_pre_action)
+        .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
         .add_systems(
             Update,
             update_ant_components.in_set(InRunningOrPausedGameSet),

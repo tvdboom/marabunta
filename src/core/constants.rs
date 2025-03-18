@@ -13,11 +13,11 @@ pub const ZOOM_FACTOR: f32 = 1.1;
 pub const LERP_FACTOR: f32 = 0.05;
 
 // Game settings
-pub const MAX_GAME_SPEED: f32 = 3.;
+pub const MAX_GAME_SPEED: f32 = 5.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
 pub const MAX_QUEUE_LENGTH: usize = 12;
-pub const TRAIT_TIMER: f32 = 120.;
-pub const MAX_TRAITS: usize = 5;
+pub const TRAIT_TIMER: f32 = 50.;
+pub const MAX_TRAITS: usize = 7;
 pub const ENEMY_TIMER: f32 = 0.3;
 
 // Z-scores
@@ -30,7 +30,8 @@ pub const MAX_Z_SCORE: f32 = 10.;
 pub const NON_MAP_ID: u32 = 9999;
 pub const VISION_RANGE: u32 = 2;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
-pub const TILE_LEAF_CHANCE: f32 = 0.15;
+pub const TILE_LEAF_CHANCE: f32 = 0.1;
+pub const CAPPED_DELTA_SECS_SPEED: f32 = 0.05;
 
 // Ants
 pub const ANT_PRICE_FACTOR: f32 = 0.9; // Price reduction for trait megacolony
@@ -44,7 +45,7 @@ pub const TUNNEL_SPEED_FACTOR: f32 = 2.; // Dig speed increase for the trait tun
 pub const HARVEST_SPEED: f32 = 5.; // Food harvesting per ant per second
 pub const HARVEST_SPEED_FACTOR: f32 = 2.; // Harvesting speed increase for trait harvesting
 pub const HARVEST_DECREASE_FACTOR: f32 = 0.5; // Harvesting speed decrease for trait warlike
-pub const HEAL_SPEED_RATIO: f32 = 0.1; // Health ratio healed per second
+pub const HEAL_SPEED_RATIO: f32 = 0.05; // Health ratio healed per second
 pub const FLY_SPEED_FACTOR: f32 = 2.; // Times flying is faster than base
 pub const HASTE_SPEED_FACTOR: f32 = 1.2; // Walk speed increase for the trait haste
 pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel

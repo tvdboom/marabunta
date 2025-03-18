@@ -3,13 +3,15 @@ use crate::core::ants::events::QueueAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::MAX_QUEUE_LENGTH;
 use crate::core::map::systems::MapCmp;
-use crate::core::map::ui::utils::{add_text, despawn_ui};
+use crate::core::map::ui::utils::{add_root_node, add_text, despawn_ui};
+use crate::core::menu::buttons::MenuCmp;
 use crate::core::player::Player;
-use crate::core::traits::TraitCmp;
+use crate::core::traits::{Trait, TraitCmp, TraitSelectedEv};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
+use rand::prelude::IteratorRandom;
+use rand::rng;
 use strum::IntoEnumIterator;
-
 #[derive(Component)]
 pub struct UiCmp;
 
@@ -34,12 +36,13 @@ pub struct InfoPanelUi;
 pub fn ant_hover_info_panel(
     ant: AntCmp,
     i: usize,
+    total: usize,
 ) -> impl FnMut(Trigger<Pointer<Over>>, Commands, Local<WorldAssets>, Single<&Window>) {
     move |_, mut commands: Commands, assets: Local<WorldAssets>, window: Single<&Window>| {
         commands
             .spawn((
                 Node {
-                    top: Val::Percent(25. + 10.5 * i as f32),
+                    top: Val::Percent(25. - 5. * (total - 5) as f32 + 10.5 * i as f32),
                     left: Val::Percent(6.),
                     width: Val::Percent(20.),
                     flex_direction: FlexDirection::Column,
@@ -229,7 +232,7 @@ pub fn draw_ui(
                         ColonyButtonCmp(ant.clone()),
                     ))
                     .observe(on_click_colony_button)
-                    .observe(ant_hover_info_panel(ant_c.clone(), i))
+                    .observe(ant_hover_info_panel(ant_c.clone(), i, ants.len()))
                     .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                     .with_children(|parent| {
                         parent
@@ -448,4 +451,129 @@ pub fn on_click_queue_button(
             player.queue.remove(e.0);
         }
     }
+}
+
+pub fn select_trait(t: Trait) -> impl FnMut(Trigger<Pointer<Click>>, EventWriter<TraitSelectedEv>) {
+    move |_, mut trait_selected_ev: EventWriter<TraitSelectedEv>| {
+        trait_selected_ev.send(TraitSelectedEv(t));
+    }
+}
+
+pub fn setup_trait_selection(
+    mut commands: Commands,
+    player: Res<Player>,
+    assets: Local<WorldAssets>,
+    window: Single<&Window>,
+) {
+    let traits = Trait::iter()
+        .filter(|t| !player.has_trait(&t))
+        .choose_multiple(&mut rng(), 3);
+
+    commands
+        .spawn((add_root_node(), MenuCmp))
+        .with_children(|parent| {
+            parent
+                .spawn(Node {
+                    top: Val::Percent(5.),
+                    position_type: PositionType::Absolute,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(add_text("Choose a trait", "bold", 25., &assets, &window));
+                });
+
+            parent
+                .spawn(Node {
+                    top: Val::Percent(12.),
+                    width: Val::Percent(100.),
+                    height: Val::Percent(90.),
+                    position_type: PositionType::Absolute,
+                    flex_direction: FlexDirection::Row,
+                    margin: UiRect::ZERO.with_top(Val::Percent(5.)),
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for t in traits.iter() {
+                        let trait_c = TraitCmp::new(t);
+
+                        parent
+                            .spawn(Node {
+                                width: Val::Percent(20.),
+                                height: Val::Percent(30.),
+                                flex_direction: FlexDirection::Column,
+                                margin: UiRect::ZERO
+                                    .with_left(Val::Percent(1.))
+                                    .with_right(Val::Percent(1.)),
+                                ..default()
+                            })
+                            .observe(select_trait(t.clone()))
+                            .with_children(|parent| {
+                                parent
+                                    .spawn(Node {
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        margin: UiRect::ZERO.with_bottom(Val::Percent(3.)),
+                                        ..default()
+                                    })
+                                    .with_children(|parent| {
+                                        parent.spawn(add_text(
+                                            trait_c.kind.to_title(),
+                                            "bold",
+                                            15.,
+                                            &assets,
+                                            &window,
+                                        ));
+                                    });
+
+                                parent
+                                    .spawn(Node {
+                                        width: Val::Percent(100.),
+                                        justify_content: JustifyContent::Center,
+                                        align_items: AlignItems::Center,
+                                        ..default()
+                                    })
+                                    .with_children(|parent| {
+                                        parent.spawn((
+                                            Node {
+                                                width: Val::Percent(100.),
+                                                height: Val::Percent(100.),
+                                                ..default()
+                                            },
+                                            ImageNode::new(assets.image(&trait_c.image)),
+                                        ));
+
+                                        parent
+                                            .spawn((
+                                                Node {
+                                                    bottom: Val::Percent(2.),
+                                                    width: Val::Percent(90.),
+                                                    position_type: PositionType::Absolute,
+                                                    flex_direction: FlexDirection::ColumnReverse,
+                                                    margin: UiRect::all(Val::Percent(3.)),
+                                                    ..default()
+                                                },
+                                                BackgroundColor(Color::srgba(0., 0., 0., 0.9)),
+                                                BorderRadius::all(Val::Px(10.)),
+                                            ))
+                                            .with_children(|parent| {
+                                                parent.spawn((
+                                                    Node {
+                                                        margin: UiRect::all(Val::Percent(3.)),
+                                                        ..default()
+                                                    },
+                                                    add_text(
+                                                        &trait_c.description,
+                                                        "medium",
+                                                        8.,
+                                                        &assets,
+                                                        &window,
+                                                    ),
+                                                ));
+                                            });
+                                    });
+                            });
+                    }
+                });
+        });
 }

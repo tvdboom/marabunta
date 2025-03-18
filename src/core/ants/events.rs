@@ -251,18 +251,12 @@ pub fn spawn_ant_event(
 
 pub fn despawn_ant_event(
     mut commands: Commands,
-    mut ant_q: Query<&mut Visibility, With<AntCmp>>,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
     player: Res<Player>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
         if player.colony[&Ant::Queen] == 0 {
-            // Show all enemies on the map
-            ant_q
-                .iter_mut()
-                .for_each(|mut v| *v = Visibility::Inherited);
-
             next_game_state.set(GameState::GameOver);
         } else {
             commands.entity(*entity).despawn_recursive();

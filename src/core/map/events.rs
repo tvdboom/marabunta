@@ -8,6 +8,9 @@ use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 
+#[derive(Component)]
+pub struct TileCmp;
+
 #[derive(Event)]
 pub struct SpawnTileEv {
     pub tile: Tile,
@@ -35,6 +38,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                 ..default()
             },
             NoRotationParentCmp,
+            TileCmp,
             MapCmp,
         ))
         .with_children(|parent| {

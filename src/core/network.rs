@@ -149,7 +149,7 @@ pub fn server_send_status(
         game_state: *game_state.get(),
     });
 
-    server.broadcast_message(DefaultChannel::ReliableOrdered, status.unwrap());
+    server.broadcast_message(DefaultChannel::Unreliable, status.unwrap());
 }
 
 pub fn server_receive_status(
@@ -158,8 +158,7 @@ pub fn server_receive_status(
     mut population: ResMut<Population>,
 ) {
     for client_id in server.clients_id() {
-        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
-        {
+        while let Some(message) = server.receive_message(client_id, DefaultChannel::Unreliable) {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::Status {
                     map: new_map,
@@ -189,7 +188,7 @@ pub fn client_send_status(
             .filter_map(|(t, a)| player.owns(a).then_some((a.id, (t.clone(), a.clone()))))
             .collect(),
     });
-    client.send_message(DefaultChannel::ReliableOrdered, status.unwrap());
+    client.send_message(DefaultChannel::Unreliable, status.unwrap());
 }
 
 pub fn client_receive_message(
@@ -220,6 +219,12 @@ pub fn client_receive_message(
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
             }
+            _ => ()
+        }
+    }
+
+    while let Some(message) = client.receive_message(DefaultChannel::Unreliable) {
+        match bincode::deserialize(&message).unwrap() {
             ServerMessage::Status {
                 save,
                 mut game_state,
@@ -239,6 +244,7 @@ pub fn client_receive_message(
                     .filter(|(_, (_, a))| a.owner != player.id)
                     .collect();
             }
+            _ => (),
         }
     }
 }
