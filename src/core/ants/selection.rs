@@ -3,7 +3,6 @@ use crate::core::audio::PlayAudioEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Leaf;
 use crate::core::player::Player;
-use crate::core::states::{AppState, GameState, PreviousStates};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 
@@ -22,20 +21,28 @@ pub struct SelectionBox {
 }
 
 pub fn select_loc_on_click(
+    trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     map: Res<Map>,
-    selection: Res<AntSelection>,
-    mouse: Res<ButtonInput<MouseButton>>,
+    mut selection: ResMut<AntSelection>,
+    keyboard: Res<ButtonInput<KeyCode>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let (camera, global_t) = camera.into_inner();
+    let (camera, global_t) = *camera;
 
-    if let Some(cursor) = window.cursor_position() {
-        let cursor = camera.viewport_to_world_2d(global_t, cursor).unwrap();
+    match trigger.event.button {
+        PointerButton::Primary
+            if !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) =>
+        {
+            selection.0.clear();
+        }
+        PointerButton::Secondary => {
+            let cursor = camera
+                .viewport_to_world_2d(global_t, window.cursor_position().unwrap())
+                .unwrap();
 
-        if mouse.just_released(MouseButton::Right) {
             for ant_e in selection.0.iter() {
                 if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
                     let loc = map.get_loc(&cursor.extend(0.));
@@ -51,11 +58,12 @@ pub fn select_loc_on_click(
                 }
             }
         }
+        _ => (),
     }
 }
 
 pub fn select_leaf_on_click(
-    trigger: Trigger<Pointer<Click>>,
+    mut trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
     map: Res<Map>,
@@ -73,6 +81,9 @@ pub fn select_leaf_on_click(
             }
         }
     }
+
+    // Stop the click from reaching the tile itself
+    trigger.propagate(false);
 }
 
 pub fn select_ant_on_click(
@@ -86,7 +97,7 @@ pub fn select_ant_on_click(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let (camera, global_t) = camera.into_inner();
+    let (camera, global_t) = *camera;
 
     let (ant_e, _, ant) = ant_q.get(trigger.entity()).unwrap();
     let ant = ant.clone();
@@ -133,11 +144,11 @@ pub fn select_ant_on_click(
                 if let Ok((_, _, mut selected)) = ant_q.get_mut(*sel_e) {
                     if !player.controls(&ant) && ant.health > 0. {
                         // If clicked on an enemy, move towards it (which will lead to an attack)
-                        selected.action = Action::TargetedWalk(*ant_e);
+                        selected.action = Action::TargetedWalk(*sel_e);
                     } else if ant_e != *sel_e {
                         // If clicked on an ally, protect it
-                        selected.command = Some(Behavior::ProtectAnt(*ant_e));
-                        selected.action = Action::TargetedWalk(*ant_e);
+                        selected.command = Some(Behavior::ProtectAnt(*sel_e));
+                        selected.action = Action::TargetedWalk(*sel_e);
                     }
                 }
             }
@@ -157,7 +168,7 @@ pub fn select_ants_from_rect(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let (camera, global_t) = camera.into_inner();
+    let (camera, global_t) = *camera;
 
     // If shift is pressed, the camera moves
     if !keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
@@ -204,27 +215,15 @@ pub fn select_ants_from_rect(
 pub fn select_ants_to_res(
     mut select_ant_ev: EventReader<SelectAntEv>,
     mut selection: ResMut<AntSelection>,
-    previous_states: Res<PreviousStates>,
-    mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    // Ignore selection on first frame in game to avoid selecting when leaving the menu
-    if previous_states.app_state == AppState::Game {
-        if mouse.just_released(MouseButton::Left)
-            && !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
-            && previous_states.game_state != GameState::TraitSelection
-        {
-            selection.0.clear();
-        }
-
-        for SelectAntEv { entity, clean } in select_ant_ev.read() {
-            if !clean || !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+    for SelectAntEv { entity, clean } in select_ant_ev.read() {
+        if !clean || !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+            selection.0.insert(*entity);
+        } else {
+            // Toggle selection state (insert if not present, remove if present)
+            if !selection.0.remove(entity) {
                 selection.0.insert(*entity);
-            } else {
-                // Toggle selection state (insert if not present, remove if present)
-                if !selection.0.remove(entity) {
-                    selection.0.insert(*entity);
-                }
             }
         }
     }

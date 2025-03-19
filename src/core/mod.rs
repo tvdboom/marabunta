@@ -16,7 +16,7 @@ mod traits;
 mod utils;
 
 use crate::core::ants::events::*;
-use crate::core::ants::selection::{remove_command_from_selection, select_loc_on_click};
+use crate::core::ants::selection::remove_command_from_selection;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
@@ -30,7 +30,7 @@ use crate::core::pause::*;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
-use crate::core::states::{update_previous_states, AppState, AudioState, GameState};
+use crate::core::states::{AppState, AudioState, GameState};
 use crate::core::systems::*;
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
@@ -157,7 +157,6 @@ impl Plugin for GamePlugin {
                     update_transform_no_rotation.before(TransformSystem::TransformPropagate),
                 ),
             )
-            .add_systems(Last, update_previous_states)
             // Map
             .add_systems(
                 OnEnter(AppState::Game),
@@ -173,7 +172,7 @@ impl Plugin for GamePlugin {
                 PreUpdate,
                 select_ants_from_rect.in_set(InRunningOrPausedGameSet),
             )
-            .add_systems(Update, (select_loc_on_click, remove_command_from_selection))
+            .add_systems(Update, remove_command_from_selection)
             .add_systems(
                 PostUpdate,
                 select_ants_to_res.in_set(InRunningOrPausedGameSet),

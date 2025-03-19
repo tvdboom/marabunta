@@ -47,10 +47,10 @@ pub fn move_camera(
     mut scroll_ev: EventReader<MouseWheel>,
     mut motion_ev: EventReader<MouseMotion>,
     mouse: Res<ButtonInput<MouseButton>>,
-    window_s: Single<(Entity, &Window)>,
+    window: Single<(Entity, &Window)>,
 ) {
     let (camera, global_t, mut camera_t, mut projection) = camera_q.single_mut();
-    let (window_e, window) = window_s.into_inner();
+    let (window_e, window) = *window;
 
     for ev in scroll_ev.read() {
         // Get cursor position in window space

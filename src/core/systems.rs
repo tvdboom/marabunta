@@ -8,7 +8,7 @@ use crate::core::map::map::Map;
 use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
-use crate::core::states::{GameState, PreviousStates};
+use crate::core::states::{GameState};
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -18,7 +18,6 @@ use std::f32::consts::PI;
 
 pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(GameSettings::default());
-    commands.insert_resource(PreviousStates::default());
     commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());

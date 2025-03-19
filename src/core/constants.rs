@@ -30,7 +30,7 @@ pub const MAX_Z_SCORE: f32 = 10.;
 pub const NON_MAP_ID: u32 = 9999;
 pub const VISION_RANGE: u32 = 2;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
-pub const TILE_LEAF_CHANCE: f32 = 0.1;
+pub const TILE_LEAF_CHANCE: f32 = 0.15;
 pub const CAPPED_DELTA_SECS_SPEED: f32 = 0.05;
 
 // Ants
@@ -49,3 +49,4 @@ pub const HEAL_SPEED_RATIO: f32 = 0.05; // Health ratio healed per second
 pub const FLY_SPEED_FACTOR: f32 = 2.; // Times flying is faster than base
 pub const HASTE_SPEED_FACTOR: f32 = 1.2; // Walk speed increase for the trait haste
 pub const SAME_TUNNEL_DIG_CHANCE: f32 = 0.95; // Chance of continuing digging in the same tunnel
+pub const MAX_DISTANCE_PROTECT: usize = 5; // Maximum distance of target to protect

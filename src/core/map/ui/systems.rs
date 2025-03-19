@@ -431,24 +431,26 @@ pub fn update_ui(
 }
 
 pub fn on_click_colony_button(
-    click: Trigger<Pointer<Click>>,
+    trigger: Trigger<Pointer<Click>>,
     btn_q: Query<&ColonyButtonCmp>,
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
     queue_ant_ev.send(QueueAntEv {
-        ant: btn_q.get(click.entity()).unwrap().0.clone(),
+        ant: btn_q.get(trigger.entity()).unwrap().0.clone(),
     });
 }
 
 pub fn on_click_queue_button(
-    click: Trigger<Pointer<Click>>,
+    trigger: Trigger<Pointer<Click>>,
     btn_q: Query<&QueueButtonCmp>,
     mut player: ResMut<Player>,
 ) {
-    if let Ok(e) = btn_q.get(click.entity()) {
-        if let Some(ant) = player.queue.get(e.0) {
-            player.food += AntCmp::new(ant, &player).price;
-            player.queue.remove(e.0);
+    if trigger.event.button == PointerButton::Secondary {
+        if let Ok(e) = btn_q.get(trigger.entity()) {
+            if let Some(ant) = player.queue.get(e.0) {
+                player.food += AntCmp::new(ant, &player).price;
+                player.queue.remove(e.0);
+            }
         }
     }
 }

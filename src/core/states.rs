@@ -30,20 +30,3 @@ pub enum AudioState {
     NoMusic,
     Mute,
 }
-
-#[derive(Resource, Default)]
-pub struct PreviousStates {
-    pub app_state: AppState,
-    pub game_state: GameState,
-}
-
-pub fn update_previous_states(
-    current_app_state: Res<State<AppState>>,
-    current_game_state: Res<State<GameState>>,
-    mut previous_state: ResMut<PreviousStates>,
-) {
-    *previous_state = PreviousStates {
-        app_state: *current_app_state.get(),
-        game_state: *current_game_state.get(),
-    };
-}

@@ -36,7 +36,7 @@ pub enum MenuBtn {
 pub struct LobbyTextCmp;
 
 pub fn on_click_menu_button(
-    click: Trigger<Pointer<Click>>,
+    trigger: Trigger<Pointer<Click>>,
     mut commands: Commands,
     btn_q: Query<&MenuBtn>,
     mut load_game_ev: EventWriter<LoadGameEv>,
@@ -47,7 +47,7 @@ pub fn on_click_menu_button(
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
 ) {
-    match btn_q.get(click.entity()).unwrap() {
+    match btn_q.get(trigger.entity()).unwrap() {
         MenuBtn::Singleplayer => {
             next_app_state.set(AppState::SinglePlayerMenu);
         }

@@ -1,4 +1,4 @@
-use crate::core::ants::selection::select_leaf_on_click;
+use crate::core::ants::selection::{select_leaf_on_click, select_loc_on_click};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{NON_MAP_ID, TILE_Z_SCORE};
 use crate::core::map::map::Map;
@@ -42,6 +42,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
             TileCmp,
             MapCmp,
         ))
+        .observe(select_loc_on_click)
         .with_children(|parent| {
             if tile.has_stone {
                 parent.spawn((
@@ -59,19 +60,21 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
             }
 
             if let Some(leaf) = &tile.leaf {
-                parent.spawn((
-                    Sprite {
-                        image: assets.image(&leaf.image),
-                        ..default()
-                    },
-                    Transform {
-                        translation: Vec3::new(0., 0., 0.2),
-                        scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
-                        ..default()
-                    },
-                    leaf.clone(),
-                    NoRotationChildCmp,
-                )).observe(select_leaf_on_click);
+                parent
+                    .spawn((
+                        Sprite {
+                            image: assets.image(&leaf.image),
+                            ..default()
+                        },
+                        Transform {
+                            translation: Vec3::new(0., 0., 0.2),
+                            scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
+                            ..default()
+                        },
+                        leaf.clone(),
+                        NoRotationChildCmp,
+                    ))
+                    .observe(select_leaf_on_click);
             }
         })
         .id();

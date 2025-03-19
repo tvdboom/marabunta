@@ -36,7 +36,7 @@ pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
         .with_children(|parent| {
             parent
                 .spawn((ImageNode::new(assets.image("sound")), MusicBtnCmp))
-                .observe(|_click: Trigger<Pointer<Click>>, mut commands: Commands| {
+                .observe(|_: Trigger<Pointer<Click>>, mut commands: Commands| {
                     commands.queue(|w: &mut World| {
                         w.send_event(ToggleAudioEv);
                     })

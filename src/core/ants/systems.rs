@@ -527,7 +527,10 @@ pub fn resolve_idle_action(
                     // Walk randomly but stay close to the protected ant
                     if let Some((t, _)) = ant_pos.get(entity) {
                         let loc = map.get_loc(t);
-                        Action::Walk(map.random_loc_max_distance(player.id, &loc, 6).unwrap())
+                        Action::Walk(
+                            map.random_loc_max_distance(player.id, &loc, MAX_DISTANCE_PROTECT)
+                                .unwrap(),
+                        )
                     } else {
                         // Entity to protect doesn't exist anymore
                         ant.command = None;
@@ -536,7 +539,10 @@ pub fn resolve_idle_action(
                 }
                 Behavior::ProtectLoc(loc) => {
                     // Walk randomly but stay close to the location
-                    Action::Walk(map.random_loc_max_distance(player.id, loc, 6).unwrap())
+                    Action::Walk(
+                        map.random_loc_max_distance(player.id, loc, MAX_DISTANCE_PROTECT)
+                            .unwrap(),
+                    )
                 }
                 Behavior::Wander => Action::Walk(map.random_loc(player.id, false).unwrap()),
                 _ => unreachable!(),
@@ -860,7 +866,7 @@ pub fn update_vision(
         });
     });
 
-    // Adjust fog of war on the map
+    // Adjust the fog of war on the map
     tile_q.iter_mut().for_each(|(tile_e, mut sprite, tile)| {
         let color = if visible_tiles.contains(&(tile.x, tile.y)) {
             Color::WHITE
