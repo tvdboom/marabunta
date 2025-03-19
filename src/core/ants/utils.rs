@@ -1,4 +1,5 @@
 use crate::core::ants::components::AntCmp;
+use crate::core::constants::CAPPED_DELTA_SECS_SPEED;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
@@ -9,13 +10,10 @@ use std::f32::consts::PI;
 pub fn transform_ant(transform: &mut Transform, ant: &mut AntCmp, new_ant: &AntCmp) {
     transform.scale = Vec3::splat(new_ant.scale);
 
-    let mut new_ant = new_ant.clone();
-    new_ant.id = ant.id;
-
-    // Keep the same health ratio as it currently has
-    new_ant.health = (ant.health / ant.max_health) * new_ant.max_health;
-
-    *ant = new_ant;
+    *ant = AntCmp {
+        health: (ant.health / ant.max_health) * new_ant.max_health, // Keep the same health ratio
+        ..new_ant.clone()
+    };
 }
 
 pub fn walk(
@@ -37,9 +35,9 @@ pub fn walk(
             r.rotate_towards(
                 Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
                 // Rotate faster when closer to the target to avoid walking in circles
-                (2. + 3. / (1. + ((d.length() - 8.).max(0.).exp())))
+                (3. + 3. / (1. + ((d.length() - 8.).max(0.).exp())))
                     * game_settings.speed
-                    * time.delta_secs(),
+                    * time.delta_secs().min(CAPPED_DELTA_SECS_SPEED),
             )
         };
 

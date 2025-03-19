@@ -1,25 +1,24 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
-use crate::core::assets::WorldAssets;
+use crate::core::ants::selection::AntSelection;
+use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
-use crate::core::map::selection::AntSelection;
 use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
-use crate::core::states::{GameState, PreviousGameState};
+use crate::core::states::{GameState, PreviousStates};
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy::window::WindowResized;
-use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 
 pub fn initialize_game(mut commands: Commands) {
     commands.insert_resource(GameSettings::default());
-    commands.insert_resource(PreviousGameState::default());
+    commands.insert_resource(PreviousStates::default());
     commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
@@ -38,12 +37,11 @@ pub fn on_resize_system(
 }
 
 pub fn check_trait_timer(
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut game_settings: ResMut<GameSettings>,
     player: Res<Player>,
     time: Res<Time>,
-    audio: Res<Audio>,
-    assets: Local<WorldAssets>,
 ) {
     // Only the host switches states -> the clients follow after the update
     if player.id == 0 {
@@ -51,7 +49,7 @@ pub fn check_trait_timer(
         game_settings.trait_timer.tick(time);
 
         if game_settings.trait_timer.finished() && player.traits.len() < MAX_TRAITS {
-            audio.play(assets.audio("message"));
+            play_audio_ev.send(PlayAudioEv::new("message"));
             next_game_state.set(GameState::TraitSelection);
         }
     }

@@ -16,7 +16,7 @@ pub const LERP_FACTOR: f32 = 0.05;
 pub const MAX_GAME_SPEED: f32 = 5.;
 pub const GAME_SPEED_STEP: f32 = 0.5;
 pub const MAX_QUEUE_LENGTH: usize = 12;
-pub const TRAIT_TIMER: f32 = 50.;
+pub const TRAIT_TIMER: f32 = 120.;
 pub const MAX_TRAITS: usize = 7;
 pub const ENEMY_TIMER: f32 = 0.3;
 

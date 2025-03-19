@@ -49,7 +49,6 @@ serde = "1.0.219"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 pathfinding = "4.14.0"
-uuid = { version = "1.12.1", features = ["v4"] }
 winit = "0.30.9"
 
 # Enable a small amount of optimization in the dev profile.

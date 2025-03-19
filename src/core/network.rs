@@ -1,5 +1,5 @@
 use crate::core::ants::components::AntCmp;
-use crate::core::assets::WorldAssets;
+use crate::core::audio::PlayAudioEv;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
@@ -8,7 +8,6 @@ use crate::core::player::{AntColor, Player};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
-use bevy_kira_audio::{Audio, AudioControl};
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
 use serde::{Deserialize, Serialize};
@@ -90,11 +89,10 @@ pub fn server_update(
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut server: ResMut<RenetServer>,
     mut server_ev: EventReader<ServerEvent>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    audio: Res<Audio>,
-    assets: Local<WorldAssets>,
 ) {
     for ev in server_ev.read() {
         if *app_state != AppState::Game {
@@ -120,7 +118,10 @@ pub fn server_update(
                 }
                 ServerEvent::ClientDisconnected { client_id, reason } => {
                     println!("Client {client_id} disconnected: {reason}");
-                    audio.play(assets.audio("warning")).with_volume(0.5);
+                    play_audio_ev.send(PlayAudioEv {
+                        name: "error",
+                        volume: 0.5,
+                    });
                     next_game_state.set(GameState::InGameMenu);
                 }
             }
@@ -130,7 +131,7 @@ pub fn server_update(
 
 pub fn server_send_status(
     mut server: ResMut<RenetServer>,
-    ant_q: Query<(&Transform, &AntCmp)>,
+    ant_q: Query<(Entity, &Transform, &AntCmp)>,
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     map: Res<Map>,
@@ -143,7 +144,7 @@ pub fn server_send_status(
             map: map.clone(),
             population: ant_q
                 .iter()
-                .map(|(t, a)| (a.id, (t.clone(), a.clone())))
+                .map(|(e, t, a)| (e, (t.clone(), a.clone())))
                 .collect(),
         },
         game_state: *game_state.get(),
@@ -177,7 +178,7 @@ pub fn server_receive_status(
 
 pub fn client_send_status(
     mut client: ResMut<RenetClient>,
-    ant_q: Query<(&Transform, &AntCmp)>,
+    ant_q: Query<(Entity, &Transform, &AntCmp)>,
     player: Res<Player>,
     map: Res<Map>,
 ) {
@@ -185,7 +186,7 @@ pub fn client_send_status(
         map: map.clone(),
         population: ant_q
             .iter()
-            .filter_map(|(t, a)| player.owns(a).then_some((a.id, (t.clone(), a.clone()))))
+            .filter_map(|(e, t, a)| player.owns(a).then_some((e, (t.clone(), a.clone()))))
             .collect(),
     });
     client.send_message(DefaultChannel::Unreliable, status.unwrap());
@@ -219,7 +220,7 @@ pub fn client_receive_message(
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
             }
-            _ => ()
+            _ => (),
         }
     }
 

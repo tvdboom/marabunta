@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
-use uuid::Uuid;
 
 use crate::core::ants::components::AntCmp;
 use crate::core::ants::events::SpawnAntEv;
@@ -15,7 +14,7 @@ use crate::core::states::{AppState, AudioState};
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
-pub type PopulationT = HashMap<Uuid, (Transform, AntCmp)>;
+pub type PopulationT = HashMap<Entity, (Transform, AntCmp)>;
 
 #[derive(Serialize, Deserialize)]
 pub struct SaveAll {
@@ -80,7 +79,7 @@ pub fn save_game(
     game_settings: Res<GameSettings>,
     player: Res<Player>,
     map: Res<Map>,
-    ant_q: Query<(&Transform, &AntCmp)>,
+    ant_q: Query<(Entity, &Transform, &AntCmp)>,
 ) {
     for _ in save_game_ev.read() {
         if let Some(mut file_path) = FileDialog::new().save_file() {
@@ -95,7 +94,7 @@ pub fn save_game(
                 map: map.clone(),
                 population: ant_q
                     .iter()
-                    .map(|(t, a)| (a.id, (t.clone(), a.clone())))
+                    .map(|(e, t, a)| (e, (t.clone(), a.clone())))
                     .collect(),
             };
 

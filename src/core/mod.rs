@@ -16,11 +16,11 @@ mod traits;
 mod utils;
 
 use crate::core::ants::events::*;
+use crate::core::ants::selection::{remove_command_from_selection, select_loc_on_click};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
-use crate::core::map::selection::{select_ants_from_rect, select_ants_to_res, SelectAntsEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::menu::buttons::MenuCmp;
@@ -30,10 +30,11 @@ use crate::core::pause::*;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
-use crate::core::states::{update_previous_game_state, AppState, AudioState, GameState};
+use crate::core::states::{update_previous_states, AppState, AudioState, GameState};
 use crate::core::systems::*;
 use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
+use ants::selection::{select_ants_from_rect, select_ants_to_res, SelectAntEv};
 use bevy::prelude::*;
 use bevy_renet::renet::{RenetClient, RenetServer};
 use map::ui::systems::setup_trait_selection;
@@ -58,7 +59,8 @@ impl Plugin for GamePlugin {
             .init_state::<GameState>()
             .init_state::<AudioState>()
             // Events
-            .add_event::<ToggleMusicEv>()
+            .add_event::<ToggleAudioEv>()
+            .add_event::<PlayAudioEv>()
             .add_event::<LoadGameEv>()
             .add_event::<SaveGameEv>()
             .add_event::<SpawnTileEv>()
@@ -67,7 +69,7 @@ impl Plugin for GamePlugin {
             .add_event::<SpawnAntEv>()
             .add_event::<DespawnAntEv>()
             .add_event::<DamageAntEv>()
-            .add_event::<SelectAntsEv>()
+            .add_event::<SelectAntEv>()
             .add_event::<TraitSelectedEv>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
@@ -99,13 +101,13 @@ impl Plugin for GamePlugin {
             )
             .configure_sets(
                 Update,
-                InRunningGameSet
+                InRunningOrPausedGameSet
                     .run_if(in_state(GameState::Running).or(in_state(GameState::Paused)))
                     .in_set(InGameSet),
             )
             .configure_sets(
                 PostUpdate,
-                InRunningGameSet
+                InRunningOrPausedGameSet
                     .run_if(in_state(GameState::Running).or(in_state(GameState::Paused)))
                     .in_set(InGameSet),
             )
@@ -117,9 +119,11 @@ impl Plugin for GamePlugin {
             )
             // Audio
             .add_systems(Startup, setup_music_btn)
-            .add_systems(OnEnter(AudioState::Playing), play_music)
-            .add_systems(OnEnter(AudioState::Stopped), stop_music)
-            .add_systems(Update, (toggle_music, toggle_music_keyboard))
+            .add_systems(OnEnter(AudioState::Sound), play_music)
+            .add_systems(
+                Update,
+                (toggle_music_event, toggle_music_keyboard, play_audio_event),
+            )
             //Networking
             .add_systems(
                 First,
@@ -145,92 +149,91 @@ impl Plugin for GamePlugin {
         }
 
         // Utilities
-        app.add_systems(
-            PostUpdate,
-            (
-                on_resize_system,
-                update_transform_no_rotation.before(TransformSystem::TransformPropagate),
-            ),
-        )
-        .add_systems(
-            Update,
-            (update_previous_game_state, check_keys).in_set(InGameSet),
-        )
-        // Map
-        .add_systems(
-            OnEnter(AppState::Game),
-            (despawn::<MapCmp>, draw_map, draw_ui),
-        )
-        .add_systems(Update, (animate_ui, update_ui).in_set(InGameSet))
-        .add_systems(
-            OnExit(AppState::Game),
-            (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
-        )
-        // Selection
-        .add_systems(
-            PreUpdate,
-            select_ants_from_rect.in_set(InRunningOrPausedGameSet),
-        )
-        .add_systems(
-            PostUpdate,
-            select_ants_to_res.in_set(InRunningOrPausedGameSet),
-        )
-        // In-game states
-        .add_systems(Startup, spawn_pause_banner)
-        .add_systems(OnEnter(GameState::Paused), pause_game)
-        .add_systems(OnExit(GameState::Paused), unpause_game)
-        .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
-        .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
-        .add_systems(OnEnter(GameState::TraitSelection), setup_trait_selection)
-        .add_systems(
-            OnExit(GameState::TraitSelection),
-            (despawn::<MenuCmp>, despawn::<UiCmp>, draw_ui).chain(),
-        )
-        .add_systems(OnEnter(GameState::GameOver), setup_game_over)
-        .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
-        .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
-        // Ants
-        .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
-        .add_systems(
-            Update,
-            update_ant_components.in_set(InRunningOrPausedGameSet),
-        )
-        .add_systems(
-            Update,
-            (
-                check_trait_timer,
-                queue_ants_keyboard,
-                hatch_eggs,
-                animate_ants,
-                resolve_digging,
-                resolve_harvesting,
-                resolve_healing,
-                resolve_attack_action,
-                resolve_die_action,
-                resolve_brood_action,
-                resolve_idle_action,
-                resolve_targeted_walk_action,
-                resolve_walk_action,
-                update_vision,
-                spawn_enemies,
-            )
-                .in_set(InRunningGameSet),
-        )
-        .add_systems(
-            PostUpdate,
-            (
-                spawn_tile,
-                select_trait_event,
+        app.add_systems(Update, check_keys.in_set(InGameSet))
+            .add_systems(
+                PostUpdate,
                 (
-                    queue_ant_event,
-                    spawn_egg_event,
-                    spawn_ant_event,
-                    despawn_ant_event,
-                    damage_event,
+                    on_resize_system,
+                    update_transform_no_rotation.before(TransformSystem::TransformPropagate),
+                ),
+            )
+            .add_systems(Last, update_previous_states)
+            // Map
+            .add_systems(
+                OnEnter(AppState::Game),
+                (despawn::<MapCmp>, draw_map, draw_ui),
+            )
+            .add_systems(Update, (animate_ui, update_ui).in_set(InGameSet))
+            .add_systems(
+                OnExit(AppState::Game),
+                (despawn::<MapCmp>, reset_camera, initialize_game, draw_map).chain(),
+            )
+            // Selection
+            .add_systems(
+                PreUpdate,
+                select_ants_from_rect.in_set(InRunningOrPausedGameSet),
+            )
+            .add_systems(Update, (select_loc_on_click, remove_command_from_selection))
+            .add_systems(
+                PostUpdate,
+                select_ants_to_res.in_set(InRunningOrPausedGameSet),
+            )
+            // In-game states
+            .add_systems(Startup, spawn_pause_banner)
+            .add_systems(OnEnter(GameState::Paused), pause_game)
+            .add_systems(OnExit(GameState::Paused), unpause_game)
+            .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
+            .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
+            .add_systems(OnEnter(GameState::TraitSelection), setup_trait_selection)
+            .add_systems(
+                OnExit(GameState::TraitSelection),
+                (despawn::<MenuCmp>, despawn::<UiCmp>, draw_ui).chain(),
+            )
+            .add_systems(OnEnter(GameState::GameOver), setup_game_over)
+            .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
+            .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
+            // Ants
+            .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
+            .add_systems(
+                Update,
+                update_ant_components.in_set(InRunningOrPausedGameSet),
+            )
+            .add_systems(
+                Update,
+                (
+                    check_trait_timer,
+                    queue_ants_keyboard,
+                    hatch_eggs,
+                    animate_ants,
+                    resolve_digging,
+                    resolve_harvesting,
+                    resolve_healing,
+                    resolve_attack_action,
+                    resolve_die_action,
+                    resolve_brood_action,
+                    resolve_idle_action,
+                    resolve_targeted_walk_action,
+                    resolve_walk_action,
+                    update_vision,
+                    spawn_enemies,
                 )
                     .in_set(InRunningGameSet),
-            ),
-        );
+            )
+            .add_systems(
+                PostUpdate,
+                (
+                    spawn_tile,
+                    select_trait_event,
+                    (
+                        queue_ant_event,
+                        spawn_egg_event,
+                        spawn_ant_event,
+                        despawn_ant_event,
+                        damage_event,
+                    )
+                        .in_set(InRunningGameSet),
+                ),
+            );
 
         // Persistence
         #[cfg(not(target_arch = "wasm32"))]

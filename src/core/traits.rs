@@ -1,11 +1,10 @@
 use crate::core::ants::components::{Action, Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
-use crate::core::assets::WorldAssets;
+use crate::core::audio::PlayAudioEv;
 use crate::core::player::Player;
 use crate::core::states::GameState;
 use bevy::prelude::*;
-use bevy_kira_audio::{Audio, AudioControl};
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
@@ -217,13 +216,12 @@ pub fn select_trait_event(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut trait_selected_ev: EventReader<TraitSelectedEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut player: ResMut<Player>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    audio: Res<Audio>,
-    assets: Local<WorldAssets>,
 ) {
     for ev in trait_selected_ev.read() {
-        audio.play(assets.audio("button"));
+        play_audio_ev.send(PlayAudioEv::new("button"));
         player.traits.push(ev.0.clone());
 
         match ev.0 {

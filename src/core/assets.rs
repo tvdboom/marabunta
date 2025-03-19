@@ -79,6 +79,7 @@ impl FromWorld for WorldAssets {
         let mut images: HashMap<&'static str, Handle<Image>> = HashMap::from([
             // Icons
             ("mute", assets.load("images/icons/mute.png")),
+            ("no-music", assets.load("images/icons/no-music.png")),
             ("sound", assets.load("images/icons/sound.png")),
             // Map
             ("game-over", assets.load("images/map/game-over.png")),

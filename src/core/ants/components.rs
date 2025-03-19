@@ -10,7 +10,6 @@ use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
-use uuid::Uuid;
 
 #[derive(Component)]
 pub struct AntHealthWrapperCmp;
@@ -29,8 +28,11 @@ pub enum Behavior {
     Attack,
     Brood,
     Dig,
-    Harvest,
+    Harvest(Entity),
+    HarvestRandom,
     Heal,
+    ProtectAnt(Entity),
+    ProtectLoc(Loc),
     Wander,
 }
 
@@ -171,22 +173,19 @@ pub struct AnimationCmp {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Action {
-    Attack(Uuid), // Id of the target to attack
-    Brood(Timer), // Brooding time remaining
-    Die(Timer),   // Time the body remains visible
-    Dig(Tile),    // Tile to dig
+    Attack(Entity), // Entity to attack
+    Brood(Timer),   // Brooding time remaining
+    Die(Timer),     // Time the body remains visible
+    Dig(Tile),      // Tile to dig
     Harvest,
     Heal,
     Idle,
-    TargetedWalk(Uuid), // Id of the target to walk to
-    Walk(Loc),          // Location to walk to
+    TargetedWalk(Entity), // Entity to walk to
+    Walk(Loc),            // Location to walk to
 }
 
 #[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct AntCmp {
-    /// Unique id across players (not entity)
-    pub id: Uuid,
-
     /// Ant type
     pub kind: Ant,
 
@@ -237,6 +236,9 @@ pub struct AntCmp {
     /// Default behavior of the ant
     pub behavior: Behavior,
 
+    /// Behavior assigned by the player
+    pub command: Option<Behavior>,
+
     /// Current action performed by the ant
     pub action: Action,
 
@@ -247,7 +249,6 @@ pub struct AntCmp {
 impl Default for AntCmp {
     fn default() -> Self {
         Self {
-            id: Uuid::new_v4(),
             kind: Ant::Worker,
             key: None,
             owner: 0,
@@ -264,6 +265,7 @@ impl Default for AntCmp {
             carry: 0.,
             max_carry: 1.,
             behavior: Behavior::Attack,
+            command: None,
             action: Action::Idle,
             description: "".to_string(),
         }
@@ -273,99 +275,6 @@ impl Default for AntCmp {
 impl AntCmp {
     pub fn new(kind: &Ant, player: &Player) -> Self {
         match kind {
-            Ant::Worker => Self {
-                kind: Ant::Worker,
-                key: Some(KeyCode::KeyZ),
-                owner: player.id,
-                team: player.id,
-                color: Some(player.color.clone()),
-                scale: if player.has_trait(&Trait::Warlike) {
-                    0.04
-                } else {
-                    0.03
-                },
-                z_score: 0.1,
-                price: 30.,
-                health: if player.has_trait(&Trait::Warlike) {
-                    20.
-                } else {
-                    10.
-                },
-                max_health: if player.has_trait(&Trait::Warlike) {
-                    20.
-                } else {
-                    10.
-                },
-                damage: if player.has_trait(&Trait::Warlike) {
-                    4.
-                } else {
-                    2.
-                },
-                hatch_time: 5.,
-                max_carry: 30.,
-                behavior: Behavior::Harvest,
-                action: Action::Idle,
-                description: "\
-                    The worker is the most common ant in the colony. \
-                    They are responsible for gathering food."
-                    .to_string(),
-                ..default()
-            },
-            Ant::Excavator => Self {
-                kind: Ant::Excavator,
-                key: Some(KeyCode::KeyX),
-                owner: player.id,
-                team: player.id,
-                color: Some(player.color.clone()),
-                z_score: 0.2,
-                price: 100.,
-                health: 10.,
-                max_health: 10.,
-                speed: DEFAULT_WALK_SPEED + 10.,
-                damage: 3.,
-                behavior: Behavior::Dig,
-                action: Action::Idle,
-                hatch_time: 10.,
-                description: "\
-                    The excavator ants expands the colonies territory digging \
-                    new tunnels. They move fast, but are weak in combat."
-                    .to_string(),
-                ..default()
-            },
-            Ant::Soldier => Self {
-                kind: Ant::Soldier,
-                key: Some(KeyCode::KeyC),
-                owner: player.id,
-                team: player.id,
-                color: Some(player.color.clone()),
-                scale: if player.has_trait(&Trait::EnhancedSoldiers) {
-                    0.05
-                } else {
-                    0.04
-                },
-                z_score: 0.5,
-                price: 150.,
-                health: 50.,
-                max_health: 50.,
-                speed: if player.has_trait(&Trait::EnhancedSoldiers) {
-                    DEFAULT_WALK_SPEED + 10.
-                } else {
-                    DEFAULT_WALK_SPEED
-                },
-                damage: if player.has_trait(&Trait::EnhancedSoldiers) {
-                    9.
-                } else {
-                    6.
-                },
-                hatch_time: 15.,
-                behavior: Behavior::Attack,
-                action: Action::Idle,
-                description: "\
-                    The soldiers form the colony's base defense. Their main \
-                    task is to protect the workers and queen from any foe."
-                    .to_string(),
-                ..default()
-            },
             Ant::Queen => Self {
                 kind: Ant::Queen,
                 owner: player.id,
@@ -407,6 +316,99 @@ impl AntCmp {
                     .to_string(),
                 ..default()
             },
+            Ant::Worker => Self {
+                kind: Ant::Worker,
+                key: Some(KeyCode::KeyZ),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
+                scale: if player.has_trait(&Trait::Warlike) {
+                    0.04
+                } else {
+                    0.03
+                },
+                z_score: 0.1,
+                price: 30.,
+                health: if player.has_trait(&Trait::Warlike) {
+                    20.
+                } else {
+                    10.
+                },
+                max_health: if player.has_trait(&Trait::Warlike) {
+                    20.
+                } else {
+                    10.
+                },
+                damage: if player.has_trait(&Trait::Warlike) {
+                    4.
+                } else {
+                    2.
+                },
+                hatch_time: 5.,
+                max_carry: 30.,
+                behavior: Behavior::HarvestRandom,
+                action: Action::Idle,
+                description: "\
+                    The worker is the most common ant in the colony. \
+                    They are responsible for gathering food."
+                    .to_string(),
+                ..default()
+            },
+            Ant::Excavator => Self {
+                kind: Ant::Excavator,
+                key: Some(KeyCode::KeyX),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
+                z_score: 0.2,
+                price: 150.,
+                health: 10.,
+                max_health: 10.,
+                speed: DEFAULT_WALK_SPEED + 10.,
+                damage: 3.,
+                behavior: Behavior::Dig,
+                action: Action::Idle,
+                hatch_time: 10.,
+                description: "\
+                    The excavator ants expands the colonies territory digging \
+                    new tunnels. They move fast, but are weak in combat."
+                    .to_string(),
+                ..default()
+            },
+            Ant::Soldier => Self {
+                kind: Ant::Soldier,
+                key: Some(KeyCode::KeyC),
+                owner: player.id,
+                team: player.id,
+                color: Some(player.color.clone()),
+                scale: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    0.05
+                } else {
+                    0.04
+                },
+                z_score: 0.5,
+                price: 100.,
+                health: 50.,
+                max_health: 50.,
+                speed: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    DEFAULT_WALK_SPEED + 10.
+                } else {
+                    DEFAULT_WALK_SPEED
+                },
+                damage: if player.has_trait(&Trait::EnhancedSoldiers) {
+                    9.
+                } else {
+                    6.
+                },
+                hatch_time: 15.,
+                behavior: Behavior::Attack,
+                action: Action::Idle,
+                description: "\
+                    The soldiers form the colony's base defense. Their main \
+                    task is to protect the workers and queen from any foe."
+                    .to_string(),
+                ..default()
+            },
             Ant::Warrior => Self {
                 kind: Ant::Warrior,
                 key: Some(KeyCode::KeyV),
@@ -415,7 +417,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.04,
                 z_score: 0.6,
-                price: 200.,
+                price: 150.,
                 health: if player.has_trait(&Trait::EnhancedWarriors) {
                     65.
                 } else {
@@ -449,11 +451,11 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.05,
                 z_score: 0.9,
-                price: 350.,
-                health: 150.,
-                max_health: 150.,
-                speed: DEFAULT_WALK_SPEED,
-                damage: 10.,
+                price: 250.,
+                health: 50.,
+                max_health: 50.,
+                speed: DEFAULT_WALK_SPEED + 2.,
+                damage: 15.,
                 hatch_time: 30.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
@@ -472,10 +474,10 @@ impl AntCmp {
                 scale: 0.06,
                 z_score: 0.7,
                 price: 250.,
-                health: 100.,
-                max_health: 100.,
-                speed: DEFAULT_WALK_SPEED - 5.,
-                damage: 12.,
+                health: 200.,
+                max_health: 200.,
+                speed: DEFAULT_WALK_SPEED - 6.,
+                damage: 5.,
                 hatch_time: 20.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
@@ -685,9 +687,6 @@ impl AntCmp {
 
 #[derive(Component, Clone)]
 pub struct Egg {
-    /// Id of the egg
-    pub id: Uuid,
-
     /// Player id of the egg's owner
     pub owner: ClientId,
 

@@ -26,18 +26,24 @@ pub enum GameState {
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum AudioState {
     #[default]
-    Playing,
-    Stopped,
+    Sound,
+    NoMusic,
+    Mute,
 }
 
 #[derive(Resource, Default)]
-pub struct PreviousGameState(pub GameState);
+pub struct PreviousStates {
+    pub app_state: AppState,
+    pub game_state: GameState,
+}
 
-pub fn update_previous_game_state(
-    current_state: Res<State<GameState>>,
-    mut previous_game_state: ResMut<PreviousGameState>,
+pub fn update_previous_states(
+    current_app_state: Res<State<AppState>>,
+    current_game_state: Res<State<GameState>>,
+    mut previous_state: ResMut<PreviousStates>,
 ) {
-    if *current_state.get() != previous_game_state.0 {
-        previous_game_state.0 = *current_state.get();
-    }
+    *previous_state = PreviousStates {
+        app_state: *current_app_state.get(),
+        game_state: *current_game_state.get(),
+    };
 }

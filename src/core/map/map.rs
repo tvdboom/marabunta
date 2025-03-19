@@ -346,7 +346,7 @@ impl Map {
 
         locations
             .iter()
-            .filter(|l| self.shortest_path(loc, l).len() <= d)
+            .filter(|l| self.distance(loc, l) <= d)
             .choose(&mut rng())
             .copied()
     }
@@ -546,6 +546,16 @@ impl Map {
             .chain(middle_tiles.into_iter())
             .chain(last_tile.into_iter())
             .collect()
+    }
+
+    pub fn distance(&mut self, loc1: &Loc, loc2: &Loc) -> usize {
+        self.shortest_path(loc1, loc2).len()
+    }
+
+    pub fn distance_from_coord(&mut self, coord1: &Vec3, coord2: &Vec3) -> usize {
+        let loc1 = self.get_loc(coord1);
+        let loc2 = self.get_loc(coord2);
+        self.distance(&loc1, &loc2)
     }
 
     // Map updates ============================================================

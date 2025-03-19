@@ -15,6 +15,7 @@ pub struct Leaf {
 }
 
 impl Default for Leaf {
+    /// The default leaf only spawns in the base
     fn default() -> Self {
         Self {
             image: "leaf1".to_string(),

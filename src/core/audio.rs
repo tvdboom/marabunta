@@ -5,49 +5,23 @@ use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
 use std::time::Duration;
 
+#[derive(Event)]
+pub struct PlayAudioEv {
+    pub name: &'static str,
+    pub volume: f64,
+}
+
+impl PlayAudioEv {
+    pub fn new(name: &'static str) -> Self {
+        Self { name, volume: 1. }
+    }
+}
+
 #[derive(Component)]
 pub struct MusicBtnCmp;
 
 #[derive(Event)]
-pub struct ToggleMusicEv;
-
-pub fn play_music(
-    mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
-    game_settings: Option<ResMut<GameSettings>>,
-    assets: Local<WorldAssets>,
-    audio: Res<Audio>,
-) {
-    audio
-        .play(assets.audio("music"))
-        .fade_in(AudioTween::new(
-            Duration::from_secs(2),
-            AudioEasing::OutPowi(2),
-        ))
-        .with_volume(0.03)
-        .looped();
-
-    if let Some(mut game_settings) = game_settings {
-        game_settings.audio = AudioState::Playing;
-    }
-
-    if let Ok(mut node) = btn_q.get_single_mut() {
-        node.image = assets.image("sound");
-    }
-}
-
-pub fn stop_music(
-    mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
-    mut game_settings: ResMut<GameSettings>,
-    assets: Local<WorldAssets>,
-    audio: Res<Audio>,
-) {
-    audio.stop();
-
-    game_settings.audio = AudioState::Stopped;
-    if let Ok(mut node) = btn_q.get_single_mut() {
-        node.image = assets.image("mute");
-    }
-}
+pub struct ToggleAudioEv;
 
 pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
     commands
@@ -64,30 +38,77 @@ pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
                 .spawn((ImageNode::new(assets.image("sound")), MusicBtnCmp))
                 .observe(|_click: Trigger<Pointer<Click>>, mut commands: Commands| {
                     commands.queue(|w: &mut World| {
-                        w.send_event(ToggleMusicEv);
+                        w.send_event(ToggleAudioEv);
                     })
                 });
         });
 }
 
-pub fn toggle_music(
-    mut toggle_music_ev: EventReader<ToggleMusicEv>,
+pub fn play_music(assets: Local<WorldAssets>, audio: Res<Audio>) {
+    audio
+        .play(assets.audio("music"))
+        .fade_in(AudioTween::new(
+            Duration::from_secs(2),
+            AudioEasing::OutPowi(2),
+        ))
+        .with_volume(0.03)
+        .looped();
+}
+
+pub fn toggle_music_event(
+    mut toggle_music_ev: EventReader<ToggleAudioEv>,
+    mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
+    mut game_settings: ResMut<GameSettings>,
     audio_state: Res<State<AudioState>>,
     mut next_audio_state: ResMut<NextState<AudioState>>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
 ) {
     for _ in toggle_music_ev.read() {
-        match *audio_state.get() {
-            AudioState::Playing => next_audio_state.set(AudioState::Stopped),
-            AudioState::Stopped => next_audio_state.set(AudioState::Playing),
+        let image = match *audio_state.get() {
+            AudioState::Sound => {
+                audio.stop();
+
+                game_settings.audio = AudioState::NoMusic;
+                next_audio_state.set(AudioState::NoMusic);
+                assets.image("no-music")
+            }
+            AudioState::NoMusic => {
+                game_settings.audio = AudioState::Mute;
+                next_audio_state.set(AudioState::Mute);
+                assets.image("mute")
+            }
+            AudioState::Mute => {
+                game_settings.audio = AudioState::Sound;
+                next_audio_state.set(AudioState::Sound);
+                assets.image("sound")
+            }
+        };
+
+        if let Ok(mut node) = btn_q.get_single_mut() {
+            node.image = image;
         }
     }
 }
 
 pub fn toggle_music_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut toggle_music_ev: EventWriter<ToggleMusicEv>,
+    mut toggle_music_ev: EventWriter<ToggleAudioEv>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyM) {
-        toggle_music_ev.send(ToggleMusicEv);
+        toggle_music_ev.send(ToggleAudioEv);
+    }
+}
+
+pub fn play_audio_event(
+    mut ev: EventReader<PlayAudioEv>,
+    audio_state: Res<State<AudioState>>,
+    audio: Res<Audio>,
+    assets: Local<WorldAssets>,
+) {
+    if *audio_state.get() != AudioState::Mute {
+        for PlayAudioEv { name, volume } in ev.read() {
+            audio.play(assets.audio(name)).with_volume(*volume);
+        }
     }
 }

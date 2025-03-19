@@ -1,3 +1,4 @@
+use crate::core::ants::selection::select_leaf_on_click;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{NON_MAP_ID, TILE_Z_SCORE};
 use crate::core::map::map::Map;
@@ -70,7 +71,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                     },
                     leaf.clone(),
                     NoRotationChildCmp,
-                ));
+                )).observe(select_leaf_on_click);
             }
         })
         .id();

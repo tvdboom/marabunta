@@ -1,13 +1,13 @@
+use crate::core::ants::components::AntCmp;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::BUTTON_TEXT_SIZE;
+use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
 use bevy_renet::renet::RenetServer;
-use crate::core::ants::components::AntCmp;
-use crate::core::map::events::TileCmp;
 
 pub fn setup_menu(
     mut commands: Commands,
@@ -145,5 +145,4 @@ pub fn setup_game_over(
     ant_q
         .iter_mut()
         .for_each(|mut v| *v = Visibility::Inherited);
-
 }

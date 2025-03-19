@@ -1,7 +1,8 @@
 use crate::core::ants::components::*;
+use crate::core::ants::selection::select_ant_on_click;
 use crate::core::assets::WorldAssets;
+use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
-use crate::core::map::selection::select_ant_on_click;
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Player;
 use crate::core::states::GameState;
@@ -12,8 +13,6 @@ use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
 use bevy::utils::HashSet;
-use bevy_kira_audio::{Audio, AudioControl};
-use uuid::Uuid;
 
 #[derive(Event)]
 pub struct QueueAntEv {
@@ -39,15 +38,14 @@ pub struct DespawnAntEv {
 
 #[derive(Event)]
 pub struct DamageAntEv {
-    pub attacker: Uuid,
-    pub defender: Uuid,
+    pub attacker: Entity,
+    pub defender: Entity,
 }
 
 pub fn queue_ant_event(
     mut queue_ant_ev: EventReader<QueueAntEv>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut player: ResMut<Player>,
-    audio: Res<Audio>,
-    assets: Local<WorldAssets>,
 ) {
     for ev in queue_ant_ev.read() {
         let ant_c = AntCmp::base(&ev.ant);
@@ -63,9 +61,9 @@ pub fn queue_ant_event(
             if player.food >= price && player.queue.len() < MAX_QUEUE_LENGTH {
                 player.food -= price;
                 player.queue.push_back(ant_c.kind);
-                audio.play(assets.audio("button"));
+                play_audio_ev.send(PlayAudioEv::new("button"));
             } else {
-                audio.play(assets.audio("error"));
+                play_audio_ev.send(PlayAudioEv::new("error"));
             }
         }
     }
@@ -85,7 +83,6 @@ pub fn spawn_egg_event(
         };
 
         let egg = Egg {
-            id: Uuid::new_v4(),
             ant: ant.clone(),
             owner: player.id,
             team: player.id,
@@ -185,7 +182,7 @@ pub fn spawn_ant_event(
                 NoRotationParentCmp,
                 MapCmp,
             ))
-            .observe(select_ant_on_click(ant.id))
+            .observe(select_ant_on_click)
             .with_children(|parent| {
                 parent
                     .spawn((
@@ -266,23 +263,17 @@ pub fn despawn_ant_event(
 
 pub fn damage_event(
     mut damage_ev: EventReader<DamageAntEv>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     mut player: ResMut<Player>,
-    mut killed: Local<HashSet<Uuid>>,
-    audio: Res<Audio>,
-    assets: Local<WorldAssets>,
+    mut killed: Local<HashSet<Entity>>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
-        let mut damage = ant_q
-            .iter_mut()
-            .find(|(_, a)| a.id == *attacker)
-            .unwrap()
-            .1
-            .damage;
+        let mut damage = ant_q.get(*attacker).unwrap().1.damage;
 
-        if let Some((mut ant_t, mut ant_c)) = ant_q.iter_mut().find(|(_, a)| a.id == *defender) {
+        if let Ok((mut ant_t, mut ant_c)) = ant_q.get_mut(*defender) {
             // Apply extra bonus factors against monsters
             if (ant_c.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller))
                 || (ant_c.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller))
@@ -305,11 +296,11 @@ pub fn damage_event(
 
                     // If the queen died, you lost the game
                     if player.colony[&Ant::Queen] == 0 {
-                        audio.play(assets.audio("game-over"));
+                        play_audio_ev.send(PlayAudioEv::new("game-over"));
                     }
                 }
             }
-        } else if let Some((egg_e, mut egg)) = egg_q.iter_mut().find(|(_, a)| a.id == *defender) {
+        } else if let Ok((egg_e, mut egg)) = egg_q.get_mut(*defender) {
             egg.health = (egg.health - damage).max(0.);
             if egg.health == 0. {
                 despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
