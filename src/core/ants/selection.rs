@@ -3,6 +3,7 @@ use crate::core::audio::PlayAudioEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Leaf;
 use crate::core::player::Player;
+use crate::core::traits::Trait;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 
@@ -24,6 +25,7 @@ pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
+    player: Res<Player>,
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
     keyboard: Res<ButtonInput<KeyCode>>,
@@ -43,19 +45,32 @@ pub fn select_loc_on_click(
                 .viewport_to_world_2d(global_t, window.cursor_position().unwrap())
                 .unwrap();
 
-            for ant_e in selection.0.iter() {
-                if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
-                    let loc = map.get_loc(&cursor.extend(0.));
-                    if map.is_walkable(&loc) {
+            let loc = map.get_loc(&cursor.extend(0.));
+            if map.is_walkable(&loc) {
+                for ant_e in selection.0.iter() {
+                    if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
+                        // Restrict the queen's movement to the base
+                        if ant.kind == Ant::Queen
+                            && !player.has_trait(&Trait::WanderingQueen)
+                            && map
+                                .get_tile(loc.x, loc.y)
+                                .unwrap()
+                                .base
+                                .filter(|b| *b == player.id)
+                                .is_none()
+                        {
+                            continue;
+                        }
+
                         ant.command = Some(Behavior::ProtectLoc(loc));
                         ant.action = Action::Walk(loc);
-                    } else {
-                        play_audio_ev.send(PlayAudioEv {
-                            name: "error",
-                            volume: 0.5,
-                        });
                     }
                 }
+            } else {
+                play_audio_ev.send(PlayAudioEv {
+                    name: "error",
+                    volume: 0.5,
+                });
             }
         }
         _ => (),
@@ -66,16 +81,35 @@ pub fn select_leaf_on_click(
     mut trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
+    player: Res<Player>,
     map: Res<Map>,
     selection: Res<AntSelection>,
 ) {
     if trigger.event.button == PointerButton::Secondary {
         if let Ok((leaf_e, leaf_t)) = leaf_q.get(trigger.entity()) {
+            let loc = map.get_loc(&leaf_t.translation());
+
+            // Workers go harvest the leaf; the rest protects the location
             for ant_e in selection.0.iter() {
                 if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
                     if ant.kind == Ant::Worker {
                         ant.command = Some(Behavior::Harvest(leaf_e));
-                        ant.action = Action::Walk(map.get_loc(&leaf_t.translation()));
+                        ant.action = Action::Walk(loc);
+                    } else {
+                        if ant.kind == Ant::Queen
+                            && !player.has_trait(&Trait::WanderingQueen)
+                            && map
+                                .get_tile(loc.x, loc.y)
+                                .unwrap()
+                                .base
+                                .filter(|b| *b == player.id)
+                                .is_none()
+                        {
+                            continue;
+                        }
+
+                        ant.command = Some(Behavior::ProtectLoc(loc));
+                        ant.action = Action::Walk(loc);
                     }
                 }
             }
@@ -90,6 +124,7 @@ pub fn select_ant_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
     player: Res<Player>,
+    map: Res<Map>,
     mut select_ants_ev: EventWriter<SelectAntEv>,
     selection: Res<AntSelection>,
     mut last_clicked_t: Local<f32>,
@@ -141,14 +176,28 @@ pub fn select_ant_on_click(
         // Right mouse button used to set a new action
         PointerButton::Secondary => {
             for sel_e in selection.0.iter() {
-                if let Ok((_, _, mut selected)) = ant_q.get_mut(*sel_e) {
+                if let Ok((_, sel_t, mut sel)) = ant_q.get_mut(*sel_e) {
+                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
+                        // Restrict the queen's movement to the base
+                        let loc = map.get_loc(&sel_t.translation);
+                        if map
+                            .get_tile(loc.x, loc.y)
+                            .unwrap()
+                            .base
+                            .filter(|b| *b == player.id)
+                            .is_none()
+                        {
+                            continue;
+                        }
+                    }
+
                     if !player.controls(&ant) && ant.health > 0. {
                         // If clicked on an enemy, move towards it (which will lead to an attack)
-                        selected.action = Action::TargetedWalk(*sel_e);
+                        sel.action = Action::TargetedWalk(*sel_e);
                     } else if ant_e != *sel_e {
                         // If clicked on an ally, protect it
-                        selected.command = Some(Behavior::ProtectAnt(*sel_e));
-                        selected.action = Action::TargetedWalk(*sel_e);
+                        sel.command = Some(Behavior::ProtectAnt(*sel_e));
+                        sel.action = Action::TargetedWalk(*sel_e);
                     }
                 }
             }
@@ -215,8 +264,15 @@ pub fn select_ants_from_rect(
 pub fn select_ants_to_res(
     mut select_ant_ev: EventReader<SelectAntEv>,
     mut selection: ResMut<AntSelection>,
+    mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
+    if mouse.just_released(MouseButton::Left)
+        && !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
+    {
+        selection.0.clear();
+    }
+
     for SelectAntEv { entity, clean } in select_ant_ev.read() {
         if !clean || !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
             selection.0.insert(*entity);

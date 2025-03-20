@@ -1,4 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -16,7 +17,7 @@ pub enum AntColor {
 pub struct Player {
     pub id: ClientId,
     pub color: AntColor,
-    pub food: f32,
+    pub resources: Resources,
     pub colony: HashMap<Ant, u32>,
     pub queue: VecDeque<Ant>,
     pub traits: Vec<Trait>,
@@ -27,7 +28,10 @@ impl Default for Player {
         Self {
             id: 0,
             color: AntColor::Black,
-            food: 100.,
+            resources: Resources {
+                leaves: 150.,
+                nutrients: 0.,
+            },
             colony: HashMap::new(),
             queue: VecDeque::from([Ant::Worker, Ant::Worker, Ant::Worker]),
             traits: Vec::new(),

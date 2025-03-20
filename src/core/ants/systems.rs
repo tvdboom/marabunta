@@ -1,5 +1,5 @@
 use crate::core::ants::components::*;
-use crate::core::ants::events::{DamageAntEv, DespawnAntEv, QueueAntEv, SpawnAntEv, SpawnEggEv};
+use crate::core::ants::events::*;
 use crate::core::ants::selection::AntSelection;
 use crate::core::ants::utils::walk;
 use crate::core::assets::WorldAssets;
@@ -10,12 +10,12 @@ use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::{Leaf, Tile};
 use crate::core::map::utils::reveal_tiles;
-use crate::core::network::Population;
 use crate::core::player::Player;
+use crate::core::resources::Resources;
 use crate::core::traits::Trait;
-use crate::core::utils::{collision, scale_duration};
+use crate::core::utils::{scale_duration, sprite_collision};
 use bevy::prelude::*;
-use bevy::utils::{HashMap, HashSet};
+use bevy::utils::hashbrown::{HashMap, HashSet};
 use rand::distr::weighted::WeightedIndex;
 use rand::distr::Distribution;
 use rand::{rng, Rng};
@@ -120,41 +120,43 @@ pub fn animate_ants(
 }
 
 pub fn resolve_pre_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &Transform, &Sprite, &mut AntCmp)>,
     map: Res<Map>,
     player: Res<Player>,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
 ) {
     let enemies = ant_q
         .iter()
-        .filter_map(|(e, t, a)| {
-            (a.health > 0.).then_some((e, a.team, a.action.clone(), t.translation, a.scaled_size()))
+        .filter_map(|(e, t, s, a)| {
+            (a.health > 0.).then_some((e, a.team, a.action.clone(), t.clone(), s.clone()))
         })
         .collect::<Vec<_>>();
 
-    for (_, ant_t, mut ant) in ant_q
+    for (_, ant_t, ant_s, mut ant) in ant_q
         .iter_mut()
-        .filter(|(_, _, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
+        .filter(|(_, _, _, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
     {
-        for (entity_t, team_t, action_t, pos_t, size_t) in enemies.iter() {
-            if ant.team != *team_t {
+        for (enemy_e, enemy_team, enemy_a, enemy_t, enemy_s) in enemies.iter() {
+            if ant.team != *enemy_team {
                 // The queen attacks enemies in the base (except when wandering)
                 // Protecting ants attack enemies attacking the protected ant
                 // Others attack when adjacent
                 if (ant.kind == Ant::Queen
                     && !player.has_trait(&Trait::WanderingQueen)
                     && map
-                        .get_tile_from_coord(&pos_t)
+                        .get_tile_from_coord(&enemy_t.translation)
                         .unwrap()
                         .base
                         .filter(|b| *b == player.id)
                         .is_some())
                     || matches!(
-                        (action_t, &ant.command),
+                        (enemy_a, &ant.command),
                         (Action::Attack(e1), Some(Behavior::ProtectAnt(e2))) if e1 == e2
                     )
-                    || collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t)
+                    || sprite_collision((&ant_t, &ant_s), (enemy_t, enemy_s), &images, &atlases)
                 {
-                    ant.action = Action::TargetedWalk(*entity_t);
+                    ant.action = Action::TargetedWalk(*enemy_e);
                     break;
                 }
             }
@@ -263,7 +265,7 @@ pub fn resolve_harvesting(
     {
         if let Some(tile) = map.get_tile_mut_from_coord(&ant_t.translation) {
             if let Some(ref mut leaf) = &mut tile.leaf {
-                let carry = (HARVEST_SPEED
+                let leaves = (HARVEST_SPEED
                     * game_settings.speed
                     * time.delta_secs()
                     * if player.has_trait(&Trait::Harvest) {
@@ -278,13 +280,13 @@ pub fn resolve_harvesting(
                     })
                 .min(leaf.quantity);
 
-                if ant.carry + carry > ant.max_carry {
-                    ant.carry = ant.max_carry;
-                    leaf.quantity -= ant.max_carry - ant.carry;
+                if ant.carry.leaves + leaves > ant.max_carry.leaves {
+                    ant.carry.leaves = ant.max_carry.leaves;
+                    leaf.quantity -= ant.max_carry.leaves - ant.carry.leaves;
                     ant.action = Action::Idle;
                 } else {
-                    ant.carry += carry;
-                    leaf.quantity -= carry;
+                    ant.carry.leaves += leaves;
+                    leaf.quantity -= leaves;
                 }
 
                 if leaf.quantity == 0. {
@@ -340,28 +342,25 @@ pub fn resolve_healing(
 }
 
 pub fn resolve_attack_action(
-    mut ant_q: Query<(Entity, &Transform, &Visibility, &mut AntCmp)>,
-    egg_q: Query<(Entity, &Transform, &Egg)>,
+    mut ant_q: Query<(Entity, &Transform, &Visibility, &Sprite, &mut AntCmp)>,
+    egg_q: Query<(Entity, &Transform, &Sprite)>,
     player: Res<Player>,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
 ) {
     let enemies: HashMap<_, _> = ant_q
         .iter()
-        .filter_map(|(e, t, v, a)| {
-            (a.health > 0. && v != Visibility::Hidden)
-                .then_some((e, (t.translation, a.scaled_size())))
+        .filter_map(|(e, t, v, s, a)| {
+            (a.health > 0. && v != Visibility::Hidden).then_some((e, (t.clone(), s.clone())))
         })
-        .chain(
-            egg_q
-                .iter()
-                .map(|(e, t, egg)| (e, (t.translation, egg.scaled_size()))),
-        )
+        .chain(egg_q.iter().map(|(e, t, s)| (e, (t.clone(), s.clone()))))
         .collect();
 
-    for (_, ant_t, _, mut ant) in ant_q.iter_mut() {
+    for (_, ant_t, _, ant_s, mut ant) in ant_q.iter_mut() {
         if player.owns(&ant) {
             if let Action::Attack(entity) = ant.action {
-                if let Some((pos_t, size_t)) = enemies.get(&entity) {
-                    if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
+                if let Some((enemy_t, enemy_s)) = enemies.get(&entity) {
+                    if !sprite_collision((ant_t, ant_s), (enemy_t, enemy_s), &images, &atlases) {
                         // The enemy is not adjacent anymore
                         ant.action = Action::TargetedWalk(entity);
                     }
@@ -421,8 +420,8 @@ pub fn resolve_die_action(
 
 pub fn resolve_idle_action(
     mut ant_q: Query<(Entity, &Transform, &Visibility, &mut AntCmp)>,
-    egg_q: Query<(Entity, &Transform, &Egg)>,
-    leaf_q: Query<&Transform, With<Leaf>>,
+    team_q: Query<(Entity, &Transform, &TeamCmp)>,
+    leaf_q: Query<(Entity, &Transform), With<Leaf>>,
     player: Res<Player>,
     mut map: ResMut<Map>,
 ) {
@@ -432,21 +431,24 @@ pub fn resolve_idle_action(
         .map(|(e, _, _, _)| e)
         .unwrap_or(Entity::PLACEHOLDER);
 
-    let ant_pos: HashMap<_, _> = ant_q
+    let corpses = ant_q
         .iter()
-        .filter_map(|(e, t, v, a)| {
-            (a.health > 0. && v != Visibility::Hidden).then_some((e, (t.translation, a.clone())))
-        })
-        .collect();
+        .filter_map(|(e, t, _, a)| (a.health <= 0.).then_some((e, map.get_loc(&t.translation))))
+        .collect::<Vec<_>>();
 
     for (_, ant_t, _, mut ant) in ant_q.iter_mut() {
+        let current_loc = map.get_loc(&ant_t.translation);
+
         if player.owns(&ant) && ant.action == Action::Idle {
-            // If hurt, go heal to a leaf
+            // If hurt, go heal to a corpse
             if ant.health < ant.max_health && ant.kind.is_ant() {
                 if ant.kind != Ant::Queen {
-                    if let Some(loc) = map.closest_leaf_loc(&ant_t.translation, player.id) {
+                    if let Some((entity, _)) = corpses
+                        .iter()
+                        .min_by_key(|(_, l)| map.distance(&current_loc, l))
+                    {
                         ant.behavior = Behavior::Heal;
-                        ant.action = Action::Walk(loc);
+                        ant.action = Action::TargetedWalk(*entity);
                         return;
                     }
                 } else if player.has_trait(&Trait::HealingQueen) {
@@ -457,18 +459,11 @@ pub fn resolve_idle_action(
 
             ant.action = match ant.command.as_ref().unwrap_or(&ant.behavior) {
                 Behavior::Attack => {
-                    // Select actual enemies from this ant
-                    let enemies: Vec<_> = ant_pos
+                    // Select enemies from this ant and calculate distance weight
+                    let enemies = team_q
                         .iter()
-                        .filter(|(_, (_, a))| ant.team != a.team)
-                        .map(|(e, (t, _))| (*e, t))
-                        .chain(
-                            egg_q
-                                .iter()
-                                .filter(|(_, _, e)| ant.team != e.team)
-                                .map(|(e, t, _)| (e, &t.translation)),
-                        )
-                        .collect();
+                        .filter(|(_, _, t)| t.0 != ant.team)
+                        .collect::<Vec<_>>();
 
                     if enemies.is_empty() {
                         map.random_enemy_loc(player.id)
@@ -477,8 +472,9 @@ pub fn resolve_idle_action(
                             .unwrap()
                     } else {
                         // Attack chance decreases exponentially with distance
-                        let index = WeightedIndex::new(enemies.iter().map(|(_, t)| {
-                            1. / map.distance_from_coord(t, &ant_t.translation).pow(2) as f32
+                        let index = WeightedIndex::new(enemies.iter().map(|(_, t, _)| {
+                            let loc = map.get_loc(&t.translation);
+                            1. / map.distance(&current_loc, &loc).pow(2) as f32
                         }))
                         .unwrap();
 
@@ -487,7 +483,6 @@ pub fn resolve_idle_action(
                 }
                 Behavior::Brood => {
                     if player.has_trait(&Trait::WanderingQueen) {
-                        let current_loc = map.get_loc(&ant_t.translation);
                         Action::Walk(
                             map.random_loc_max_distance(player.id, &current_loc, 10)
                                 .unwrap(),
@@ -501,32 +496,32 @@ pub fn resolve_idle_action(
                         .unwrap_or(map.random_loc(player.id, false).unwrap()),
                 ),
                 Behavior::Harvest(entity) => {
-                    if ant.carry < ant.max_carry / 2. {
-                        if let Ok(t) = leaf_q.get(*entity) {
-                            Action::Walk(map.get_loc(&t.translation))
-                        } else {
-                            // Leaf doesn't exist anymore
-                            ant.command = None;
-                            Action::Idle
-                        }
+                    Action::TargetedWalk(if ant.carry < ant.max_carry / 2. {
+                        *entity
                     } else {
-                        Action::TargetedWalk(queen_e)
-                    }
+                        queen_e
+                    })
                 }
                 Behavior::HarvestRandom => {
-                    if ant.carry < ant.max_carry / 2. {
-                        Action::Walk(
-                            map.random_leaf_loc(player.id)
-                                .unwrap_or(map.random_loc(player.id, false).unwrap()),
-                        )
-                    } else {
-                        Action::TargetedWalk(queen_e)
-                    }
+                    // If above half carry capacity or no more leaves, walk to the queen
+                    Action::TargetedWalk(
+                        if ant.carry < ant.max_carry / 2. || leaf_q.iter().count() == 0 {
+                            let index = WeightedIndex::new(leaf_q.iter().map(|(_, t)| {
+                                let loc = map.get_loc(&t.translation);
+                                1. / map.distance(&current_loc, &loc) as f32
+                            }))
+                            .unwrap();
+
+                            leaf_q.iter().nth(index.sample(&mut rng())).unwrap().0
+                        } else {
+                            queen_e
+                        },
+                    )
                 }
                 Behavior::ProtectAnt(entity) => {
                     // Walk randomly but stay close to the protected ant
-                    if let Some((t, _)) = ant_pos.get(entity) {
-                        let loc = map.get_loc(t);
+                    if let Ok((_, t, _)) = team_q.get(*entity) {
+                        let loc = map.get_loc(&t.translation);
                         Action::Walk(
                             map.random_loc_max_distance(player.id, &loc, MAX_DISTANCE_PROTECT)
                                 .unwrap(),
@@ -546,38 +541,29 @@ pub fn resolve_idle_action(
                 }
                 Behavior::Wander => Action::Walk(map.random_loc(player.id, false).unwrap()),
                 _ => unreachable!(),
-            }
+            };
         }
     }
 }
 
 pub fn resolve_targeted_walk_action(
-    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
-    egg_q: Query<(Entity, &Transform, &Egg), Without<AntCmp>>,
+    mut ant_q: Query<(Entity, &mut Transform, &Sprite, &mut AntCmp)>,
+    sprite_q: Query<(Entity, &GlobalTransform, &Sprite, &TeamCmp)>,
     mut player: ResMut<Player>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
+    images: Res<Assets<Image>>,
+    atlases: Res<Assets<TextureAtlasLayout>>,
     time: Res<Time>,
 ) {
-    let ant_elem: Vec<_> = ant_q
-        .iter()
-        .filter_map(|(e, t, a)| {
-            (a.health > 0.).then_some((e, a.team, t.translation, a.scaled_size()))
-        })
-        .chain(
-            egg_q
-                .iter()
-                .map(|(e, t, egg)| (e, egg.team, t.translation, egg.scaled_size())),
-        )
-        .collect();
-
-    for (_, mut ant_t, mut ant) in ant_q.iter_mut() {
+    for (_, mut ant_t, ant_s, mut ant) in ant_q.iter_mut() {
         if player.owns(&ant) {
             if let Action::TargetedWalk(entity) = ant.action {
-                if let Some((_, team_t, pos_t, size_t)) =
-                    ant_elem.iter().find(|(e, _, _, _)| *e == entity)
-                {
-                    if !collision(&ant_t.translation, &ant.scaled_size(), pos_t, size_t) {
+                if let Ok((_, target_t, target_s, team)) = sprite_q.get(entity) {
+                    let target_t = target_t.compute_transform();
+
+                    if !sprite_collision((&ant_t, ant_s), (&target_t, target_s), &images, &atlases) {
+                        // The ant isn't adjacent to the target yet -> keep walking
                         let speed = ant.speed
                             * game_settings.speed
                             * time.delta_secs().min(CAPPED_DELTA_SECS_SPEED)
@@ -594,29 +580,27 @@ pub fn resolve_targeted_walk_action(
 
                         walk(
                             &mut ant_t,
-                            &map.get_loc(pos_t),
+                            &map.get_loc(&target_t.translation),
                             speed,
                             &mut map,
                             &game_settings,
                             &time,
                         );
-                    } else if *team_t == ant.team {
-                        if let Some(behavior) = &ant.command {
-                            match behavior {
-                                Behavior::ProtectAnt(_) => {
-                                    ant.action = Action::Idle;
-                                }
-                                _ => unreachable!(),
-                            }
-                        } else {
+                    } else if team.0 == ant.team {
+                        if matches!(
+                            ant.command.as_ref().unwrap_or(&ant.behavior),
+                            Behavior::Harvest(_) | Behavior::HarvestRandom
+                        ) {
                             // Ant reached the queen -> deposit food
-                            player.food += ant.carry;
-                            ant.carry = 0.;
-                            ant.action = Action::Idle;
+                            player.resources += &ant.carry;
+                            ant.carry = Resources::default();
                         }
+
+                        // Ant reached the target -> continue with default action
+                        ant.action = Action::Idle;
                     } else {
-                        // Ant reached the enemy
-                        let d = -ant_t.translation + *pos_t;
+                        // Ant reached an enemy, a leaf or a corpse
+                        let d = -ant_t.translation + target_t.translation;
 
                         // Rotate towards the target and attack
                         let rotation = ant_t.rotation.rotate_towards(
@@ -625,7 +609,11 @@ pub fn resolve_targeted_walk_action(
                         );
 
                         ant.action = if ant_t.rotation.angle_between(rotation) < 0.01 {
-                            Action::Attack(entity)
+                            match ant.command.as_ref().unwrap_or(&ant.behavior) {
+                                Behavior::Harvest(_) | Behavior::HarvestRandom => Action::Harvest,
+                                Behavior::Heal => Action::Heal,
+                                _ => Action::Attack(entity),
+                            }
                         } else {
                             ant_t.rotation = rotation;
                             Action::TargetedWalk(entity)
@@ -694,37 +682,6 @@ pub fn resolve_walk_action(
                             )
                         }
                     }
-                    Behavior::Harvest(_) | Behavior::HarvestRandom | Behavior::Heal => {
-                        // The leaf could have been harvested completely while getting there
-                        if map
-                            .get_tile(current_loc.x, current_loc.y)
-                            .unwrap()
-                            .leaf
-                            .is_some()
-                        {
-                            // Ant reached the leaf => turn towards it
-                            let current_loc = map.get_loc(&ant_t.translation);
-                            let d = -ant_t.translation
-                                + Map::get_coord_from_xy(current_loc.x, current_loc.y)
-                                    .extend(ant_t.translation.z);
-
-                            let rotation = ant_t.rotation.rotate_towards(
-                                Quat::from_rotation_z(d.y.atan2(d.x) - PI * 0.5),
-                                3. * game_settings.speed * time.delta_secs(),
-                            );
-
-                            if ant_t.rotation != rotation {
-                                ant_t.rotation = rotation;
-                                Action::Walk(target_loc)
-                            } else if ant.behavior == Behavior::HarvestRandom {
-                                Action::Harvest
-                            } else {
-                                Action::Heal
-                            }
-                        } else {
-                            Action::Idle
-                        }
-                    }
                     _ => Action::Idle,
                 };
             }
@@ -752,6 +709,15 @@ pub fn update_ant_components(
             Without<AntHealthWrapperCmp>,
         ),
     >,
+    mut nutrient_q: Query<
+        &mut Visibility,
+        (
+            With<NutrientCarryCmp>,
+            Without<LeafCarryCmp>,
+            Without<SelectedCmp>,
+            Without<AntHealthWrapperCmp>,
+        ),
+    >,
     children_q: Query<&Children>,
     selected_ants: Res<AntSelection>,
 ) {
@@ -766,7 +732,15 @@ pub fn update_ant_components(
             }
 
             if let Ok(mut leaf_v) = leaf_q.get_mut(child) {
-                *leaf_v = if ant.carry >= ant.max_carry / 2. {
+                *leaf_v = if ant.carry.leaves >= ant.max_carry.leaves / 2. {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+
+            if let Ok(mut nutrient_v) = nutrient_q.get_mut(child) {
+                *nutrient_v = if ant.carry.nutrients >= ant.max_carry.nutrients / 2. {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -838,11 +812,8 @@ pub fn update_vision(
     mut leaf_q: Query<&mut Sprite, (With<Leaf>, Without<Tile>)>,
     children_q: Query<&Children>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
-    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
-    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     player: Res<Player>,
     mut map: ResMut<Map>,
-    population: Res<Population>,
 ) {
     let mut visible_tiles = HashSet::new();
 
@@ -887,59 +858,20 @@ pub fn update_vision(
     });
 
     // Show/hide enemies on the map
-    let mut current_population = vec![];
-    for (ant_e, mut ant_t, mut ant_v, ant) in ant_q.iter_mut() {
-        if !player.controls(ant) {
-            current_population.push(ant_e);
-
-            // if let Some((t, _)) = population.0.values().find(|(_, a)| a.id == ant.id) {
-            //     // The ant is already on the map
-            //     if map
-            //         .get_tile_from_coord(&t.translation)
-            //         .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
-            //     {
-            //         // The ant is visible, reposition and show it
-            //         *ant_t = *t;
-            //         *ant_v = Visibility::Inherited;
-            //     } else {
-            //         // The ant is no longer visible, hide it
-            //         *ant_v = Visibility::Hidden;
-            //     }
-            // } else {
-            if !ant.kind.is_ant() {
-                if map
-                    .get_tile_from_coord(&ant_t.translation)
-                    .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
-                {
-                    // The monster is visible, show it
-                    *ant_v = Visibility::Inherited;
-                } else {
-                    // The monster is no longer visible, hide it
-                    *ant_v = Visibility::Hidden;
-                }
+    for (_, ant_t, mut ant_v, ant) in ant_q.iter_mut() {
+        if !player.controls(ant) && !ant.kind.is_ant() {
+            if map
+                .get_tile_from_coord(&ant_t.translation)
+                .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
+            {
+                // The monster is visible, show it
+                *ant_v = Visibility::Inherited;
+            } else {
+                // The monster is no longer visible, hide it
+                *ant_v = Visibility::Hidden;
             }
-            // } else {
-            //     // The ant is no longer in the population (died), despawn it
-            //     despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
-            // }
-            // }
         }
     }
-
-    // Spawn new ants if they are on a visible tile
-    // for (ant_t, ant) in population.0.values() {
-    //     // If the ant is new in the population, spawn it if it's visible
-    //     if !current_population.contains(&ant.id)
-    //         && map
-    //             .get_tile_from_coord(&ant_t.translation)
-    //             .map_or(false, |tile| visible_tiles.contains(&(tile.x, tile.y)))
-    //     {
-    //         spawn_ant_ev.send(SpawnAntEv {
-    //             ant: ant.clone(),
-    //             transform: ant_t.clone(),
-    //         });
-    //     }
-    // }
 }
 
 pub fn queue_ants_keyboard(

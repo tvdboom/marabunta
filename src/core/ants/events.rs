@@ -58,8 +58,8 @@ pub fn queue_ant_event(
                     1.
                 };
 
-            if player.food >= price && player.queue.len() < MAX_QUEUE_LENGTH {
-                player.food -= price;
+            if player.resources >= price && player.queue.len() < MAX_QUEUE_LENGTH {
+                player.resources -= &price;
                 player.queue.push_back(ant_c.kind);
                 play_audio_ev.send(PlayAudioEv::new("button"));
             } else {
@@ -104,6 +104,7 @@ pub fn spawn_egg_event(
                     ..default()
                 },
                 egg.clone(),
+                TeamCmp(egg.team),
                 NoRotationParentCmp,
                 MapCmp,
             ))
@@ -173,6 +174,7 @@ pub fn spawn_ant_event(
                     ),
                     last_index: atlas.last_index,
                 },
+                TeamCmp(ant.team),
                 ant.clone(),
                 if ant.kind.is_ant() && player.controls(ant) {
                     Visibility::Inherited
@@ -234,6 +236,20 @@ pub fn spawn_ant_event(
                     LeafCarryCmp,
                     Visibility::Hidden,
                 ));
+
+                parent.spawn((
+                    Sprite {
+                        image: assets.image("blood"),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(0., -75., 0.2),
+                        scale: Vec3::splat(0.1),
+                        ..default()
+                    },
+                    NutrientCarryCmp,
+                    Visibility::Hidden,
+                ));
             });
 
         if player.controls(ant) {
@@ -286,7 +302,16 @@ pub fn damage_event(
             if ant_c.health == 0. && !killed.contains(defender) {
                 killed.insert(*defender);
 
-                ant_c.action = Action::Die(Timer::from_seconds(DEATH_TIME, TimerMode::Once));
+                ant_c.action = Action::Die(Timer::from_seconds(
+                    DEATH_TIME
+                        * if player.has_trait(&Trait::Corpses) {
+                            2.
+                        } else {
+                            1.
+                        },
+                    TimerMode::Once,
+                ));
+
                 ant_t.translation.z = ANT_Z_SCORE;
 
                 if player.controls(&ant_c) {

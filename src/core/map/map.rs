@@ -351,37 +351,6 @@ impl Map {
             .copied()
     }
 
-    pub fn random_leaf_loc(&self, id: ClientId) -> Option<Loc> {
-        let locations: Vec<_> = self
-            .tiles
-            .iter()
-            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
-            .map(|t| Loc {
-                x: t.x,
-                y: t.y,
-                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
-            })
-            .collect();
-
-        locations.choose(&mut rng()).copied()
-    }
-
-    pub fn closest_leaf_loc(&self, pos: &Vec3, id: ClientId) -> Option<Loc> {
-        self.tiles
-            .iter()
-            .filter(|t| t.visible.contains(&id) && t.leaf.is_some())
-            .map(|t| Loc {
-                x: t.x,
-                y: t.y,
-                bit: *[5, 6, 9, 10].choose(&mut rng()).unwrap(),
-            })
-            .min_by_key(|t| {
-                Map::get_coord_from_xy(t.x, t.y)
-                    .extend(pos.z)
-                    .distance(*pos) as u32
-            })
-    }
-
     pub fn random_dig_loc(&self, tile: Option<&Tile>, id: ClientId) -> Option<Loc> {
         let locations: Vec<_> = self
             .tiles
@@ -550,12 +519,6 @@ impl Map {
 
     pub fn distance(&mut self, loc1: &Loc, loc2: &Loc) -> usize {
         self.shortest_path(loc1, loc2).len()
-    }
-
-    pub fn distance_from_coord(&mut self, coord1: &Vec3, coord2: &Vec3) -> usize {
-        let loc1 = self.get_loc(coord1);
-        let loc2 = self.get_loc(coord2);
-        self.distance(&loc1, &loc2)
     }
 
     // Map updates ============================================================

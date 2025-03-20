@@ -13,7 +13,26 @@ pub fn scale_duration(duration: Duration, scale: f32) -> Duration {
     Duration::new(sec.trunc() as u64, (sec.fract() * 1e9) as u32)
 }
 
-/// AABB collision detection
+/// Get the size of a sprite
+pub fn get_sprite_size(
+    transform: &Transform,
+    sprite: &Sprite,
+    images: &Assets<Image>,
+    atlases: &Assets<TextureAtlasLayout>,
+) -> Vec2 {
+    sprite.custom_size.unwrap_or_else(|| {
+        let size = if let Some(atlas) = &sprite.texture_atlas {
+            let texture = atlas.texture_rect(atlases).unwrap();
+            texture.max - texture.min
+        } else {
+            images.get(&sprite.image).unwrap().size()
+        };
+
+        size.as_vec2() * transform.scale.truncate()
+    })
+}
+
+/// AABB collision detection from positions and sizes
 pub fn collision(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
     let p1_min = pos1 - Vec3::new(size1.x / 4., size1.y / 4., 0.);
     let p1_max = pos1 + Vec3::new(size1.x / 4., size1.y / 4., 0.);
@@ -22,6 +41,19 @@ pub fn collision(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
     let p2_max = pos2 + Vec3::new(size2.x / 4., size2.y / 4., 0.);
 
     p1_max.x > p2_min.x && p1_min.x < p2_max.x && p1_max.y > p2_min.y && p1_min.y < p2_max.y
+}
+
+/// AABB collision detection from sprites
+pub fn sprite_collision(
+    e1: (&Transform, &Sprite),
+    e2: (&Transform, &Sprite),
+    images: &Assets<Image>,
+    atlases: &Assets<TextureAtlasLayout>,
+) -> bool {
+    let size1 = get_sprite_size(e1.0, e1.1, images, atlases);
+    let size2 = get_sprite_size(e2.0, e2.1, images, atlases);
+
+    collision(&e1.0.translation, &size1, &e2.0.translation, &size2)
 }
 
 /// Generic system that despawns all entities with a specific component

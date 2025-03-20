@@ -1,6 +1,7 @@
+use crate::core::ants::components::TeamCmp;
 use crate::core::ants::selection::{select_leaf_on_click, select_loc_on_click};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{NON_MAP_ID, TILE_Z_SCORE};
+use crate::core::constants::{LEAF_TEAM, NON_MAP_ID, TILE_Z_SCORE};
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
@@ -71,6 +72,7 @@ pub fn _spawn_tile(commands: &mut Commands, tile: &Tile, pos: Vec2, assets: &Loc
                             scale: Vec3::splat((leaf.quantity / 1e3).max(0.1).min(0.3)),
                             ..default()
                         },
+                        TeamCmp(LEAF_TEAM),
                         leaf.clone(),
                         NoRotationChildCmp,
                     ))

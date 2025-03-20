@@ -8,7 +8,7 @@ use crate::core::map::map::Map;
 use crate::core::map::ui::utils::TextSize;
 use crate::core::network::Population;
 use crate::core::player::Player;
-use crate::core::states::{GameState};
+use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -58,7 +58,7 @@ pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut player: ResMut<Player
     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
             if keyboard.just_pressed(KeyCode::ArrowUp) {
-                player.food += 1e4;
+                player.resources += 1e4;
             }
         }
     }

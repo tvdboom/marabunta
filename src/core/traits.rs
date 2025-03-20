@@ -3,6 +3,7 @@ use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
 use crate::core::audio::PlayAudioEv;
 use crate::core::player::Player;
+use crate::core::resources::Resources;
 use crate::core::states::GameState;
 use bevy::prelude::*;
 use rand::{rng, Rng};
@@ -14,12 +15,14 @@ use strum_macros::EnumIter;
 pub enum Trait {
     Alate,
     Breeding,
+    Corpses,
     DoubleQueen,
     EnhancedSoldiers,
     EnhancedWarriors,
     Harvest,
     Haste,
     HealingQueen,
+    Influx,
     Mastodon,
     MegaColony,
     Metamorfosis,
@@ -58,6 +61,14 @@ impl TraitCmp {
                 description: "\
                     Eggs hatch twice as fast and have double the health. Enhance your colony's \
                     growth by increasing the larva production rate."
+                    .to_string(),
+            },
+            Trait::Corpses => Self {
+                kind: Trait::Corpses,
+                image: "corpses".to_string(),
+                description: "\
+                    Corpses lie twice as long on the ground, allowing more nutrient collection \
+                    and the healing of your ants."
                     .to_string(),
             },
             Trait::DoubleQueen => Self {
@@ -107,6 +118,13 @@ impl TraitCmp {
                     Your queen can heal her wounds. If not under attack, the queen regenerates \
                     over time remaining idle. The game is lost if the queen dies, so a healthy \
                     queen is paramount."
+                    .to_string(),
+            },
+            Trait::Influx => Self {
+                kind: Trait::Influx,
+                image: "influx".to_string(),
+                description: "\
+                    Immediately receive a large amount of leaves and nutrients."
                     .to_string(),
             },
             Trait::Mastodon => Self {
@@ -254,6 +272,12 @@ pub fn select_trait_event(
                     .iter_mut()
                     .filter(|(_, a)| a.kind == Ant::Warrior && a.team == player.id)
                     .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &warrior));
+            }
+            Trait::Influx => {
+                player.resources += &Resources::new(
+                    rng().random_range(1e3..2e3),
+                    rng().random_range(100.0..300.),
+                );
             }
             Trait::Metamorfosis => {
                 let soldier = AntCmp::new(&Ant::Soldier, &player);

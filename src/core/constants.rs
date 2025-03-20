@@ -26,6 +26,11 @@ pub const EGG_Z_SCORE: f32 = 1.;
 pub const ANT_Z_SCORE: f32 = 2.;
 pub const MAX_Z_SCORE: f32 = 10.;
 
+// Teams
+pub const LEAF_TEAM: u64 = 50;
+pub const TERMITE_TEAM: u64 = 80;
+pub const WASP_TEAM: u64 = 90;
+
 // Map
 pub const NON_MAP_ID: u32 = 9999;
 pub const VISION_RANGE: u32 = 2;
@@ -38,7 +43,7 @@ pub const ANT_PRICE_FACTOR: f32 = 0.9; // Price reduction for trait megacolony
 pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg
 pub const EGG_HEALTH_FACTOR: f32 = 0.25; // Fraction of health the egg has compared to the ant
 pub const HATCH_SPEED_FACTOR: f32 = 2.; // Increase in egg hatching speed for the trait breeding
-pub const DEATH_TIME: f32 = 10.; // Seconds a corpse remains on the map
+pub const DEATH_TIME: f32 = 20.; // Seconds a corpse remains on the map
 pub const DEFAULT_WALK_SPEED: f32 = 20.; // Base walking speed
 pub const DIG_SPEED: f32 = 50.; // Terraform points per ant per second
 pub const TUNNEL_SPEED_FACTOR: f32 = 2.; // Dig speed increase for the trait tunneling

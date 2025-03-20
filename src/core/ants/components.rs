@@ -1,7 +1,8 @@
-use crate::core::constants::DEFAULT_WALK_SPEED;
+use crate::core::constants::{DEFAULT_WALK_SPEED, TERMITE_TEAM, WASP_TEAM};
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
 use crate::core::player::{AntColor, Player};
+use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -22,6 +23,12 @@ pub struct SelectedCmp;
 
 #[derive(Component)]
 pub struct LeafCarryCmp;
+
+#[derive(Component)]
+pub struct NutrientCarryCmp;
+
+#[derive(Component)]
+pub struct TeamCmp(pub u64);
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Behavior {
@@ -209,8 +216,8 @@ pub struct AntCmp {
     /// Z-score above the base ant's default z-score (0.0-0.9)
     pub z_score: f32,
 
-    /// Food necessary to spawn the ant
-    pub price: f32,
+    /// Resources required to buy the ant
+    pub price: Resources,
 
     /// Current health
     pub health: f32,
@@ -228,10 +235,10 @@ pub struct AntCmp {
     pub hatch_time: f32,
 
     /// Current resource carry capacity
-    pub carry: f32,
+    pub carry: Resources,
 
     /// Maximum resource carry capacity
-    pub max_carry: f32,
+    pub max_carry: Resources,
 
     /// Default behavior of the ant
     pub behavior: Behavior,
@@ -256,14 +263,14 @@ impl Default for AntCmp {
             color: None,
             scale: 0.03,
             z_score: 0.9,
-            price: 0.,
+            price: Resources::default(),
             health: 0.,
             max_health: 0.,
             speed: DEFAULT_WALK_SPEED,
             damage: 0.,
             hatch_time: 0.,
-            carry: 0.,
-            max_carry: 1.,
+            carry: Resources::default(),
+            max_carry: Resources::new(1., 1.),
             behavior: Behavior::Attack,
             command: None,
             action: Action::Idle,
@@ -285,7 +292,7 @@ impl AntCmp {
                 } else {
                     0.06
                 },
-                price: f32::MAX,
+                price: Resources::MAX,
                 health: if player.has_trait(&Trait::SuperQueen) {
                     1500.
                 } else {
@@ -328,7 +335,7 @@ impl AntCmp {
                     0.03
                 },
                 z_score: 0.1,
-                price: 30.,
+                price: Resources::from_leaves(30.),
                 health: if player.has_trait(&Trait::Warlike) {
                     20.
                 } else {
@@ -345,7 +352,7 @@ impl AntCmp {
                     2.
                 },
                 hatch_time: 5.,
-                max_carry: 30.,
+                max_carry: Resources::new(30., 30.),
                 behavior: Behavior::HarvestRandom,
                 action: Action::Idle,
                 description: "\
@@ -361,7 +368,7 @@ impl AntCmp {
                 team: player.id,
                 color: Some(player.color.clone()),
                 z_score: 0.2,
-                price: 150.,
+                price: Resources::from_leaves(150.),
                 health: 10.,
                 max_health: 10.,
                 speed: DEFAULT_WALK_SPEED + 10.,
@@ -387,7 +394,7 @@ impl AntCmp {
                     0.04
                 },
                 z_score: 0.5,
-                price: 100.,
+                price: Resources::from_leaves(100.),
                 health: 50.,
                 max_health: 50.,
                 speed: if player.has_trait(&Trait::EnhancedSoldiers) {
@@ -417,7 +424,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.04,
                 z_score: 0.6,
-                price: 150.,
+                price: Resources::new(150., 10.),
                 health: if player.has_trait(&Trait::EnhancedWarriors) {
                     65.
                 } else {
@@ -451,7 +458,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.05,
                 z_score: 0.9,
-                price: 250.,
+                price: Resources::new(200., 30.),
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED + 2.,
@@ -473,7 +480,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.06,
                 z_score: 0.7,
-                price: 250.,
+                price: Resources::new(200., 30.),
                 health: 200.,
                 max_health: 200.,
                 speed: DEFAULT_WALK_SPEED - 6.,
@@ -516,7 +523,7 @@ impl AntCmp {
             Ant::BlackTermite => Self {
                 kind: Ant::BlackTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 15.,
                 max_health: 15.,
@@ -529,7 +536,7 @@ impl AntCmp {
             Ant::BlackWingedTermite => Self {
                 kind: Ant::BlackWingedTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 20.,
                 max_health: 20.,
@@ -542,7 +549,7 @@ impl AntCmp {
             Ant::BrownTermite => Self {
                 kind: Ant::BrownTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 40.,
                 max_health: 40.,
@@ -555,7 +562,7 @@ impl AntCmp {
             Ant::BrownWingedTermite => Self {
                 kind: Ant::BrownWingedTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 50.,
                 max_health: 50.,
@@ -568,7 +575,7 @@ impl AntCmp {
             Ant::WhiteTermite => Self {
                 kind: Ant::WhiteTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.03,
                 health: 80.,
                 max_health: 80.,
@@ -581,7 +588,7 @@ impl AntCmp {
             Ant::WhiteWingedTermite => Self {
                 kind: Ant::WhiteWingedTermite,
                 owner: player.id,
-                team: 80,
+                team: TERMITE_TEAM,
                 scale: 0.03,
                 health: 120.,
                 max_health: 120.,
@@ -594,7 +601,7 @@ impl AntCmp {
             Ant::Wasp => Self {
                 kind: Ant::Wasp,
                 owner: player.id,
-                team: 90,
+                team: WASP_TEAM,
                 scale: 0.05,
                 health: 200.,
                 max_health: 200.,
@@ -656,10 +663,6 @@ impl AntCmp {
         }
     }
 
-    pub fn scaled_size(&self) -> Vec2 {
-        self.size() * self.scale
-    }
-
     pub fn animation(&self) -> Animation {
         match self.action {
             Action::Attack(_) => Animation::Attack,
@@ -704,10 +707,4 @@ pub struct Egg {
 
     /// Ant in the egg
     pub ant: AntCmp,
-}
-
-impl Egg {
-    pub fn scaled_size(&self) -> Vec2 {
-        self.ant.scaled_size() * 0.5
-    }
 }

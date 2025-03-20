@@ -10,6 +10,7 @@ mod network;
 mod pause;
 mod persistence;
 mod player;
+mod resources;
 mod states;
 mod systems;
 mod traits;

@@ -16,7 +16,10 @@ use strum::IntoEnumIterator;
 pub struct UiCmp;
 
 #[derive(Component)]
-pub struct FoodLabelCmp;
+pub struct LeavesLabelCmp;
+
+#[derive(Component)]
+pub struct NutrientsLabelCmp;
 
 #[derive(Component)]
 pub struct ColonyButtonCmp(pub Ant);
@@ -74,12 +77,13 @@ pub fn ant_hover_info_panel(
                     })
                     .with_children(|parent| {
                         let attributes = [
-                            ("Price", ant.price),
+                            ("Leaves", ant.price.leaves),
+                            ("Nutrients", ant.price.nutrients),
                             ("Health", ant.max_health),
                             ("Speed", ant.speed),
                             ("Damage", ant.damage),
                             ("Hatch time", ant.hatch_time),
-                            ("Carry capacity", ant.max_carry),
+                            ("Carry capacity", ant.max_carry.leaves),
                         ];
 
                         for (k, v) in attributes.iter() {
@@ -158,17 +162,43 @@ pub fn draw_ui(
                 position_type: PositionType::Absolute,
                 ..default()
             },
+            PickingBehavior::IGNORE,
             UiCmp,
             MapCmp,
         ))
         .with_children(|parent| {
             parent.spawn((
                 Node {
-                    width: Val::Percent(60.),
-                    margin: UiRect::ZERO.with_right(Val::Percent(20.)),
+                    width: Val::Percent(30.),
+                    margin: UiRect::all(Val::Percent(15.)),
                     ..default()
                 },
-                ImageNode::new(assets.image("leaf-ui")),
+                ImageNode::new(assets.image("food")),
+            ));
+
+            parent.spawn((
+                Node {
+                    align_self: AlignSelf::Center,
+                    margin: UiRect::ZERO.with_right(Val::Percent(10.)),
+                    ..default()
+                },
+                add_text(
+                    format!("{:.0}", player.resources.leaves),
+                    "bold",
+                    25.,
+                    &assets,
+                    &window,
+                ),
+                LeavesLabelCmp,
+            ));
+
+            parent.spawn((
+                Node {
+                    width: Val::Percent(30.),
+                    margin: UiRect::all(Val::Percent(15.)),
+                    ..default()
+                },
+                ImageNode::new(assets.image("nutrient")),
             ));
 
             parent.spawn((
@@ -176,8 +206,14 @@ pub fn draw_ui(
                     align_self: AlignSelf::Center,
                     ..default()
                 },
-                add_text(format!("{:.0}", player.food), "bold", 25., &assets, &window),
-                FoodLabelCmp,
+                add_text(
+                    format!("{:.0}", player.resources.nutrients),
+                    "bold",
+                    25.,
+                    &assets,
+                    &window,
+                ),
+                NutrientsLabelCmp,
             ));
         });
 
@@ -385,8 +421,12 @@ pub fn animate_ui(mut animation_q: Query<(&mut AnimationCmp, &mut ImageNode)>, t
 }
 
 pub fn update_ui(
-    mut food_q: Query<&mut Text, With<FoodLabelCmp>>,
-    mut colony_q: Query<(&mut Text, &ColonyLabelCmp), Without<FoodLabelCmp>>,
+    mut leaves_q: Query<&mut Text, With<LeavesLabelCmp>>,
+    mut nutrients_q: Query<&mut Text, (With<NutrientsLabelCmp>, Without<LeavesLabelCmp>)>,
+    mut colony_q: Query<
+        (&mut Text, &ColonyLabelCmp),
+        (Without<LeavesLabelCmp>, Without<NutrientsLabelCmp>),
+    >,
     mut larva_q: Query<&mut Visibility, With<QueueLarvaCmp>>,
     mut queue_q: Query<
         (&mut Visibility, &mut ImageNode, &mut QueueButtonCmp),
@@ -395,8 +435,9 @@ pub fn update_ui(
     player: Res<Player>,
     assets: Local<WorldAssets>,
 ) {
-    // Update the food label
-    food_q.get_single_mut().unwrap().0 = format!("{:.0}", player.food);
+    // Update the resource labels
+    leaves_q.get_single_mut().unwrap().0 = format!("{:.0}", player.resources.leaves);
+    nutrients_q.get_single_mut().unwrap().0 = format!("{:.0}", player.resources.nutrients);
 
     // Update the colony labels
     for (mut text, colony) in colony_q.iter_mut() {
@@ -446,10 +487,11 @@ pub fn on_click_queue_button(
     mut player: ResMut<Player>,
 ) {
     if trigger.event.button == PointerButton::Secondary {
-        if let Ok(e) = btn_q.get(trigger.entity()) {
-            if let Some(ant) = player.queue.get(e.0) {
-                player.food += AntCmp::new(ant, &player).price;
-                player.queue.remove(e.0);
+        if let Ok(QueueButtonCmp(i, _)) = btn_q.get(trigger.entity()) {
+            if let Some(ant) = player.queue.get(*i) {
+                let price = AntCmp::new(ant, &player).price;
+                player.resources += price;
+                player.queue.remove(*i);
             }
         }
     }
