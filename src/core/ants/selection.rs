@@ -134,8 +134,9 @@ pub fn select_ant_on_click(
 ) {
     let (camera, global_t) = *camera;
 
-    let (ant_e, _, ant) = ant_q.get(trigger.entity()).unwrap();
+    let (ant_e, ant_t, ant) = ant_q.get(trigger.entity()).unwrap();
     let ant = ant.clone();
+    let loc = map.get_loc(&ant_t.translation);
 
     match trigger.event.button {
         // Left mouse button used for selection
@@ -191,13 +192,25 @@ pub fn select_ant_on_click(
                         }
                     }
 
-                    if !player.controls(&ant) && ant.health > 0. {
-                        // If clicked on an enemy, move towards it (which will lead to an attack)
-                        sel.action = Action::TargetedWalk(*sel_e);
-                    } else if ant_e != *sel_e {
-                        // If clicked on an ally, protect it
-                        sel.command = Some(Behavior::ProtectAnt(*sel_e));
-                        sel.action = Action::TargetedWalk(*sel_e);
+                    // Skip commands onto himself
+                    if ant_e != *sel_e {
+                        if ant.health == 0. {
+                            // If clicked on a corpse, go harvest it or protect the location
+                            if sel.kind == Ant::Worker {
+                                sel.command = Some(Behavior::HarvestCorpse(ant_e));
+                                sel.action = Action::TargetedWalk(ant_e);
+                            } else {
+                                sel.command = Some(Behavior::ProtectLoc(loc));
+                                sel.action = Action::Walk(loc);
+                            }
+                        } else if !player.controls(&ant) {
+                            // If clicked on an enemy, move towards it (which will lead to an attack)
+                            sel.action = Action::TargetedWalk(*sel_e);
+                        } else if ant_e != *sel_e {
+                            // If clicked on an ally, protect it
+                            sel.command = Some(Behavior::ProtectAnt(*sel_e));
+                            sel.action = Action::TargetedWalk(*sel_e);
+                        }
                     }
                 }
             }

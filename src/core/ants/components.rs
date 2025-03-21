@@ -30,14 +30,18 @@ pub struct NutrientCarryCmp;
 #[derive(Component)]
 pub struct TeamCmp(pub u64);
 
+#[derive(Component)]
+pub struct Corpse;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Behavior {
     Attack,
     Brood,
     Dig,
     Harvest(Entity),
+    HarvestCorpse(Entity),
     HarvestRandom,
-    Heal,
+    Heal(Entity),
     ProtectAnt(Entity),
     ProtectLoc(Loc),
     Wander,
@@ -481,10 +485,10 @@ impl AntCmp {
                 scale: 0.06,
                 z_score: 0.7,
                 price: Resources::new(200., 30.),
-                health: 200.,
-                max_health: 200.,
+                health: 300.,
+                max_health: 300.,
                 speed: DEFAULT_WALK_SPEED - 6.,
-                damage: 5.,
+                damage: 6.,
                 hatch_time: 20.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
@@ -603,8 +607,8 @@ impl AntCmp {
                 owner: player.id,
                 team: WASP_TEAM,
                 scale: 0.05,
-                health: 200.,
-                max_health: 200.,
+                health: 100.,
+                max_health: 100.,
                 speed: DEFAULT_WALK_SPEED,
                 damage: 15.,
                 behavior: Behavior::Attack,
@@ -685,6 +689,10 @@ impl AntCmp {
             }
             Action::Walk(_) => Animation::Walk,
         }
+    }
+
+    pub fn get_behavior(&self) -> &Behavior {
+        self.command.as_ref().unwrap_or(&self.behavior)
     }
 }
 

@@ -2,7 +2,7 @@ use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::selection::AntSelection;
 use crate::core::audio::PlayAudioEv;
-use crate::core::constants::MAX_TRAITS;
+use crate::core::constants::{MAX_TRAITS, MONSTER_SPAWN_CHANCE};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::map::ui::utils::TextSize;
@@ -79,7 +79,7 @@ pub fn spawn_enemies(
         if game_settings.enemy_timer.just_finished() {
             map.tiles.iter().for_each(|tile| {
                 if tile.visible.contains(&player.id) {
-                    if tile.texture_index == 64 && rng().random::<f32>() < 0.005 {
+                    if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::new(&Ant::Wasp, &player),
                             transform: Transform {
@@ -88,7 +88,7 @@ pub fn spawn_enemies(
                                 ..default()
                             },
                         });
-                    } else if tile.texture_index == 65 && rng().random::<f32>() < 0.01 {
+                    } else if tile.texture_index == 65 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
                         // Create random termite queue
                         let mut queue = vec![];
                         for _ in 1..=rng().random_range(2..=10) {

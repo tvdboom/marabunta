@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Action, Ant, AntCmp};
+use crate::core::ants::components::{Action, Ant, AntCmp, Corpse};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
 use crate::core::audio::PlayAudioEv;
@@ -99,8 +99,8 @@ impl TraitCmp {
                 kind: Trait::Harvest,
                 image: "harvest".to_string(),
                 description: "\
-                    Your workers harvest food twice as fast. Food is the lifeblood of the \
-                    colony. More food means more and stronger ants."
+                    Your workers harvest resources twice as fast. Resources are the lifeblood \
+                    of the colony. More leaves and nutrients means more and stronger ants."
                     .to_string(),
             },
             Trait::Haste => Self {
@@ -231,7 +231,8 @@ impl TraitCmp {
 pub struct TraitSelectedEv(pub Trait);
 
 pub fn select_trait_event(
-    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    mut commands: Commands,
+    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
     mut trait_selected_ev: EventReader<TraitSelectedEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
@@ -250,9 +251,9 @@ pub fn select_trait_event(
                         // Spawn the queen where the current one is located
                         translation: ant_q
                             .iter()
-                            .find(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
+                            .find(|(_, _, a)| a.kind == Ant::Queen && a.team == player.id)
                             .unwrap()
-                            .0
+                            .1
                             .translation,
                         rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                         ..default()
@@ -263,15 +264,15 @@ pub fn select_trait_event(
                 let soldier = AntCmp::new(&Ant::Soldier, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Soldier && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
+                    .filter(|(_, _, a)| a.kind == Ant::Soldier && a.team == player.id)
+                    .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
             }
             Trait::EnhancedWarriors => {
                 let warrior = AntCmp::new(&Ant::Warrior, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Warrior && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &warrior));
+                    .filter(|(_, _, a)| a.kind == Ant::Warrior && a.team == player.id)
+                    .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &warrior));
             }
             Trait::Influx => {
                 player.resources += &Resources::new(
@@ -283,16 +284,18 @@ pub fn select_trait_event(
                 let soldier = AntCmp::new(&Ant::Soldier, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
+                    .filter(|(_, _, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
             }
             Trait::Necromancer => {
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| player.controls(a) && a.health == 0.)
-                    .for_each(|(_, mut a)| {
+                    .filter(|(_, _, a)| player.controls(a) && a.health == 0.)
+                    .for_each(|(e, _, mut a)| {
                         a.health = a.max_health;
+                        a.command = None;
                         a.action = Action::Idle;
+                        commands.entity(e).remove::<Corpse>();
                     });
             }
             Trait::SuddenArmy => {
@@ -309,9 +312,9 @@ pub fn select_trait_event(
                             // Spawn the queen where the current one is located
                             translation: ant_q
                                 .iter()
-                                .find(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
+                                .find(|(_, _, a)| a.kind == Ant::Queen && a.team == player.id)
                                 .unwrap()
-                                .0
+                                .1
                                 .translation,
                             rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                             ..default()
@@ -323,15 +326,15 @@ pub fn select_trait_event(
                 let queen = AntCmp::new(&Ant::Queen, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Queen && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &queen));
+                    .filter(|(_, _, a)| a.kind == Ant::Queen && a.team == player.id)
+                    .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &queen));
             }
             Trait::Warlike => {
                 let worker = AntCmp::new(&Ant::Worker, &player);
                 ant_q
                     .iter_mut()
-                    .filter(|(_, a)| a.kind == Ant::Worker && a.team == player.id)
-                    .for_each(|(mut t, mut a)| transform_ant(&mut t, &mut a, &worker));
+                    .filter(|(_, _, a)| a.kind == Ant::Worker && a.team == player.id)
+                    .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &worker));
             }
             _ => (),
         }

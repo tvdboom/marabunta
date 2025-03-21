@@ -33,7 +33,7 @@ pub fn get_sprite_size(
 }
 
 /// AABB collision detection from positions and sizes
-pub fn collision(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
+pub fn collision_aabb(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
     let p1_min = pos1 - Vec3::new(size1.x / 4., size1.y / 4., 0.);
     let p1_max = pos1 + Vec3::new(size1.x / 4., size1.y / 4., 0.);
 
@@ -44,7 +44,7 @@ pub fn collision(pos1: &Vec3, size1: &Vec2, pos2: &Vec3, size2: &Vec2) -> bool {
 }
 
 /// AABB collision detection from sprites
-pub fn sprite_collision(
+pub fn collision(
     e1: (&Transform, &Sprite),
     e2: (&Transform, &Sprite),
     images: &Assets<Image>,
@@ -53,7 +53,7 @@ pub fn sprite_collision(
     let size1 = get_sprite_size(e1.0, e1.1, images, atlases);
     let size2 = get_sprite_size(e2.0, e2.1, images, atlases);
 
-    collision(&e1.0.translation, &size1, &e2.0.translation, &size2)
+    collision_aabb(&e1.0.translation, &size1, &e2.0.translation, &size2)
 }
 
 /// Generic system that despawns all entities with a specific component

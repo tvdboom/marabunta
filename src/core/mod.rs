@@ -116,7 +116,11 @@ impl Plugin for GamePlugin {
             .add_systems(Startup, (setup_camera, initialize_game, draw_map).chain())
             .add_systems(
                 Update,
-                (move_camera, move_camera_keyboard).in_set(InRunningOrPausedGameSet),
+                (move_camera, move_camera_keyboard)
+                    .run_if(not(
+                        in_state(GameState::TraitSelection).or(in_state(GameState::InGameMenu))
+                    ))
+                    .in_set(InGameSet),
             )
             // Audio
             .add_systems(Startup, setup_music_btn)
@@ -207,6 +211,7 @@ impl Plugin for GamePlugin {
                     animate_ants,
                     resolve_digging,
                     resolve_harvesting,
+                    resolve_harvesting_corpse,
                     resolve_healing,
                     resolve_attack_action,
                     resolve_die_action,

@@ -12,7 +12,6 @@ use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
-use bevy::utils::HashSet;
 
 #[derive(Event)]
 pub struct QueueAntEv {
@@ -278,13 +277,13 @@ pub fn despawn_ant_event(
 }
 
 pub fn damage_event(
+    mut commands: Commands,
     mut damage_ev: EventReader<DamageAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     mut player: ResMut<Player>,
-    mut killed: Local<HashSet<Entity>>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
         let mut damage = ant_q.get(*attacker).unwrap().1.damage;
@@ -299,8 +298,9 @@ pub fn damage_event(
             }
 
             ant_c.health = (ant_c.health - damage).max(0.);
-            if ant_c.health == 0. && !killed.contains(defender) {
-                killed.insert(*defender);
+
+            if ant_c.health == 0. && !matches!(ant_c.action, Action::Die(_)) {
+                commands.entity(*defender).insert(Corpse);
 
                 ant_c.action = Action::Die(Timer::from_seconds(
                     DEATH_TIME
