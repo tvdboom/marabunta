@@ -1,5 +1,4 @@
 use crate::core::ants::components::{Action, Ant, AntCmp, Behavior};
-use crate::core::audio::PlayAudioEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Leaf;
 use crate::core::player::Player;
@@ -24,7 +23,6 @@ pub struct SelectionBox {
 pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
-    mut play_audio_ev: EventWriter<PlayAudioEv>,
     player: Res<Player>,
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
@@ -67,10 +65,14 @@ pub fn select_loc_on_click(
                     }
                 }
             } else {
-                play_audio_ev.send(PlayAudioEv {
-                    name: "error",
-                    volume: 0.5,
-                });
+                for ant_e in selection.0.iter() {
+                    if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
+                        if ant.kind == Ant::Excavator {
+                            ant.command = Some(Behavior::Dig(loc));
+                            ant.action = Action::Idle;
+                        }
+                    }
+                }
             }
         }
         _ => (),

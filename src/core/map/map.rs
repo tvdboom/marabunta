@@ -460,6 +460,25 @@ impl Map {
             .collect()
     }
 
+    pub fn find_tunnel(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
+        astar(
+            start,
+            |loc| {
+                self.get_neighbors(loc)
+                    .into_iter()
+                    .filter(|l| {
+                        self.get_tile(l.x, l.y).map_or(false, |t| !t.has_stone)
+                            && ![0, 4, 12, 15].contains(&l.bit)
+                    })
+                    .map(|l| (l, if self.is_walkable(&l) { 1 } else { 10000 }))
+                    .collect::<Vec<_>>()
+            },
+            |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
+            |loc| loc == end,
+        )
+        .map(|(path, _)| path)
+    }
+
     /// Use A* to find the shortest path between two locations
     fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
         astar(
@@ -468,7 +487,7 @@ impl Map {
                 self.get_neighbors(loc)
                     .into_iter()
                     .filter(|l| self.is_walkable(l) || l == end) // Allow the last loc to be a wall
-                    .map(|n| (n, 1))
+                    .map(|l| (l, 1))
                     .collect::<Vec<_>>()
             },
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),

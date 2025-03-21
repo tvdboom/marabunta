@@ -37,7 +37,8 @@ pub struct Corpse;
 pub enum Behavior {
     Attack,
     Brood,
-    Dig,
+    Dig(Loc),
+    DigRandom,
     Harvest(Entity),
     HarvestCorpse(Entity),
     HarvestRandom,
@@ -356,12 +357,12 @@ impl AntCmp {
                     2.
                 },
                 hatch_time: 5.,
-                max_carry: Resources::new(30., 30.),
+                max_carry: Resources::new(30., 50.),
                 behavior: Behavior::HarvestRandom,
                 action: Action::Idle,
                 description: "\
                     The worker is the most common ant in the colony. \
-                    They are responsible for gathering food."
+                    They are responsible for gathering resources."
                     .to_string(),
                 ..default()
             },
@@ -377,7 +378,7 @@ impl AntCmp {
                 max_health: 10.,
                 speed: DEFAULT_WALK_SPEED + 10.,
                 damage: 3.,
-                behavior: Behavior::Dig,
+                behavior: Behavior::DigRandom,
                 action: Action::Idle,
                 hatch_time: 10.,
                 description: "\

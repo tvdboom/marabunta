@@ -191,14 +191,14 @@ pub fn resolve_digging(
 
                 // Set digging ants onto a new task
                 ants.iter_mut().for_each(|(_, ant)| {
-                    ant.action = if rng().random::<f32>() < SAME_TUNNEL_DIG_CHANCE {
-                        if let Some(loc) = map.random_dig_loc(Some(&tile), player.id) {
-                            Action::Walk(loc)
-                        } else {
-                            // If there are no digging locations on the tile, select a random one
-                            Action::Idle
-                        }
+                    ant.action = if matches!(ant.command, Some(Behavior::Dig(_)))
+                        || rng().random::<f32>() >= SAME_TUNNEL_DIG_CHANCE
+                    {
+                        Action::Idle
+                    } else if let Some(loc) = map.random_dig_loc(Some(&tile), player.id) {
+                        Action::Walk(loc)
                     } else {
+                        // If there are no digging locations on the tile, select a random one
                         Action::Idle
                     }
                 });
@@ -528,17 +528,21 @@ pub fn resolve_idle_action(
                         Action::TargetedWalk(enemies[index.sample(&mut rng())].0)
                     }
                 }
-                Behavior::Brood => {
-                    if player.has_trait(&Trait::WanderingQueen) {
-                        Action::Walk(
-                            map.random_loc_max_distance(player.id, &current_loc, 10)
-                                .unwrap(),
-                        )
-                    } else {
-                        Action::Walk(map.random_loc(player.id, true).unwrap())
-                    }
-                }
-                Behavior::Dig => Action::Walk(
+                Behavior::Brood => Action::Walk(if player.has_trait(&Trait::WanderingQueen) {
+                    map.random_loc_max_distance(player.id, &current_loc, 10)
+                        .unwrap()
+                } else {
+                    map.random_loc(player.id, true).unwrap()
+                }),
+                Behavior::Dig(loc) => map
+                    .find_tunnel(&current_loc, &loc)
+                    .and_then(|path| path.into_iter().find(|l| !map.is_walkable(l)))
+                    .map(|loc| Action::Walk(loc))
+                    .unwrap_or_else(|| {
+                        ant.command = None;
+                        Action::Idle
+                    }),
+                Behavior::DigRandom => Action::Walk(
                     map.random_dig_loc(None, player.id)
                         .unwrap_or(map.random_loc(player.id, false).unwrap()),
                 ),
@@ -652,7 +656,7 @@ pub fn resolve_targeted_walk_action(
                     } else if team.0 == ant.team && corpse_q.get(entity).is_err() {
                         if matches!(
                             ant.get_behavior(),
-                            Behavior::Harvest(_) | Behavior::HarvestRandom
+                            Behavior::Harvest(_) | Behavior::HarvestCorpse(_) | Behavior::HarvestRandom
                         ) {
                             // Ant reached the queen -> deposit food
                             player.resources += &ant.carry;
@@ -733,7 +737,7 @@ pub fn resolve_walk_action(
                             Action::Idle
                         }
                     }
-                    Behavior::Dig => {
+                    Behavior::Dig(_) | Behavior::DigRandom => {
                         if map.is_walkable(&current_loc) {
                             // The tile could have been dug while it was getting there
                             Action::Idle

@@ -88,7 +88,9 @@ pub fn spawn_enemies(
                                 ..default()
                             },
                         });
-                    } else if tile.texture_index == 65 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
+                    } else if tile.texture_index == 65
+                        && rng().random::<f32>() < MONSTER_SPAWN_CHANCE
+                    {
                         // Create random termite queue
                         let mut queue = vec![];
                         for _ in 1..=rng().random_range(2..=10) {
