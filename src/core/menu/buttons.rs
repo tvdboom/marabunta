@@ -7,7 +7,7 @@ use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
-use crate::core::player::{AntColor, Player};
+use crate::core::player::{AntColor, Player, Players};
 use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -39,29 +39,27 @@ pub fn on_click_menu_button(
     trigger: Trigger<Pointer<Click>>,
     mut commands: Commands,
     btn_q: Query<&MenuBtn>,
+    server: Option<ResMut<RenetServer>>,
+    mut client: Option<ResMut<RenetClient>>,
+    mut game_settings: ResMut<GameSettings>,
     mut load_game_ev: EventWriter<LoadGameEv>,
     mut save_game_ev: EventWriter<SaveGameEv>,
     app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    server: Option<ResMut<RenetServer>>,
-    mut client: Option<ResMut<RenetClient>>,
 ) {
     match btn_q.get(trigger.entity()).unwrap() {
         MenuBtn::Singleplayer => {
             next_app_state.set(AppState::SinglePlayerMenu);
         }
         MenuBtn::NewGame => {
-            let game_settings = GameSettings {
-                mode: GameMode::SinglePlayer,
-                ..default()
-            };
-            let map = create_map(&game_settings);
+            let players = (0..game_settings.n_players)
+                .map(|id| Player::new(id, game_settings.color.inverse()))
+                .collect::<Vec<_>>();
 
-            commands.insert_resource(game_settings);
-            commands.insert_resource(Player::new(0, AntColor::Black));
-            commands.insert_resource(map);
-
+            game_settings.mode = GameMode::SinglePlayer;
+            commands.insert_resource(create_map(&players));
+            commands.insert_resource(Players(players));
             next_app_state.set(AppState::Game);
         }
         MenuBtn::LoadGame => {
@@ -97,11 +95,12 @@ pub fn on_click_menu_button(
             let mut ids = vec![0];
             ids.extend(server.clients_id());
 
-            let game_settings = GameSettings {
-                mode: GameMode::MultiPlayer(ids),
-                ..default()
-            };
-            let map = create_map(&game_settings);
+            let players = ids
+                .iter()
+                .map(|id| Player::new(*id, game_settings.color.inverse()))
+                .collect::<Vec<_>>();
+
+            let map = create_map(&players);
 
             // Send the start game signal to all clients with their player id
             for client in server.clients_id().iter() {
@@ -115,8 +114,8 @@ pub fn on_click_menu_button(
                 server.send_message(*client, DefaultChannel::ReliableOrdered, message);
             }
 
-            commands.insert_resource(game_settings);
-            commands.insert_resource(Player::new(0, AntColor::Black)); // The host is player 0
+            game_settings.mode = GameMode::MultiPlayer(ids);
+            commands.insert_resource(Players(players));
             commands.insert_resource(map);
 
             next_app_state.set(AppState::Game);

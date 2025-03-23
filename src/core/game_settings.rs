@@ -1,5 +1,6 @@
 use crate::core::ants::components::Ant;
 use crate::core::constants::{ENEMY_TIMER, TRAIT_TIMER};
+use crate::core::player::{AntColor, Player};
 use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -17,6 +18,8 @@ pub struct GameSettings {
     pub mode: GameMode,
     pub audio: AudioState,
     pub speed: f32,
+    pub color: AntColor,
+    pub n_players: u64,
     pub trait_timer: Timer,
     pub enemy_timer: Timer,
     pub termite_queue: HashMap<(u32, u32), Vec<Ant>>,
@@ -26,8 +29,10 @@ impl Default for GameSettings {
     fn default() -> Self {
         Self {
             mode: GameMode::SinglePlayer,
-            speed: 1.0,
             audio: AudioState::default(),
+            speed: 1.0,
+            color: AntColor::Black,
+            n_players: 2,
             trait_timer: Timer::from_seconds(TRAIT_TIMER, TimerMode::Repeating),
             enemy_timer: Timer::from_seconds(ENEMY_TIMER, TimerMode::Repeating),
             termite_queue: HashMap::new(),

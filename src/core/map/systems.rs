@@ -3,7 +3,6 @@ use crate::core::ants::events::SpawnAntEv;
 use crate::core::assets::WorldAssets;
 use crate::core::camera::{clamp_to_rect, MainCamera};
 use crate::core::constants::TILE_Z_SCORE;
-use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
@@ -15,45 +14,42 @@ use std::f32::consts::PI;
 #[derive(Component)]
 pub struct MapCmp;
 
-pub fn create_map(game_settings: &GameSettings) -> Map {
-    match &game_settings.mode {
-        GameMode::SinglePlayer => {
-            // Insert base in the center of the map
-            let mut map = Map::from_base(
-                UVec2::new(Map::MAP_SIZE.x / 2 - 2, Map::MAP_SIZE.y / 2 - 2),
-                0,
-            );
-            map.insert_holes(10);
-            map
+pub fn create_map(players: &Vec<Player>) -> Map {
+    let mut map = Map::default();
+
+    if players.len() == 1 {
+        // Insert base in the center of the map
+        map.insert_base(
+            &UVec2::new(Map::MAP_SIZE.x / 2 - 2, Map::MAP_SIZE.y / 2 - 2),
+            0,
+        )
+        .insert_holes(10);
+    } else {
+        map.insert_holes(12 - 2 * players.len());
+
+        // Insert bases at random locations
+        let mut bases: Vec<UVec2> = Vec::new();
+
+        while bases.len() < players.len() {
+            let candidate = UVec2 {
+                x: rng().random_range(5..Map::MAP_SIZE.x - 5),
+                y: rng().random_range(5..Map::MAP_SIZE.y - 5),
+            };
+
+            if bases
+                .iter()
+                .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 4.)
+            {
+                bases.push(candidate);
+            }
         }
-        GameMode::MultiPlayer(ids) => {
-            let mut map = Map::default();
-            map.insert_holes(8);
 
-            // Insert bases at random locations
-            let mut bases: Vec<UVec2> = Vec::new();
-
-            while bases.len() < ids.len() {
-                let candidate = UVec2 {
-                    x: rng().random_range(5..Map::MAP_SIZE.x - 5),
-                    y: rng().random_range(5..Map::MAP_SIZE.y - 5),
-                };
-
-                if bases
-                    .iter()
-                    .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 4.)
-                {
-                    bases.push(candidate);
-                }
-            }
-
-            for (id, base) in ids.iter().zip(bases) {
-                map.insert_base(&base, *id);
-            }
-
-            map
+        for (player, base) in players.iter().zip(bases) {
+            map.insert_base(&base, player.id);
         }
     }
+
+    map
 }
 
 pub fn draw_map(

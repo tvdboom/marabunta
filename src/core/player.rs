@@ -7,13 +7,25 @@ use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
+#[derive(Resource)]
+pub struct Players(pub Vec<Player>);
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AntColor {
     Black,
     Red,
 }
 
-#[derive(Resource, Clone, Serialize, Deserialize)]
+impl AntColor {
+    pub fn inverse(&self) -> Self {
+        match self {
+            AntColor::Black => AntColor::Red,
+            AntColor::Red => AntColor::Black,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Player {
     pub id: ClientId,
     pub color: AntColor,

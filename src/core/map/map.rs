@@ -122,12 +122,6 @@ impl Map {
     /// Number of tiles in the texture
     pub const TEXTURE_SIZE: UVec2 = UVec2::new(8, 9);
 
-    // Constructors ===========================================================
-
-    pub fn from_base(pos: UVec2, id: ClientId) -> Self {
-        Self::default().insert_base(&pos, id).clone()
-    }
-
     // Building methods =======================================================
 
     pub fn insert_holes(&mut self, n: usize) -> &mut Self {
@@ -486,7 +480,7 @@ impl Map {
             |loc| {
                 self.get_neighbors(loc)
                     .into_iter()
-                    .filter(|l| self.is_walkable(l) || l == end) // Allow the last loc to be a wall
+                    .filter(|l| self.is_walkable(l) || l == start || l == end)
                     .map(|l| (l, 1))
                     .collect::<Vec<_>>()
             },

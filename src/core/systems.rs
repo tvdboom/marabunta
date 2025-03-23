@@ -17,8 +17,6 @@ use rand::{rng, Rng};
 use std::f32::consts::PI;
 
 pub fn initialize_game(mut commands: Commands) {
-    commands.insert_resource(GameSettings::default());
-    commands.insert_resource(Player::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
     commands.insert_resource(AntSelection::default());

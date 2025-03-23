@@ -252,6 +252,7 @@ pub fn resolve_harvesting(
                     tile.leaf = None;
                 }
             } else {
+                ant.command = None;
                 ant.action = Action::Idle;
             }
         }
@@ -579,6 +580,11 @@ pub fn resolve_idle_action(
                         Action::Walk(map.random_loc(player.id, false).unwrap())
                     }
                 }
+                Behavior::Heal(_) => {
+                    // Reset behavior
+                    ant.behavior = AntCmp::base(&ant.kind).behavior;
+                    Action::Idle
+                }
                 Behavior::ProtectAnt(entity) => {
                     // Walk randomly but stay close to the protected ant
                     if let Some((t, _)) = ants.get(entity) {
@@ -601,7 +607,6 @@ pub fn resolve_idle_action(
                     )
                 }
                 Behavior::Wander => Action::Walk(map.random_loc(player.id, false).unwrap()),
-                _ => unreachable!(),
             };
         }
     }
@@ -656,7 +661,9 @@ pub fn resolve_targeted_walk_action(
                     } else if team.0 == ant.team && corpse_q.get(entity).is_err() {
                         if matches!(
                             ant.get_behavior(),
-                            Behavior::Harvest(_) | Behavior::HarvestCorpse(_) | Behavior::HarvestRandom
+                            Behavior::Harvest(_)
+                                | Behavior::HarvestCorpse(_)
+                                | Behavior::HarvestRandom
                         ) {
                             // Ant reached the queen -> deposit food
                             player.resources += &ant.carry;
@@ -897,24 +904,21 @@ pub fn update_vision(
             visible_tiles.extend(reveal_tiles(current_tile, &map, None, 0))
         });
 
-    // Add stone tiles with 2 or more revealed neighbors to the list
-    tile_q
-        .iter()
-        .filter(|(_, _, t)| t.has_stone)
-        .for_each(|(_, _, t)| {
-            let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                .iter()
-                .filter(|(dx, dy)| {
-                    let nx = t.x as i32 + dx;
-                    let ny = t.y as i32 + dy;
-                    nx >= 0 && ny >= 0 && visible_tiles.contains(&(nx as u32, ny as u32))
-                })
-                .count();
+    // Add tiles with 2 or more revealed neighbors to the list
+    tile_q.iter().for_each(|(_, _, t)| {
+        let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+            .iter()
+            .filter(|(dx, dy)| {
+                let nx = t.x as i32 + dx;
+                let ny = t.y as i32 + dy;
+                nx >= 0 && ny >= 0 && visible_tiles.contains(&(nx as u32, ny as u32))
+            })
+            .count();
 
-            if visible_neighbors >= 2 {
-                visible_tiles.insert((t.x, t.y));
-            }
-        });
+        if visible_neighbors >= 2 {
+            visible_tiles.insert((t.x, t.y));
+        }
+    });
 
     // Spawn new tiles if they are visible
     visible_tiles.iter().for_each(|(x, y)| {
