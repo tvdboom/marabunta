@@ -6,10 +6,11 @@ use crate::core::constants::TILE_Z_SCORE;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
-use crate::core::player::Player;
+use crate::core::player::{Player, Players};
 use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use bevy::reflect::Set;
 
 #[derive(Component)]
 pub struct MapCmp;
@@ -57,10 +58,12 @@ pub fn draw_map(
     mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    players: Res<Players>,
     map: Res<Map>,
-    player: Res<Player>,
     assets: Local<WorldAssets>,
 ) {
+    let player = players.get(0);
+
     for (i, tile) in map.world(player.id).iter_mut().enumerate() {
         let pos = Vec2::new(
             Map::WORLD_VIEW.min.x + Tile::SIZE * ((i as u32 % Map::WORLD_SIZE.x) as f32 + 0.5),
@@ -100,13 +103,15 @@ pub fn draw_map(
                 },
             });
 
-            // Place camera on top of base
-            let (mut camera_t, projection) = camera_q.single_mut();
-            let view_size = projection.area.max - projection.area.min;
+            if tile.visible.contains(&0) {
+                // Place camera on top of the player's base
+                let (mut camera_t, projection) = camera_q.single_mut();
+                let view_size = projection.area.max - projection.area.min;
 
-            // Clamp camera position within bounds
-            let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
-            camera_t.translation = target_pos.extend(camera_t.translation.z);
+                // Clamp camera position within bounds
+                let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
+                camera_t.translation = target_pos.extend(camera_t.translation.z);
+            }
         }
     }
 }

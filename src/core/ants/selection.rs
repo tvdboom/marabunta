@@ -1,7 +1,7 @@
 use crate::core::ants::components::{Action, Ant, AntCmp, Behavior};
 use crate::core::map::map::Map;
 use crate::core::map::tile::Leaf;
-use crate::core::player::Player;
+use crate::core::player::Players;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
@@ -23,13 +23,14 @@ pub struct SelectionBox {
 pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
     keyboard: Res<ButtonInput<KeyCode>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
+    let player = players.get(0);
     let (camera, global_t) = *camera;
 
     match trigger.event.button {
@@ -83,10 +84,12 @@ pub fn select_leaf_on_click(
     mut trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
     selection: Res<AntSelection>,
 ) {
+    let player = players.get(0);
+
     if trigger.event.button == PointerButton::Secondary {
         if let Ok((leaf_e, leaf_t)) = leaf_q.get(trigger.entity()) {
             let loc = map.get_loc(&leaf_t.translation());
@@ -125,7 +128,7 @@ pub fn select_leaf_on_click(
 pub fn select_ant_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
     mut select_ants_ev: EventWriter<SelectAntEv>,
     selection: Res<AntSelection>,
@@ -134,6 +137,7 @@ pub fn select_ant_on_click(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
+    let player = players.get(0);
     let (camera, global_t) = *camera;
 
     let (ant_e, ant_t, ant) = ant_q.get(trigger.entity()).unwrap();
@@ -225,13 +229,14 @@ pub fn select_ants_from_rect(
     mut gizmos: Gizmos,
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
     mut select_ants_ev: EventWriter<SelectAntEv>,
-    player: Res<Player>,
+    players: Res<Players>,
     mut sbox: Local<SelectionBox>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
+    let player = players.get(0);
     let (camera, global_t) = *camera;
 
     // If shift is pressed, the camera moves

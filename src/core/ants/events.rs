@@ -4,7 +4,7 @@ use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
 use crate::core::map::systems::MapCmp;
-use crate::core::player::Player;
+use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
@@ -44,8 +44,10 @@ pub struct DamageAntEv {
 pub fn queue_ant_event(
     mut queue_ant_ev: EventReader<QueueAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
-    mut player: ResMut<Player>,
+    mut players: ResMut<Players>,
 ) {
+    let player = players.get_mut(0);
+
     for ev in queue_ant_ev.read() {
         let ant_c = AntCmp::base(&ev.ant);
 
@@ -71,10 +73,12 @@ pub fn queue_ant_event(
 pub fn spawn_egg_event(
     mut commands: Commands,
     mut spawn_egg_ev: EventReader<SpawnEggEv>,
-    player: Res<Player>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
+        let player = players.get(ant.owner);
+
         let health_factor = if player.has_trait(&Trait::Breeding) {
             2. * EGG_HEALTH_FACTOR
         } else {
@@ -141,14 +145,15 @@ pub fn spawn_egg_event(
 pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
-    mut player: ResMut<Player>,
+    mut players: ResMut<Players>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
-        let atlas = assets.atlas(&ant.atlas(&ant.animation()));
+        let player = players.get_mut(ant.owner);
 
+        let atlas = assets.atlas(&ant.atlas(&ant.animation()));
         commands
             .spawn((
                 Sprite {
@@ -265,10 +270,10 @@ pub fn despawn_ant_event(
     mut commands: Commands,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    player: Res<Player>,
+    players: Res<Players>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        if player.colony[&Ant::Queen] == 0 {
+        if players.get(0).colony[&Ant::Queen] == 0 {
             next_game_state.set(GameState::GameOver);
         } else {
             commands.entity(*entity).despawn_recursive();
@@ -283,28 +288,35 @@ pub fn damage_event(
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-    mut player: ResMut<Player>,
+    mut players: ResMut<Players>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
-        let mut damage = ant_q.get(*attacker).unwrap().1.damage;
+        let attacker = ant_q.get(*attacker).unwrap().1;
+        let player_a = players.get(attacker.owner);
+        let damage = attacker.damage;
 
         if let Ok((mut ant_t, mut ant_c)) = ant_q.get_mut(*defender) {
             // Apply extra bonus factors against monsters
-            if (ant_c.kind.is_scorpion() && player.has_trait(&Trait::ScorpionKiller))
-                || (ant_c.kind == Ant::Wasp && player.has_trait(&Trait::WaspKiller))
-                || (ant_c.kind.is_termite() && player.has_trait(&Trait::TermiteKiller))
-            {
-                damage *= 2.;
-            }
+            let damage = damage
+                * if (ant_c.kind.is_scorpion() && player_a.has_trait(&Trait::ScorpionKiller))
+                    || (ant_c.kind == Ant::Wasp && player_a.has_trait(&Trait::WaspKiller))
+                    || (ant_c.kind.is_termite() && player_a.has_trait(&Trait::TermiteKiller))
+                {
+                    2.
+                } else {
+                    1.
+                };
 
             ant_c.health = (ant_c.health - damage).max(0.);
 
             if ant_c.health == 0. && !matches!(ant_c.action, Action::Die(_)) {
+                let player_d = players.get_mut(ant_c.owner);
+
                 commands.entity(*defender).insert(Corpse);
 
                 ant_c.action = Action::Die(Timer::from_seconds(
                     DEATH_TIME
-                        * if player.has_trait(&Trait::Corpses) {
+                        * if player_d.has_trait(&Trait::Corpses) {
                             2.
                         } else {
                             1.
@@ -314,13 +326,13 @@ pub fn damage_event(
 
                 ant_t.translation.z = ANT_Z_SCORE;
 
-                if player.controls(&ant_c) {
-                    player.colony.entry(ant_c.kind.clone()).and_modify(|c| {
+                if player_d.controls(&ant_c) {
+                    player_d.colony.entry(ant_c.kind.clone()).and_modify(|c| {
                         *c = c.saturating_sub(1);
                     });
 
                     // If the queen died, you lost the game
-                    if player.colony[&Ant::Queen] == 0 {
+                    if player_d.colony[&Ant::Queen] == 0 {
                         play_audio_ev.send(PlayAudioEv::new("game-over"));
                     }
                 }

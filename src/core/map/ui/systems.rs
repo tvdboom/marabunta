@@ -5,7 +5,7 @@ use crate::core::constants::MAX_QUEUE_LENGTH;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text, despawn_ui};
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::player::Player;
+use crate::core::player::Players;
 use crate::core::traits::{Trait, TraitCmp, TraitSelectedEv};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -149,10 +149,12 @@ pub fn trait_hover_info_panel(
 
 pub fn draw_ui(
     mut commands: Commands,
-    player: Res<Player>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
+    let player = players.get(0);
+
     commands
         .spawn((
             Node {
@@ -432,9 +434,11 @@ pub fn update_ui(
         (&mut Visibility, &mut ImageNode, &mut QueueButtonCmp),
         Without<QueueLarvaCmp>,
     >,
-    player: Res<Player>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
 ) {
+    let player = players.get(0);
+
     // Update the resource labels
     leaves_q.get_single_mut().unwrap().0 = format!("{:.0}", player.resources.leaves);
     nutrients_q.get_single_mut().unwrap().0 = format!("{:.0}", player.resources.nutrients);
@@ -484,8 +488,10 @@ pub fn on_click_colony_button(
 pub fn on_click_queue_button(
     trigger: Trigger<Pointer<Click>>,
     btn_q: Query<&QueueButtonCmp>,
-    mut player: ResMut<Player>,
+    mut players: ResMut<Players>,
 ) {
+    let player = players.get_mut(0);
+
     if trigger.event.button == PointerButton::Secondary {
         if let Ok(QueueButtonCmp(i, _)) = btn_q.get(trigger.entity()) {
             if let Some(ant) = player.queue.get(*i) {
@@ -499,16 +505,21 @@ pub fn on_click_queue_button(
 
 pub fn select_trait(t: Trait) -> impl FnMut(Trigger<Pointer<Click>>, EventWriter<TraitSelectedEv>) {
     move |_, mut trait_selected_ev: EventWriter<TraitSelectedEv>| {
-        trait_selected_ev.send(TraitSelectedEv(t));
+        trait_selected_ev.send(TraitSelectedEv {
+            id: 0,
+            selected: t.clone(),
+        });
     }
 }
 
 pub fn setup_trait_selection(
     mut commands: Commands,
-    player: Res<Player>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
+    let player = players.get(0);
+
     let traits = Trait::iter()
         .filter(|t| !player.has_trait(&t))
         .choose_multiple(&mut rng(), 3);

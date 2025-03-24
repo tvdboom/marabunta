@@ -1,6 +1,6 @@
 use crate::core::ants::components::Ant;
 use crate::core::constants::{ENEMY_TIMER, TRAIT_TIMER};
-use crate::core::player::{AntColor, Player};
+use crate::core::player::AntColor;
 use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;

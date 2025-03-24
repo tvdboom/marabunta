@@ -1,5 +1,5 @@
 use crate::core::game_settings::GameSettings;
-use crate::core::player::Player;
+use crate::core::player::Players;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub type PopulationT = HashMap<Entity, (Transform, AntCmp)>;
 #[derive(Serialize, Deserialize)]
 pub struct SaveAll {
     pub game_settings: GameSettings,
-    pub player: Player,
+    pub players: Players,
     pub map: Map,
     pub population: PopulationT,
 }
@@ -61,7 +61,7 @@ pub fn load_game(
             next_audio_state.set(data.game_settings.audio);
             commands.insert_resource(data.game_settings);
 
-            commands.insert_resource(data.player);
+            commands.insert_resource(data.players);
             commands.insert_resource(data.map);
 
             for (_, (transform, ant)) in data.population {
@@ -77,7 +77,7 @@ pub fn load_game(
 pub fn save_game(
     mut save_game_ev: EventReader<SaveGameEv>,
     game_settings: Res<GameSettings>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
 ) {
@@ -90,7 +90,7 @@ pub fn save_game(
             let file_path_str = file_path.to_string_lossy().to_string();
             let data = SaveAll {
                 game_settings: game_settings.clone(),
-                player: player.clone(),
+                players: players.clone(),
                 map: map.clone(),
                 population: ant_q
                     .iter()

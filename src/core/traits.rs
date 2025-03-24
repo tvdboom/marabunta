@@ -2,10 +2,11 @@ use crate::core::ants::components::{Action, Ant, AntCmp, Corpse};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
 use crate::core::audio::PlayAudioEv;
-use crate::core::player::Player;
+use crate::core::player::Players;
 use crate::core::resources::Resources;
 use crate::core::states::GameState;
 use bevy::prelude::*;
+use bevy_renet::renet::ClientId;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
@@ -228,7 +229,10 @@ impl TraitCmp {
 }
 
 #[derive(Event)]
-pub struct TraitSelectedEv(pub Trait);
+pub struct TraitSelectedEv {
+    pub id: ClientId,
+    pub selected: Trait,
+}
 
 pub fn select_trait_event(
     mut commands: Commands,
@@ -236,14 +240,16 @@ pub fn select_trait_event(
     mut trait_selected_ev: EventReader<TraitSelectedEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
-    mut player: ResMut<Player>,
+    mut players: ResMut<Players>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     for ev in trait_selected_ev.read() {
-        play_audio_ev.send(PlayAudioEv::new("button"));
-        player.traits.push(ev.0.clone());
+        let player = players.get_mut(ev.id);
 
-        match ev.0 {
+        play_audio_ev.send(PlayAudioEv::new("button"));
+        player.traits.push(ev.selected.clone());
+
+        match ev.selected {
             Trait::DoubleQueen => {
                 spawn_ant_ev.send(SpawnAntEv {
                     ant: AntCmp::new(&Ant::Queen, &player),

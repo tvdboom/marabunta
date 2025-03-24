@@ -4,7 +4,7 @@ use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::persistence::{PopulationT, SaveAll};
-use crate::core::player::{AntColor, Player};
+use crate::core::player::{AntColor, Player, Players};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -133,14 +133,14 @@ pub fn server_send_status(
     mut server: ResMut<RenetServer>,
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
     game_settings: Res<GameSettings>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
     game_state: Res<State<GameState>>,
 ) {
     let status = bincode::serialize(&ServerMessage::Status {
         save: SaveAll {
             game_settings: game_settings.clone(),
-            player: player.clone(),
+            players: players.clone(),
             map: map.clone(),
             population: ant_q
                 .iter()
@@ -179,9 +179,11 @@ pub fn server_receive_status(
 pub fn client_send_status(
     mut client: ResMut<RenetClient>,
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
-    player: Res<Player>,
+    players: Res<Players>,
     map: Res<Map>,
 ) {
+    let player = players.get(0);
+
     let status = bincode::serialize(&ClientMessage::Status {
         map: map.clone(),
         population: ant_q
@@ -196,12 +198,14 @@ pub fn client_receive_message(
     mut commands: Commands,
     mut n_players_q: Query<&mut Text, With<LobbyTextCmp>>,
     mut client: ResMut<RenetClient>,
-    player: Res<Player>,
+    players: Res<Players>,
     mut map: ResMut<Map>,
     mut population: ResMut<Population>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
+    let player = players.get(0);
+
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         match bincode::deserialize(&message).unwrap() {
             ServerMessage::NPlayers(i) => {
@@ -215,7 +219,7 @@ pub fn client_receive_message(
                 settings,
                 map,
             } => {
-                commands.insert_resource(Player::new(id, color));
+                commands.insert_resource(Players(Vec::from([Player::new(id, color)])));
                 commands.insert_resource(settings);
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);

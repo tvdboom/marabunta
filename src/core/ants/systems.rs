@@ -10,7 +10,7 @@ use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::{Leaf, Tile};
 use crate::core::map::utils::reveal_tiles;
-use crate::core::player::{Player, Players};
+use crate::core::player::Players;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use crate::core::utils::{collision, scale_duration};
@@ -31,14 +31,16 @@ pub fn hatch_eggs(
     time: Res<Time>,
 ) {
     for (egg_e, mut egg, egg_t) in egg_q.iter_mut() {
-        egg.timer.tick(scale_duration(
+        let time = scale_duration(
             scale_duration(time.delta(), game_settings.speed),
             if players.get(egg.owner).has_trait(&Trait::Breeding) {
                 HATCH_SPEED_FACTOR
             } else {
                 1.
             },
-        ));
+        );
+
+        egg.timer.tick(time);
 
         if egg.timer.just_finished() {
             spawn_ant_ev.send(SpawnAntEv {
@@ -377,11 +379,9 @@ pub fn resolve_pre_action(
         // Worker ants collect nutrients when close to a corpse
         if ant.kind == Ant::Worker {
             for (corpse_e, corpse_t) in corpse_q.iter() {
-                if map.distance(
-                    &map.get_loc(&ant_t.translation),
-                    &map.get_loc(&corpse_t.translation),
-                ) <= MAX_DISTANCE_PROTECT
-                {
+                let ant_loc = map.get_loc(&ant_t.translation);
+                let corpse_loc = map.get_loc(&corpse_t.translation);
+                if map.distance(&ant_loc, &corpse_loc) <= MAX_DISTANCE_PROTECT {
                     ant.command = Some(Behavior::HarvestCorpse(corpse_e));
                     ant.action = Action::TargetedWalk(corpse_e);
                     continue 'ant;
@@ -673,9 +673,7 @@ pub fn resolve_targeted_walk_action(
                 } else if team.0 == ant.team && corpse_q.get(entity).is_err() {
                     if matches!(
                         ant.get_behavior(),
-                        Behavior::Harvest(_)
-                            | Behavior::HarvestCorpse(_)
-                            | Behavior::HarvestRandom
+                        Behavior::Harvest(_) | Behavior::HarvestCorpse(_) | Behavior::HarvestRandom
                     ) {
                         // Ant reached the queen -> deposit food
                         player.resources += &ant.carry;
@@ -988,9 +986,7 @@ pub fn queue_ants_keyboard(
     players: Res<Players>,
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
-    let player = players.get(0);
-
-    for ant in Ant::iter().filter(|a| player.has_ant(a)) {
+    for ant in Ant::iter().filter(|a| players.get(0).has_ant(a)) {
         if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
             queue_ant_ev.send(QueueAntEv { ant });
         }

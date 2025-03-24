@@ -3,7 +3,6 @@ use crate::core::constants::{GAME_SPEED_STEP, MAX_GAME_SPEED, MAX_Z_SCORE};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::ui::utils::add_root_node;
 use crate::core::map::ui::utils::add_text;
-use crate::core::player::Player;
 use crate::core::states::{AppState, GameState};
 use bevy::color::palettes::basic::WHITE;
 use bevy::prelude::*;
@@ -51,44 +50,40 @@ pub fn unpause_game(
 
 pub fn toggle_pause_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
-    player: Res<Player>,
     game_state: Res<State<GameState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut game_settings: ResMut<GameSettings>,
 ) {
-    // Only the host can pause the game in multiplayer mode
-    if player.id == 0 {
-        if keyboard.just_pressed(KeyCode::Escape) {
-            match game_state.get() {
-                GameState::Running => next_game_state.set(GameState::InGameMenu),
-                GameState::Paused => next_game_state.set(GameState::InGameMenu),
-                GameState::InGameMenu => next_game_state.set(GameState::Running),
-                GameState::TraitSelection => (),
-                GameState::GameOver => next_app_state.set(AppState::MainMenu),
+    if keyboard.just_pressed(KeyCode::Escape) {
+        match game_state.get() {
+            GameState::Running => next_game_state.set(GameState::InGameMenu),
+            GameState::Paused => next_game_state.set(GameState::InGameMenu),
+            GameState::InGameMenu => next_game_state.set(GameState::Running),
+            GameState::TraitSelection => (),
+            GameState::GameOver => next_app_state.set(AppState::MainMenu),
+        }
+    }
+
+    if keyboard.just_pressed(KeyCode::Space) {
+        match game_state.get() {
+            GameState::Running => next_game_state.set(GameState::Paused),
+            GameState::Paused => next_game_state.set(GameState::Running),
+            _ => (),
+        }
+    }
+
+    if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+        if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
+            game_settings.speed -= GAME_SPEED_STEP;
+            if game_settings.speed == 0. {
+                next_game_state.set(GameState::Paused);
             }
         }
-
-        if keyboard.just_pressed(KeyCode::Space) {
-            match game_state.get() {
-                GameState::Running => next_game_state.set(GameState::Paused),
-                GameState::Paused => next_game_state.set(GameState::Running),
-                _ => (),
-            }
-        }
-
-        if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
-            if keyboard.just_pressed(KeyCode::ArrowLeft) && game_settings.speed >= GAME_SPEED_STEP {
-                game_settings.speed -= GAME_SPEED_STEP;
-                if game_settings.speed == 0. {
-                    next_game_state.set(GameState::Paused);
-                }
-            }
-            if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
-                game_settings.speed += GAME_SPEED_STEP;
-                if game_settings.speed == GAME_SPEED_STEP {
-                    next_game_state.set(GameState::Running);
-                }
+        if keyboard.just_pressed(KeyCode::ArrowRight) && game_settings.speed <= MAX_GAME_SPEED {
+            game_settings.speed += GAME_SPEED_STEP;
+            if game_settings.speed == GAME_SPEED_STEP {
+                next_game_state.set(GameState::Running);
             }
         }
     }

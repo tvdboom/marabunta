@@ -21,7 +21,6 @@ use crate::core::ants::selection::remove_command_from_selection;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
-use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
@@ -73,8 +72,6 @@ impl Plugin for GamePlugin {
             .add_event::<DamageAntEv>()
             .add_event::<SelectAntEv>()
             .add_event::<TraitSelectedEv>()
-            // Resources
-            .init_resource::<GameSettings>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))

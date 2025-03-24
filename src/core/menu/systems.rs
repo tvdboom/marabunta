@@ -25,6 +25,7 @@ pub fn setup_menu(
                     top: Val::VMin(8.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
+                    margin: UiRect::ZERO.with_bottom(Val::Percent(5.)),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -37,6 +38,7 @@ pub fn setup_menu(
                     #[cfg(not(target_arch = "wasm32"))]
                     {
                         spawn_menu_button(parent, MenuBtn::Multiplayer, &assets, &window);
+                        spawn_menu_button(parent, MenuBtn::Settings, &assets, &window);
                         spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
                     }
                 }
@@ -91,14 +93,19 @@ pub fn setup_menu(
                 AppState::Settings => {
                     parent.spawn((
                         Node {
-                            width: Val::Percent(20.),
+                            width: Val::Percent(40.),
                             flex_direction: FlexDirection::Column,
                             padding: UiRect::all(Val::Percent(1.5)),
                             ..default()
                         },
-                        BackgroundColor(Color::srgba_u8(88, 57, 39, 200)),
+                        BackgroundColor(Color::srgba_u8(88, 57, 39, 0)),
                         BorderRadius::all(Val::Px(10.)),
-                    ));
+                    ))
+                        .with_children(|parent| {
+                            parent.spawn(add_text("Settings", "bold", 30., &assets, &window));
+
+                            parent.spawn(add_text("Color", "bold", 20., &assets, &window));
+                        });
                     spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
                 }
                 _ => (),

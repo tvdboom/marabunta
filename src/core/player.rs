@@ -7,8 +7,14 @@ use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
-#[derive(Resource)]
+#[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Players(pub Vec<Player>);
+
+impl Default for Players {
+    fn default() -> Self {
+        Self(vec![Player::default()])
+    }
+}
 
 impl Players {
     pub fn get(&self, id: ClientId) -> &Player {
