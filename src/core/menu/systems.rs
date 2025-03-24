@@ -88,6 +88,19 @@ pub fn setup_menu(
 
                     spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
                 }
+                AppState::Settings => {
+                    parent.spawn((
+                        Node {
+                            width: Val::Percent(20.),
+                            flex_direction: FlexDirection::Column,
+                            padding: UiRect::all(Val::Percent(1.5)),
+                            ..default()
+                        },
+                        BackgroundColor(Color::srgba_u8(88, 57, 39, 200)),
+                        BorderRadius::all(Val::Px(10.)),
+                    ));
+                    spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
+                }
                 _ => (),
             }
 

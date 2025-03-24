@@ -198,15 +198,14 @@ pub enum Action {
 
 #[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct AntCmp {
+    /// Player id of the ant's owner
+    pub owner: ClientId,
+
     /// Ant type
     pub kind: Ant,
 
     /// Key used to create this ant
     pub key: Option<KeyCode>,
-
-    /// Player id of the ant's owner
-    /// In singleplayer mode, this is always the same value
-    pub owner: ClientId,
 
     /// Team the ant corresponds to
     pub team: u64,
@@ -261,9 +260,9 @@ pub struct AntCmp {
 impl Default for AntCmp {
     fn default() -> Self {
         Self {
+            owner: 0,
             kind: Ant::Worker,
             key: None,
-            owner: 0,
             team: 0,
             color: None,
             scale: 0.03,

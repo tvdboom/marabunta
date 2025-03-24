@@ -556,13 +556,18 @@ impl Map {
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
-    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>, id: ClientId) -> Tile {
+    pub fn find_tile(
+        &self,
+        tile: &Tile,
+        directions: &HashSet<Direction>,
+        ids: &Vec<ClientId>,
+    ) -> Tile {
         let mut possible_tiles = vec![];
 
         for texture_index in 0..Tile::MASKS.len() {
             for &rotation in &Tile::ANGLES {
                 let mut tile_clone = tile.clone();
-                tile_clone.visible.insert(id);
+                tile_clone.visible.extend(ids.clone());
 
                 let new_t = Tile {
                     texture_index,
@@ -596,16 +601,13 @@ impl Map {
         &mut self,
         tile: &Tile,
         directions: &HashSet<Direction>,
-        id: ClientId,
+        ids: Vec<ClientId>,
     ) {
         // Replace the tile dug
-        let mut new_t = self.find_tile(tile, directions, id);
+        let mut new_t = self.find_tile(tile, directions, &ids);
 
         // Add (possibly) a leaf on newly dug tiles
-        if new_t.leaf.is_none()
-            && !tile.visible.contains(&id)
-            && rng().random::<f32>() < TILE_LEAF_CHANCE
-        {
+        if new_t.leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
             new_t.leaf = Some(Leaf::new())
         }
 
@@ -614,7 +616,7 @@ impl Map {
         // Replace tiles in the provided directions
         for dir in directions.iter() {
             if let Some(t) = self.get_adjacent_tile(tile.x, tile.y, &dir.opposite()) {
-                let new_t = self.find_tile(t, &HashSet::new(), id);
+                let new_t = self.find_tile(t, &HashSet::new(), &ids);
                 self.replace_tile(&new_t);
             }
         }

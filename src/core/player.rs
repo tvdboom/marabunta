@@ -10,6 +10,16 @@ use std::collections::VecDeque;
 #[derive(Resource)]
 pub struct Players(pub Vec<Player>);
 
+impl Players {
+    pub fn get(&self, id: ClientId) -> &Player {
+        self.0.iter().find(|p| p.id == id).unwrap()
+    }
+
+    pub fn get_mut(&mut self, id: ClientId) -> &mut Player {
+        self.0.iter_mut().find(|p| p.id == id).unwrap()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AntColor {
     Black,

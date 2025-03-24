@@ -29,6 +29,7 @@ pub enum MenuBtn {
     Back,
     Continue,
     SaveGame,
+    Settings,
     Quit,
 }
 
@@ -53,9 +54,9 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::SinglePlayerMenu);
         }
         MenuBtn::NewGame => {
-            let players = (0..game_settings.n_players)
-                .map(|id| Player::new(id, game_settings.color.inverse()))
-                .collect::<Vec<_>>();
+            let mut players = Vec::from([Player::new(0, game_settings.color.clone())]);
+            (1..game_settings.n_players)
+                .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
 
             game_settings.mode = GameMode::SinglePlayer;
             commands.insert_resource(create_map(&players));
@@ -121,7 +122,7 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::Game);
         }
         MenuBtn::Back => match *app_state.get() {
-            AppState::SinglePlayerMenu | AppState::MultiPlayerMenu => {
+            AppState::SinglePlayerMenu | AppState::MultiPlayerMenu | AppState::Settings => {
                 next_app_state.set(AppState::MainMenu);
             }
             AppState::Lobby => {
@@ -142,6 +143,9 @@ pub fn on_click_menu_button(
         }
         MenuBtn::SaveGame => {
             save_game_ev.send(SaveGameEv);
+        }
+        MenuBtn::Settings => {
+            next_app_state.set(AppState::Settings);
         }
         MenuBtn::Quit => match *app_state.get() {
             AppState::Game => {

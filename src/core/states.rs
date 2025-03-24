@@ -10,6 +10,7 @@ pub enum AppState {
     MultiPlayerMenu,
     Lobby,
     ConnectedLobby,
+    Settings,
     Game,
 }
 
