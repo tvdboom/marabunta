@@ -1,4 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::menu::settings::AntColor;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
@@ -23,21 +24,6 @@ impl Players {
 
     pub fn get_mut(&mut self, id: ClientId) -> &mut Player {
         self.0.iter_mut().find(|p| p.id == id).unwrap()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum AntColor {
-    Black,
-    Red,
-}
-
-impl AntColor {
-    pub fn inverse(&self) -> Self {
-        match self {
-            AntColor::Black => AntColor::Red,
-            AntColor::Red => AntColor::Black,
-        }
     }
 }
 

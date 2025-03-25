@@ -1,9 +1,11 @@
 use crate::core::ants::components::AntCmp;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::BUTTON_TEXT_SIZE;
+use crate::core::constants::{BUTTON_TEXT_SIZE, TITLE_TEXT_SIZE};
+use crate::core::game_settings::GameSettings;
 use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
+use crate::core::menu::settings::{spawn_label, SettingsBtn};
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
@@ -13,6 +15,7 @@ pub fn setup_menu(
     mut commands: Commands,
     app_state: Res<State<AppState>>,
     server: Option<Res<RenetServer>>,
+    game_settings: Res<GameSettings>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
@@ -21,8 +24,7 @@ pub fn setup_menu(
         .with_children(|parent| {
             parent
                 .spawn(Node {
-                    position_type: PositionType::Absolute,
-                    top: Val::VMin(8.),
+                    top: Val::VMin(2.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
                     margin: UiRect::ZERO.with_bottom(Val::Percent(5.)),
@@ -36,11 +38,10 @@ pub fn setup_menu(
                 AppState::MainMenu => {
                     spawn_menu_button(parent, MenuBtn::Singleplayer, &assets, &window);
                     #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        spawn_menu_button(parent, MenuBtn::Multiplayer, &assets, &window);
-                        spawn_menu_button(parent, MenuBtn::Settings, &assets, &window);
-                        spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
-                    }
+                    spawn_menu_button(parent, MenuBtn::Multiplayer, &assets, &window);
+                    spawn_menu_button(parent, MenuBtn::Settings, &assets, &window);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
                 }
                 AppState::SinglePlayerMenu => {
                     spawn_menu_button(parent, MenuBtn::NewGame, &assets, &window);
@@ -91,21 +92,71 @@ pub fn setup_menu(
                     spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
                 }
                 AppState::Settings => {
-                    parent.spawn((
-                        Node {
+                    parent
+                        .spawn((Node {
                             width: Val::Percent(40.),
                             flex_direction: FlexDirection::Column,
-                            padding: UiRect::all(Val::Percent(1.5)),
+                            margin: UiRect::ZERO.with_top(Val::Percent(-2.)),
+                            padding: UiRect {
+                                top: Val::Percent(1.),
+                                left: Val::Percent(2.5),
+                                right: Val::Percent(2.5),
+                                bottom: Val::Percent(1.),
+                            },
                             ..default()
-                        },
-                        BackgroundColor(Color::srgba_u8(88, 57, 39, 0)),
-                        BorderRadius::all(Val::Px(10.)),
-                    ))
+                        },))
                         .with_children(|parent| {
-                            parent.spawn(add_text("Settings", "bold", 30., &assets, &window));
+                            parent
+                                .spawn((Node {
+                                    justify_content: JustifyContent::Center,
+                                    align_items: AlignItems::Center,
+                                    margin: UiRect::ZERO.with_bottom(Val::Percent(2.)),
+                                    ..default()
+                                },))
+                                .with_children(|parent| {
+                                    parent.spawn(add_text(
+                                        "Settings",
+                                        "bold",
+                                        TITLE_TEXT_SIZE,
+                                        &assets,
+                                        &window,
+                                    ));
+                                });
 
-                            parent.spawn(add_text("Color", "bold", 20., &assets, &window));
+                            spawn_label(
+                                parent,
+                                "Color",
+                                vec![SettingsBtn::Black, SettingsBtn::Red],
+                                &game_settings,
+                                &assets,
+                                &window,
+                            );
+                            spawn_label(
+                                parent,
+                                "Fog of war",
+                                vec![SettingsBtn::None, SettingsBtn::Half, SettingsBtn::Full],
+                                &game_settings,
+                                &assets,
+                                &window,
+                            );
+                            spawn_label(
+                                parent,
+                                "Numer of opponents",
+                                vec![SettingsBtn::One, SettingsBtn::Two, SettingsBtn::Three],
+                                &game_settings,
+                                &assets,
+                                &window,
+                            );
+                            spawn_label(
+                                parent,
+                                "Audio",
+                                vec![SettingsBtn::Mute, SettingsBtn::NoMusic, SettingsBtn::Sound],
+                                &game_settings,
+                                &assets,
+                                &window,
+                            );
                         });
+
                     spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
                 }
                 _ => (),

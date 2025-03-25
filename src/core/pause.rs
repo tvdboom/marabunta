@@ -50,18 +50,27 @@ pub fn unpause_game(
 
 pub fn toggle_pause_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
+    app_state: Res<State<AppState>>,
     game_state: Res<State<GameState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut game_settings: ResMut<GameSettings>,
 ) {
     if keyboard.just_pressed(KeyCode::Escape) {
-        match game_state.get() {
-            GameState::Running => next_game_state.set(GameState::InGameMenu),
-            GameState::Paused => next_game_state.set(GameState::InGameMenu),
-            GameState::InGameMenu => next_game_state.set(GameState::Running),
-            GameState::TraitSelection => (),
-            GameState::GameOver => next_app_state.set(AppState::MainMenu),
+        match app_state.get() {
+            AppState::SinglePlayerMenu
+            | AppState::MultiPlayerMenu
+            | AppState::Lobby
+            | AppState::ConnectedLobby
+            | AppState::Settings => next_app_state.set(AppState::MainMenu),
+            AppState::Game => match game_state.get() {
+                GameState::Running => next_game_state.set(GameState::InGameMenu),
+                GameState::Paused => next_game_state.set(GameState::InGameMenu),
+                GameState::InGameMenu => next_game_state.set(GameState::Running),
+                GameState::TraitSelection => (),
+                GameState::GameOver => next_app_state.set(AppState::MainMenu),
+            },
+            _ => (),
         }
     }
 

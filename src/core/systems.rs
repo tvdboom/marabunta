@@ -16,12 +16,14 @@ use bevy::window::WindowResized;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
 
-pub fn initialize_game(mut commands: Commands) {
-    commands.insert_resource(GameSettings::default());
+pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSettings>) {
     commands.insert_resource(Players::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(Population::default());
     commands.insert_resource(AntSelection::default());
+
+    // Reset in-game settings
+    game_settings.reset();
 }
 
 pub fn on_resize_system(

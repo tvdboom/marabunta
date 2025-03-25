@@ -1,7 +1,8 @@
 use crate::core::constants::{DEFAULT_WALK_SPEED, TERMITE_TEAM, WASP_TEAM};
 use crate::core::map::loc::Loc;
 use crate::core::map::tile::Tile;
-use crate::core::player::{AntColor, Player};
+use crate::core::menu::settings::AntColor;
+use crate::core::player::Player;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use crate::utils::NameFromEnum;

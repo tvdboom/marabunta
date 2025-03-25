@@ -10,7 +10,6 @@ use crate::core::player::{Player, Players};
 use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
-use bevy::reflect::Set;
 
 #[derive(Component)]
 pub struct MapCmp;

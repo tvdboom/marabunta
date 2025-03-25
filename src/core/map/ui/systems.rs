@@ -1,7 +1,7 @@
 use crate::core::ants::components::{Animation, AnimationCmp, Ant, AntCmp};
 use crate::core::ants::events::QueueAntEv;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::MAX_QUEUE_LENGTH;
+use crate::core::constants::{MAX_QUEUE_LENGTH, TITLE_TEXT_SIZE};
 use crate::core::map::systems::MapCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text, despawn_ui};
 use crate::core::menu::buttons::MenuCmp;
@@ -534,7 +534,13 @@ pub fn setup_trait_selection(
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(add_text("Choose a trait", "bold", 25., &assets, &window));
+                    parent.spawn(add_text(
+                        "Choose a trait",
+                        "bold",
+                        TITLE_TEXT_SIZE,
+                        &assets,
+                        &window,
+                    ));
                 });
 
             parent

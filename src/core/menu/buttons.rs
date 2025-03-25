@@ -5,9 +5,10 @@ use crate::core::constants::{
 use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
+use crate::core::menu::settings::AntColor;
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
-use crate::core::player::{AntColor, Player, Players};
+use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
@@ -55,7 +56,7 @@ pub fn on_click_menu_button(
         }
         MenuBtn::NewGame => {
             let mut players = Vec::from([Player::new(0, game_settings.color.clone())]);
-            (1..game_settings.n_players)
+            (1..=game_settings.n_opponents)
                 .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
 
             game_settings.mode = GameMode::SinglePlayer;
@@ -167,7 +168,6 @@ pub fn spawn_menu_button(
     parent
         .spawn((
             Node {
-                display: Display::Flex,
                 width: Val::Percent(25.),
                 height: Val::Percent(10.),
                 align_items: AlignItems::Center,

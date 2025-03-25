@@ -26,8 +26,8 @@ pub enum GameState {
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum AudioState {
+    Mute,
+    NoMusic,
     #[default]
     Sound,
-    NoMusic,
-    Mute,
 }

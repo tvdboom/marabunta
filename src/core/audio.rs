@@ -21,7 +21,7 @@ impl PlayAudioEv {
 pub struct MusicBtnCmp;
 
 #[derive(Event)]
-pub struct ToggleAudioEv;
+pub struct ChangeAudioEv(pub Option<AudioState>);
 
 pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
     commands
@@ -38,7 +38,7 @@ pub fn setup_music_btn(mut commands: Commands, assets: Local<WorldAssets>) {
                 .spawn((ImageNode::new(assets.image("sound")), MusicBtnCmp))
                 .observe(|_: Trigger<Pointer<Click>>, mut commands: Commands| {
                     commands.queue(|w: &mut World| {
-                        w.send_event(ToggleAudioEv);
+                        w.send_event(ChangeAudioEv(None));
                     })
                 });
         });
@@ -55,8 +55,8 @@ pub fn play_music(assets: Local<WorldAssets>, audio: Res<Audio>) {
         .looped();
 }
 
-pub fn toggle_music_event(
-    mut toggle_music_ev: EventReader<ToggleAudioEv>,
+pub fn change_audio_event(
+    mut change_audio_ev: EventReader<ChangeAudioEv>,
     mut btn_q: Query<&mut ImageNode, With<MusicBtnCmp>>,
     mut game_settings: ResMut<GameSettings>,
     audio_state: Res<State<AudioState>>,
@@ -64,39 +64,39 @@ pub fn toggle_music_event(
     audio: Res<Audio>,
     assets: Local<WorldAssets>,
 ) {
-    for _ in toggle_music_ev.read() {
-        let image = match *audio_state.get() {
-            AudioState::Sound => {
-                audio.stop();
-
-                game_settings.audio = AudioState::NoMusic;
-                next_audio_state.set(AudioState::NoMusic);
-                assets.image("no-music")
-            }
-            AudioState::NoMusic => {
-                game_settings.audio = AudioState::Mute;
-                next_audio_state.set(AudioState::Mute);
-                assets.image("mute")
-            }
-            AudioState::Mute => {
-                game_settings.audio = AudioState::Sound;
-                next_audio_state.set(AudioState::Sound);
-                assets.image("sound")
-            }
-        };
+    for ev in change_audio_ev.read() {
+        game_settings.audio = ev.0.unwrap_or(match *audio_state.get() {
+            AudioState::Sound => AudioState::NoMusic,
+            AudioState::NoMusic => AudioState::Mute,
+            AudioState::Mute => AudioState::Sound,
+        });
 
         if let Ok(mut node) = btn_q.get_single_mut() {
-            node.image = image;
+            node.image = match game_settings.audio {
+                AudioState::Mute => {
+                    next_audio_state.set(AudioState::Mute);
+                    assets.image("mute")
+                }
+                AudioState::NoMusic => {
+                    audio.stop();
+                    next_audio_state.set(AudioState::NoMusic);
+                    assets.image("no-music")
+                }
+                AudioState::Sound => {
+                    next_audio_state.set(AudioState::Sound);
+                    assets.image("sound")
+                }
+            };
         }
     }
 }
 
 pub fn toggle_music_keyboard(
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut toggle_music_ev: EventWriter<ToggleAudioEv>,
+    mut change_audio_ev: EventWriter<ChangeAudioEv>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyM) {
-        toggle_music_ev.send(ToggleAudioEv);
+        change_audio_ev.send(ChangeAudioEv(None));
     }
 }
 

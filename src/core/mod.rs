@@ -21,6 +21,7 @@ use crate::core::ants::selection::remove_command_from_selection;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{spawn_tile, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
@@ -60,7 +61,7 @@ impl Plugin for GamePlugin {
             .init_state::<GameState>()
             .init_state::<AudioState>()
             // Events
-            .add_event::<ToggleAudioEv>()
+            .add_event::<ChangeAudioEv>()
             .add_event::<PlayAudioEv>()
             .add_event::<LoadGameEv>()
             .add_event::<SaveGameEv>()
@@ -72,6 +73,8 @@ impl Plugin for GamePlugin {
             .add_event::<DamageAntEv>()
             .add_event::<SelectAntEv>()
             .add_event::<TraitSelectedEv>()
+            // Resources
+            .init_resource::<GameSettings>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
             .configure_sets(Update, InGameSet.run_if(in_state(AppState::Game)))
@@ -127,7 +130,7 @@ impl Plugin for GamePlugin {
             .add_systems(OnEnter(AudioState::Sound), play_music)
             .add_systems(
                 Update,
-                (toggle_music_event, toggle_music_keyboard, play_audio_event),
+                (change_audio_event, toggle_music_keyboard, play_audio_event),
             )
             //Networking
             .add_systems(
