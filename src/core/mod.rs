@@ -22,9 +22,10 @@ use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
 use crate::core::game_settings::GameSettings;
-use crate::core::map::events::{spawn_tile, SpawnTileEv};
+use crate::core::map::events::{spawn_tile_event, SpawnTileEv};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
+use crate::core::map::vision::update_vision;
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_game_over, setup_in_game_menu, setup_menu};
 use crate::core::network::*;
@@ -200,7 +201,10 @@ impl Plugin for GamePlugin {
             .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
             .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
             // Ants
-            .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
+            .add_systems(
+                PreUpdate,
+                (update_vision, resolve_pre_action).in_set(InRunningGameSet),
+            )
             .add_systems(
                 Update,
                 update_ant_components.in_set(InRunningOrPausedGameSet),
@@ -222,7 +226,6 @@ impl Plugin for GamePlugin {
                     resolve_idle_action,
                     resolve_targeted_walk_action,
                     resolve_walk_action,
-                    update_vision,
                     spawn_enemies,
                 )
                     .in_set(InRunningGameSet),
@@ -230,7 +233,7 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    spawn_tile,
+                    spawn_tile_event,
                     select_trait_event,
                     (
                         queue_ant_event,

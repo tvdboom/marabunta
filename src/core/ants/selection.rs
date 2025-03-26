@@ -45,7 +45,8 @@ pub fn select_loc_on_click(
                 .unwrap();
 
             let loc = map.get_loc(&cursor.extend(0.));
-            if map.is_walkable(&loc) {
+            let tile = map.get_tile(loc.x, loc.y).unwrap();
+            if tile.explored.contains(&0) && map.is_walkable(&loc) {
                 for ant_e in selection.0.iter() {
                     if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
                         // Restrict the queen's movement to the base
@@ -63,6 +64,7 @@ pub fn select_loc_on_click(
 
                         ant.command = Some(Behavior::ProtectLoc(loc));
                         ant.action = Action::Walk(loc);
+                        println!("walk!");
                     }
                 }
             } else {
@@ -71,6 +73,7 @@ pub fn select_loc_on_click(
                         if ant.kind == Ant::Excavator {
                             ant.command = Some(Behavior::Dig(loc));
                             ant.action = Action::Idle;
+                            println!("{:?}", loc);
                         }
                     }
                 }
@@ -147,7 +150,7 @@ pub fn select_ant_on_click(
     match trigger.event.button {
         // Left mouse button used for selection
         PointerButton::Primary => {
-            if player.controls(&ant) && ant.health > 0. {
+            if ant.team == player.id && ant.health > 0. {
                 // If double-clicked, select all ants of the same kind in viewport
                 if time.elapsed_secs() - *last_clicked_t < 0.3 {
                     ant_q
@@ -156,7 +159,7 @@ pub fn select_ant_on_click(
                             let view_pos =
                                 camera.world_to_viewport(global_t, t.translation).unwrap();
 
-                            player.controls(a)
+                            a.team == player.id
                                 && a.health > 0.
                                 && a.kind == ant.kind
                                 && view_pos.x >= 0.
@@ -209,7 +212,7 @@ pub fn select_ant_on_click(
                                 sel.command = Some(Behavior::ProtectLoc(loc));
                                 sel.action = Action::Walk(loc);
                             }
-                        } else if !player.controls(&ant) {
+                        } else if ant.team != player.id {
                             // If clicked on an enemy, move towards it (which will lead to an attack)
                             sel.action = Action::TargetedWalk(*sel_e);
                         } else if ant_e != *sel_e {
@@ -260,7 +263,7 @@ pub fn select_ants_from_rect(
                 ant_q
                     .iter()
                     .filter(|(_, t, a)| {
-                        player.controls(a)
+                        a.team == player.id
                             && a.health > 0.
                             // Check if the ant is within the rectangle's bounds
                             && t.translation.x >= min.x

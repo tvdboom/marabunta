@@ -169,7 +169,7 @@ pub fn server_receive_status(
                     map.update(new_map);
 
                     // The server takes all population send by client and removes existing ones
-                    population.0.retain(|_, (_, a)| a.owner != client_id);
+                    population.0.retain(|_, (_, a)| a.team != client_id);
                     population.0.extend(new_population);
                 }
             }
@@ -180,16 +180,13 @@ pub fn server_receive_status(
 pub fn client_send_status(
     mut client: ResMut<RenetClient>,
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
-    players: Res<Players>,
     map: Res<Map>,
 ) {
-    let player = players.get(0);
-
     let status = bincode::serialize(&ClientMessage::Status {
         map: map.clone(),
         population: ant_q
             .iter()
-            .filter_map(|(e, t, a)| player.owns(a).then_some((e, (t.clone(), a.clone()))))
+            .map(|(e, t, a)| (e, (t.clone(), a.clone())))
             .collect(),
     });
     client.send_message(DefaultChannel::Unreliable, status.unwrap());
@@ -247,7 +244,7 @@ pub fn client_receive_message(
                 population.0 = save
                     .population
                     .into_iter()
-                    .filter(|(_, (_, a))| a.owner != player.id)
+                    .filter(|(_, (_, a))| a.team != player.id)
                     .collect();
             }
             _ => (),

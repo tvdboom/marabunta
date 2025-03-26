@@ -3,7 +3,9 @@ use crate::core::ants::selection::select_ant_on_click;
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::systems::MapCmp;
+use crate::core::menu::settings::FogOfWar;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;
@@ -73,11 +75,12 @@ pub fn queue_ant_event(
 pub fn spawn_egg_event(
     mut commands: Commands,
     mut spawn_egg_ev: EventReader<SpawnEggEv>,
+    game_settings: Res<GameSettings>,
     players: Res<Players>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
-        let player = players.get(ant.owner);
+        let player = players.get(ant.team);
 
         let health_factor = if player.has_trait(&Trait::Breeding) {
             2. * EGG_HEALTH_FACTOR
@@ -87,7 +90,6 @@ pub fn spawn_egg_event(
 
         let egg = Egg {
             ant: ant.clone(),
-            owner: player.id,
             team: player.id,
             health: ant.max_health / health_factor,
             max_health: ant.max_health / health_factor,
@@ -120,7 +122,11 @@ pub fn spawn_egg_event(
                             ..default()
                         },
                         AntHealthWrapperCmp,
-                        Visibility::Hidden,
+                        if game_settings.fog_of_war == FogOfWar::None || egg.team == 0 {
+                            Visibility::Inherited
+                        } else {
+                            Visibility::Hidden
+                        },
                         NoRotationChildCmp,
                         MapCmp,
                     ))
@@ -145,14 +151,13 @@ pub fn spawn_egg_event(
 pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
+    game_settings: Res<GameSettings>,
     mut players: ResMut<Players>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
-        let player = players.get_mut(ant.owner);
-
         let atlas = assets.atlas(&ant.atlas(&ant.animation()));
         commands
             .spawn((
@@ -180,7 +185,7 @@ pub fn spawn_ant_event(
                 },
                 TeamCmp(ant.team),
                 ant.clone(),
-                if ant.kind.is_ant() && player.controls(ant) {
+                if game_settings.fog_of_war == FogOfWar::None || ant.team == 0 {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -256,13 +261,12 @@ pub fn spawn_ant_event(
                 ));
             });
 
-        if player.controls(ant) {
-            player
-                .colony
-                .entry(ant.kind.clone())
-                .and_modify(|c| *c += 1)
-                .or_insert(1);
-        }
+        players
+            .get_mut(ant.team)
+            .colony
+            .entry(ant.kind.clone())
+            .and_modify(|c| *c += 1)
+            .or_insert(1);
     }
 }
 
@@ -292,7 +296,7 @@ pub fn damage_event(
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
         let attacker = ant_q.get(*attacker).unwrap().1;
-        let player_a = players.get(attacker.owner);
+        let player_a = players.get(attacker.team);
         let damage = attacker.damage;
 
         if let Ok((mut ant_t, mut ant_c)) = ant_q.get_mut(*defender) {
@@ -310,7 +314,7 @@ pub fn damage_event(
             ant_c.health = (ant_c.health - damage).max(0.);
 
             if ant_c.health == 0. && !matches!(ant_c.action, Action::Die(_)) {
-                let player_d = players.get_mut(ant_c.owner);
+                let player_d = players.get_mut(ant_c.team);
 
                 commands.entity(*defender).insert(Corpse);
 
@@ -326,13 +330,13 @@ pub fn damage_event(
 
                 ant_t.translation.z = ANT_Z_SCORE;
 
-                if player_d.controls(&ant_c) {
+                if ant_c.team == player_d.id {
                     player_d.colony.entry(ant_c.kind.clone()).and_modify(|c| {
                         *c = c.saturating_sub(1);
                     });
 
-                    // If the queen died, you lost the game
-                    if player_d.colony[&Ant::Queen] == 0 {
+                    // If the queen died, the player lost the game
+                    if player_d.id == 0 && player_d.colony[&Ant::Queen] == 0 {
                         play_audio_ev.send(PlayAudioEv::new("game-over"));
                     }
                 }

@@ -43,7 +43,7 @@ pub struct Tile {
     pub has_stone: bool,
     pub leaf: Option<Leaf>,
     pub terraform: f32,
-    pub visible: HashSet<ClientId>,
+    pub explored: HashSet<ClientId>,
 }
 
 impl Default for Tile {
@@ -57,7 +57,7 @@ impl Default for Tile {
             has_stone: false,
             leaf: None,
             terraform: MAX_TERRAFORM_POINTS,
-            visible: HashSet::new(),
+            explored: HashSet::new(),
         }
     }
 }

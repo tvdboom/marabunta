@@ -5,3 +5,4 @@ pub mod systems;
 pub mod tile;
 pub mod ui;
 pub mod utils;
+pub mod vision;

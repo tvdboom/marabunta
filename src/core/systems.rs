@@ -19,8 +19,8 @@ use std::f32::consts::PI;
 pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSettings>) {
     commands.insert_resource(Players::default());
     commands.insert_resource(Map::default());
-    commands.insert_resource(Population::default());
     commands.insert_resource(AntSelection::default());
+    commands.insert_resource(Population::default());
 
     // Reset in-game settings
     game_settings.reset();
@@ -78,7 +78,7 @@ pub fn spawn_enemies(
 
     if game_settings.enemy_timer.just_finished() {
         map.tiles.iter().for_each(|tile| {
-            if !tile.visible.is_empty() {
+            if !tile.explored.is_empty() {
                 if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
                     spawn_ant_ev.send(SpawnAntEv {
                         ant: AntCmp::base(&Ant::Wasp),

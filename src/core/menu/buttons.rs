@@ -55,13 +55,23 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::SinglePlayerMenu);
         }
         MenuBtn::NewGame => {
-            let mut players = Vec::from([Player::new(0, game_settings.color.clone())]);
+            // Add the player to the resource
+            let mut p = vec![Player::new(0, game_settings.color.clone())];
+
+            // Add the NPCs to the resource
             (1..=game_settings.n_opponents)
-                .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
+                .for_each(|id| p.push(Player::new(id, game_settings.color.inverse())));
+
+            // Create map before pushing default player
+            commands.insert_resource(create_map(&p));
+
+            // Add the default value used for monsters
+            p.push(Player::default());
+
+            // Update the resource
+            commands.insert_resource(Players(p));
 
             game_settings.mode = GameMode::SinglePlayer;
-            commands.insert_resource(create_map(&players));
-            commands.insert_resource(Players(players));
             next_app_state.set(AppState::Game);
         }
         MenuBtn::LoadGame => {

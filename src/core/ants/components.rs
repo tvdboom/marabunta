@@ -7,7 +7,6 @@ use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
-use bevy_renet::renet::ClientId;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -199,9 +198,6 @@ pub enum Action {
 
 #[derive(Component, Clone, Debug, Serialize, Deserialize)]
 pub struct AntCmp {
-    /// Player id of the ant's owner
-    pub owner: ClientId,
-
     /// Ant type
     pub kind: Ant,
 
@@ -261,7 +257,6 @@ pub struct AntCmp {
 impl Default for AntCmp {
     fn default() -> Self {
         Self {
-            owner: 0,
             kind: Ant::Worker,
             key: None,
             team: 0,
@@ -289,7 +284,6 @@ impl AntCmp {
         match kind {
             Ant::Queen => Self {
                 kind: Ant::Queen,
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: if player.has_trait(&Trait::SuperQueen) {
@@ -331,7 +325,6 @@ impl AntCmp {
             Ant::Worker => Self {
                 kind: Ant::Worker,
                 key: Some(KeyCode::KeyZ),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: if player.has_trait(&Trait::Warlike) {
@@ -369,7 +362,6 @@ impl AntCmp {
             Ant::Excavator => Self {
                 kind: Ant::Excavator,
                 key: Some(KeyCode::KeyX),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 z_score: 0.2,
@@ -390,7 +382,6 @@ impl AntCmp {
             Ant::Soldier => Self {
                 kind: Ant::Soldier,
                 key: Some(KeyCode::KeyC),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: if player.has_trait(&Trait::EnhancedSoldiers) {
@@ -424,7 +415,6 @@ impl AntCmp {
             Ant::Warrior => Self {
                 kind: Ant::Warrior,
                 key: Some(KeyCode::KeyV),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: 0.04,
@@ -458,7 +448,6 @@ impl AntCmp {
             Ant::Alate => Self {
                 kind: Ant::Alate,
                 key: Some(KeyCode::KeyN),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: 0.05,
@@ -480,7 +469,6 @@ impl AntCmp {
             Ant::Mastodon => Self {
                 kind: Ant::Mastodon,
                 key: Some(KeyCode::KeyB),
-                owner: player.id,
                 team: player.id,
                 color: Some(player.color.clone()),
                 scale: 0.06,
@@ -501,7 +489,6 @@ impl AntCmp {
             },
             Ant::BlackScorpion => Self {
                 kind: Ant::BlackScorpion,
-                owner: player.id,
                 team: rng().random_range(100..10000),
                 scale: 0.05,
                 health: 100.,
@@ -514,7 +501,6 @@ impl AntCmp {
             },
             Ant::YellowScorpion => Self {
                 kind: Ant::YellowScorpion,
-                owner: player.id,
                 team: rng().random_range(100..10000),
                 scale: 0.05,
                 health: 300.,
@@ -527,7 +513,6 @@ impl AntCmp {
             },
             Ant::BlackTermite => Self {
                 kind: Ant::BlackTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 15.,
@@ -540,7 +525,6 @@ impl AntCmp {
             },
             Ant::BlackWingedTermite => Self {
                 kind: Ant::BlackWingedTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 20.,
@@ -553,7 +537,6 @@ impl AntCmp {
             },
             Ant::BrownTermite => Self {
                 kind: Ant::BrownTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 40.,
@@ -566,7 +549,6 @@ impl AntCmp {
             },
             Ant::BrownWingedTermite => Self {
                 kind: Ant::BrownWingedTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.02,
                 health: 50.,
@@ -579,7 +561,6 @@ impl AntCmp {
             },
             Ant::WhiteTermite => Self {
                 kind: Ant::WhiteTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.03,
                 health: 80.,
@@ -592,7 +573,6 @@ impl AntCmp {
             },
             Ant::WhiteWingedTermite => Self {
                 kind: Ant::WhiteWingedTermite,
-                owner: player.id,
                 team: TERMITE_TEAM,
                 scale: 0.03,
                 health: 120.,
@@ -605,7 +585,6 @@ impl AntCmp {
             },
             Ant::Wasp => Self {
                 kind: Ant::Wasp,
-                owner: player.id,
                 team: WASP_TEAM,
                 scale: 0.05,
                 health: 100.,
@@ -699,9 +678,6 @@ impl AntCmp {
 
 #[derive(Component, Clone)]
 pub struct Egg {
-    /// Player id of the egg's owner
-    pub owner: ClientId,
-
     /// Team the egg corresponds to
     pub team: u64,
 

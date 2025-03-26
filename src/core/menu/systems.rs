@@ -141,7 +141,7 @@ pub fn setup_menu(
                             );
                             spawn_label(
                                 parent,
-                                "Numer of opponents",
+                                "Number of opponents",
                                 vec![SettingsBtn::One, SettingsBtn::Two, SettingsBtn::Three],
                                 &game_settings,
                                 &assets,

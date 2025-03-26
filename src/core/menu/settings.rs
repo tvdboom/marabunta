@@ -44,9 +44,9 @@ impl AntColor {
 
 #[derive(EnumIter, Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum FogOfWar {
+    #[default]
     None,
     Half,
-    #[default]
     Full,
 }
 

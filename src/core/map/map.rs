@@ -1,6 +1,8 @@
 use crate::core::constants::{MAX_TERRAFORM_POINTS, NON_MAP_ID, TILE_LEAF_CHANCE};
 use crate::core::map::loc::{Direction, Loc};
 use crate::core::map::tile::{Leaf, Tile};
+use crate::core::menu::settings::FogOfWar;
+use crate::core::player::Player;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy::utils::HashSet;
@@ -136,8 +138,8 @@ impl Map {
 
         while holes.len() < n {
             let candidate = UVec2 {
-                x: rng().random_range(0..Map::MAP_SIZE.x - 3),
-                y: rng().random_range(0..Map::MAP_SIZE.y - 3),
+                x: rng().random_range(1..Map::MAP_SIZE.x - 5),
+                y: rng().random_range(1..Map::MAP_SIZE.y - 5),
             };
 
             if holes
@@ -190,7 +192,7 @@ impl Map {
                         } else {
                             None
                         },
-                        visible: HashSet::from([id]),
+                        explored: HashSet::from([id]),
                         ..default()
                     };
                 }
@@ -200,7 +202,7 @@ impl Map {
         self
     }
 
-    pub fn world(&self, id: ClientId) -> Vec<Tile> {
+    pub fn world(&self, fow: &FogOfWar) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
             .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
             .map(|(x, y)| {
@@ -210,14 +212,10 @@ impl Map {
                     Tile::soil(NON_MAP_ID, NON_MAP_ID)
                 } else {
                     let tile = self
-                        .tiles
-                        .iter()
-                        .find(|t| t.x == x - Self::OFFSET.x && t.y == y - Self::OFFSET.y)
-                        .cloned()
+                        .get_tile(x - Self::OFFSET.x, y - Self::OFFSET.y)
                         .unwrap();
-
-                    if tile.visible.contains(&id) {
-                        tile
+                    if *fow != FogOfWar::Full || tile.explored.contains(&0) {
+                        tile.clone()
                     } else {
                         Tile::soil(tile.x, tile.y).with_stone(tile.has_stone)
                     }
@@ -309,7 +307,7 @@ impl Map {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|tile| tile.visible.contains(&id) && (!in_base || tile.base == Some(id)))
+            .filter(|tile| tile.explored.contains(&id) && (!in_base || tile.base == Some(id)))
             .flat_map(|tile| {
                 (0..16).map(move |bit| Loc {
                     x: tile.x,
@@ -327,7 +325,7 @@ impl Map {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|tile| tile.visible.contains(&id))
+            .filter(|tile| tile.explored.contains(&id))
             .flat_map(|tile| {
                 (0..16).map(move |bit| Loc {
                     x: tile.x,
@@ -349,7 +347,7 @@ impl Map {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|t| t.visible.contains(&id) && tile.map_or(true, |c| c.equals(t)))
+            .filter(|t| t.explored.contains(&id) && tile.map_or(true, |c| c.equals(t)))
             .flat_map(|t| {
                 [1, 2, 7, 11, 13, 14, 4, 8].iter().map(move |&bit| Loc {
                     x: t.x,
@@ -374,7 +372,7 @@ impl Map {
         let locations: Vec<_> = self
             .tiles
             .iter()
-            .filter(|tile| tile.visible.contains(&id) && tile.visible.len() > 1)
+            .filter(|tile| tile.explored.contains(&id) && tile.explored.len() > 1)
             .flat_map(|tile| {
                 (0..16).map(move |bit| Loc {
                     x: tile.x,
@@ -389,6 +387,11 @@ impl Map {
     }
 
     // Pathing ================================================================
+
+    pub fn can_see(&self, player: &Player, pos: &Vec3) -> bool {
+        let loc = self.get_loc(pos);
+        player.visible_tiles.contains(&(loc.x, loc.y))
+    }
 
     pub fn is_walkable(&self, loc: &Loc) -> bool {
         self.get_tile(loc.x, loc.y).map_or(false, |tile| {
@@ -494,7 +497,9 @@ impl Map {
     /// Find the shortest path between two locations (using the cache if available)
     pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
         // If within 2 tiles range, calculate the path directly
-        if (start.x as i32 - end.x as i32).abs() + (start.y as i32 - end.y as i32).abs() <= 2 {
+        if (start.x as i32 - end.x as i32).abs() + (start.y as i32 - end.y as i32).abs()
+            < Tile::SIDE as i32
+        {
             return self.find_path(start, end);
         }
 
@@ -567,7 +572,7 @@ impl Map {
         for texture_index in 0..Tile::MASKS.len() {
             for &rotation in &Tile::ANGLES {
                 let mut tile_clone = tile.clone();
-                tile_clone.visible.extend(ids.clone());
+                tile_clone.explored.extend(ids.clone());
 
                 let new_t = Tile {
                     texture_index,

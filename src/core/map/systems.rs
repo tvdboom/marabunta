@@ -1,8 +1,9 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::assets::WorldAssets;
-use crate::core::camera::{clamp_to_rect, MainCamera};
+use crate::core::camera::MainCamera;
 use crate::core::constants::TILE_Z_SCORE;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
@@ -25,20 +26,18 @@ pub fn create_map(players: &Vec<Player>) -> Map {
         )
         .insert_holes(10);
     } else {
-        map.insert_holes(12 - 2 * players.len());
-
         // Insert bases at random locations
         let mut bases: Vec<UVec2> = Vec::new();
 
         while bases.len() < players.len() {
             let candidate = UVec2 {
-                x: rng().random_range(5..Map::MAP_SIZE.x - 5),
-                y: rng().random_range(5..Map::MAP_SIZE.y - 5),
+                x: rng().random_range(5..Map::MAP_SIZE.x - 9),
+                y: rng().random_range(5..Map::MAP_SIZE.y - 9),
             };
 
             if bases
                 .iter()
-                .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) == 4.)
+                .all(|pos| pos.as_vec2().distance(candidate.as_vec2()) > 10.)
             {
                 bases.push(candidate);
             }
@@ -47,6 +46,8 @@ pub fn create_map(players: &Vec<Player>) -> Map {
         for (player, base) in players.iter().zip(bases) {
             map.insert_base(&base, player.id);
         }
+
+        map.insert_holes(12 - 2 * players.len());
     }
 
     map
@@ -54,16 +55,17 @@ pub fn create_map(players: &Vec<Player>) -> Map {
 
 pub fn draw_map(
     mut commands: Commands,
-    mut camera_q: Query<(&mut Transform, &OrthographicProjection), With<MainCamera>>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    camera: Single<(&mut Transform, &mut OrthographicProjection), With<MainCamera>>,
+    game_settings: Res<GameSettings>,
     players: Res<Players>,
     map: Res<Map>,
     assets: Local<WorldAssets>,
 ) {
-    let player = players.get(0);
+    let (mut camera_t, mut projection) = camera.into_inner();
 
-    for (i, tile) in map.world(player.id).iter_mut().enumerate() {
+    for (i, tile) in map.world(&game_settings.fog_of_war).iter().enumerate() {
         let pos = Vec2::new(
             Map::WORLD_VIEW.min.x + Tile::SIZE * ((i as u32 % Map::WORLD_SIZE.x) as f32 + 0.5),
             Map::WORLD_VIEW.max.y - Tile::SIZE * ((i as u32 / Map::WORLD_SIZE.x) as f32 + 0.5),
@@ -94,7 +96,10 @@ pub fn draw_map(
             ));
 
             spawn_ant_ev.send(SpawnAntEv {
-                ant: AntCmp::new(&Ant::Queen, &player),
+                ant: AntCmp::new(
+                    &Ant::Queen,
+                    &players.get(*tile.explored.iter().next().unwrap()),
+                ),
                 transform: Transform {
                     translation: pos.extend(0.),
                     rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
@@ -102,14 +107,10 @@ pub fn draw_map(
                 },
             });
 
-            if tile.visible.contains(&0) {
-                // Place camera on top of the player's base
-                let (mut camera_t, projection) = camera_q.single_mut();
-                let view_size = projection.area.max - projection.area.min;
-
-                // Clamp camera position within bounds
-                let target_pos = clamp_to_rect(pos, view_size, Map::MAP_VIEW);
-                camera_t.translation = target_pos.extend(camera_t.translation.z);
+            if tile.explored.contains(&0) {
+                // Place the camera on top of the player's base
+                projection.scale = 0.5; // Increase zoom
+                camera_t.translation = pos.extend(camera_t.translation.z);
             }
         }
     }

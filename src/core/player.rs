@@ -1,9 +1,9 @@
-use crate::core::ants::components::{Ant, AntCmp};
+use crate::core::ants::components::Ant;
 use crate::core::menu::settings::AntColor;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashMap;
+use bevy::utils::hashbrown::{HashMap, HashSet};
 use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -19,11 +19,17 @@ impl Default for Players {
 
 impl Players {
     pub fn get(&self, id: ClientId) -> &Player {
-        self.0.iter().find(|p| p.id == id).unwrap()
+        self.0
+            .iter()
+            .find(|p| p.id == id || p.id == ClientId::MAX)
+            .unwrap()
     }
 
     pub fn get_mut(&mut self, id: ClientId) -> &mut Player {
-        self.0.iter_mut().find(|p| p.id == id).unwrap()
+        self.0
+            .iter_mut()
+            .find(|p| p.id == id || p.id == ClientId::MAX)
+            .unwrap()
     }
 }
 
@@ -33,6 +39,7 @@ pub struct Player {
     pub color: AntColor,
     pub resources: Resources,
     pub colony: HashMap<Ant, u32>,
+    pub visible_tiles: HashSet<(u32, u32)>,
     pub queue: VecDeque<Ant>,
     pub traits: Vec<Trait>,
 }
@@ -40,13 +47,14 @@ pub struct Player {
 impl Default for Player {
     fn default() -> Self {
         Self {
-            id: 0,
+            id: ClientId::MAX,
             color: AntColor::Black,
             resources: Resources {
                 leaves: 150.,
                 nutrients: 0.,
             },
             colony: HashMap::new(),
+            visible_tiles: HashSet::new(),
             queue: VecDeque::from([Ant::Worker, Ant::Worker, Ant::Worker]),
             traits: Vec::new(),
         }
@@ -60,16 +68,6 @@ impl Player {
             color,
             ..default()
         }
-    }
-
-    /// Whether the player owns the ant (includes monsters)
-    pub fn owns(&self, ant: &AntCmp) -> bool {
-        self.id == ant.owner
-    }
-
-    /// Whether the player controls the ant (own colony)
-    pub fn controls(&self, ant: &AntCmp) -> bool {
-        self.id == ant.owner && ant.kind.is_ant()
     }
 
     /// Whether the player has the specified trait
