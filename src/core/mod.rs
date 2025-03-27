@@ -27,7 +27,7 @@ use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::map::vision::update_vision;
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{setup_game_over, setup_in_game_menu, setup_menu};
+use crate::core::menu::systems::{setup_end_game, setup_in_game_menu, setup_menu};
 use crate::core::network::*;
 use crate::core::pause::*;
 #[cfg(not(target_arch = "wasm32"))]
@@ -197,8 +197,8 @@ impl Plugin for GamePlugin {
                 OnExit(GameState::TraitSelection),
                 (despawn::<MenuCmp>, despawn::<UiCmp>, draw_ui).chain(),
             )
-            .add_systems(OnEnter(GameState::GameOver), setup_game_over)
-            .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
+            .add_systems(OnEnter(GameState::EndGame), setup_end_game)
+            .add_systems(OnExit(GameState::EndGame), despawn::<MenuCmp>)
             .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
             // Ants
             .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))

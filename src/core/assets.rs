@@ -82,7 +82,8 @@ impl FromWorld for WorldAssets {
             ("no-music", assets.load("images/icons/no-music.png")),
             ("sound", assets.load("images/icons/sound.png")),
             // Map
-            ("game-over", assets.load("images/map/game-over.png")),
+            ("defeat", assets.load("images/map/defeat.png")),
+            ("victory", assets.load("images/map/victory.png")),
             ("tiles", assets.load("images/map/soil_tileset.png")),
             ("base", assets.load("images/map/base.png")),
             ("food", assets.load("images/map/food.png")),

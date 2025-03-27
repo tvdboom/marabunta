@@ -281,8 +281,16 @@ pub fn despawn_ant_event(
     players: Res<Players>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        if players.get(0).colony[&Ant::Queen] == 0 {
-            next_game_state.set(GameState::GameOver);
+        // End game if your queen died or there is only one queen left
+        if players.get(0).colony[&Ant::Queen] == 0
+            || players
+                .0
+                .iter()
+                .filter(|p| p.colony.get(&Ant::Queen).unwrap_or(&1) == &0)
+                .count()
+                == 1
+        {
+            next_game_state.set(GameState::EndGame);
         } else {
             commands.entity(*entity).despawn_recursive();
         }

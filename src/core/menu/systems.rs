@@ -1,4 +1,4 @@
-use crate::core::ants::components::AntCmp;
+use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{BUTTON_TEXT_SIZE, TITLE_TEXT_SIZE};
 use crate::core::game_settings::GameSettings;
@@ -6,6 +6,7 @@ use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::settings::{spawn_label, SettingsBtn};
+use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
@@ -190,19 +191,26 @@ pub fn setup_in_game_menu(
         });
 }
 
-pub fn setup_game_over(
+pub fn setup_end_game(
     mut commands: Commands,
     mut ant_q: Query<&mut Visibility, With<AntCmp>>,
     mut tile_q: Query<&mut Sprite, With<TileCmp>>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
+    let image = if players.get(0).colony[&Ant::Queen] == 0 {
+        "defeat"
+    } else {
+        "victory"
+    };
+
     commands
         .spawn((add_root_node(), MenuCmp))
         .with_children(|parent| {
             parent.spawn((
-                ImageNode::new(assets.image("game-over")),
-                Transform::from_scale(Vec3::splat(0.5)),
+                ImageNode::new(assets.image(image)),
+                // Transform::from_scale(Vec3::splat(0.5)),
             ));
             spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
         });

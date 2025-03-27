@@ -21,7 +21,7 @@ pub enum GameState {
     Paused,
     InGameMenu,
     TraitSelection,
-    GameOver,
+    EndGame,
 }
 
 #[derive(States, Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
