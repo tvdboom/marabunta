@@ -164,13 +164,15 @@ pub fn resolve_digging(
                 // Possibly spawn a scorpion on the newly dug tile
                 if let Some(enemy) = match rng().random::<f32>() {
                     0.95..0.99 => Some(Ant::BlackScorpion),
-                    0.99..=1. => Some(Ant::YellowScorpion),
+                    0.99..1. => Some(Ant::YellowScorpion),
                     _ => None,
                 } {
-                    play_audio_ev.send(PlayAudioEv {
-                        name: "warning",
-                        volume: 0.5,
-                    });
+                    if ants.iter().any(|(_, a)| a.team == 0) {
+                        play_audio_ev.send(PlayAudioEv {
+                            name: "warning",
+                            volume: 0.5,
+                        });
+                    }
 
                     spawn_ant_ev.send(SpawnAntEv {
                         ant: AntCmp::base(&enemy),
@@ -354,7 +356,7 @@ pub fn resolve_pre_action(
 
         for (enemy_e, enemy_team, enemy_a, enemy_t, enemy_s) in enemies.iter() {
             if ant.team != *enemy_team
-                && (!ant.kind.is_ant() || map.can_see(player, &enemy_t.translation))
+                && map.can_see(player, &ant_t.translation, &enemy_t.translation)
             {
                 // The queen attacks enemies in the base (except when wandering)
                 // Protecting ants attack enemies attacking the protected ant
@@ -383,7 +385,9 @@ pub fn resolve_pre_action(
         // Worker ants collect nutrients when close to a corpse
         if ant.kind == Ant::Worker {
             for (corpse_e, corpse_t, team) in corpse_q.iter() {
-                if map.can_see(player, &corpse_t.translation) || ant.team == team.0 {
+                if map.can_see(player, &ant_t.translation, &corpse_t.translation)
+                    || ant.team == team.0
+                {
                     let ant_loc = map.get_loc(&ant_t.translation);
                     let corpse_loc = map.get_loc(&corpse_t.translation);
                     if map.distance(&ant_loc, &corpse_loc) <= MAX_DISTANCE_PROTECT {
@@ -500,10 +504,11 @@ pub fn resolve_idle_action(
                 if let Some((entity, _)) = corpse_q
                     .iter()
                     .filter_map(|(e, t)| {
-                        map.can_see(player, &t.translation).then(|| {
-                            let loc = map.get_loc(&t.translation);
-                            (e, map.distance(&current_loc, &loc))
-                        })
+                        map.can_see(player, &ant_t.translation, &t.translation)
+                            .then(|| {
+                                let loc = map.get_loc(&t.translation);
+                                (e, map.distance(&current_loc, &loc))
+                            })
                     })
                     .min_by_key(|&(_, dist)| dist)
                 {
@@ -522,16 +527,15 @@ pub fn resolve_idle_action(
                 // Select enemies from this ant and calculate distance weight
                 let enemies: Vec<_> = ants
                     .iter()
-                    .filter(|(_, (t, a))| {
-                        ant.team != a.team && (!ant.kind.is_ant() || map.can_see(player, t))
-                    })
-                    .map(|(e, (t, _))| (*e, t))
+                    .map(|(e, (t, a))| (*e, a.team, t))
                     .chain(
                         egg_q
                             .iter()
-                            .filter(|(_, _, e)| ant.team != e.team)
-                            .map(|(e, t, _)| (e, &t.translation)),
+                            .map(|(e, t, egg)| (e, egg.team, &t.translation)),
                     )
+                    .filter(|(_, team, t)| {
+                        ant.team != *team && map.can_see(player, &ant_t.translation, t)
+                    })
                     .collect();
 
                 if enemies.is_empty() {
@@ -541,7 +545,7 @@ pub fn resolve_idle_action(
                         .unwrap()
                 } else {
                     // Attack chance decreases exponentially with distance
-                    let index = WeightedIndex::new(enemies.iter().map(|(_, t)| {
+                    let index = WeightedIndex::new(enemies.iter().map(|(_, _, t)| {
                         let loc = map.get_loc(&t);
                         1. / map.distance(&current_loc, &loc).pow(2) as f32
                     }))
@@ -942,7 +946,7 @@ pub fn queue_ants_keyboard(
 ) {
     for ant in Ant::iter().filter(|a| players.get(0).has_ant(a)) {
         if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
-            queue_ant_ev.send(QueueAntEv { ant });
+            queue_ant_ev.send(QueueAntEv { id: 0, ant });
         }
     }
 }

@@ -7,6 +7,7 @@ use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::menu::settings::FogOfWar;
+use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
 use bevy::prelude::*;
@@ -63,7 +64,7 @@ pub fn _spawn_tile(
                     Transform {
                         translation: Vec3::new(0., 0., 0.1),
                         rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                        scale: Vec3::splat(rng().random_range(0.1..0.25)),
+                        scale: Vec3::splat(rng().random_range(0.2..0.25)),
                         ..default()
                     },
                 ));
@@ -100,18 +101,21 @@ pub fn spawn_tile_event(
     tile_q: Query<(Entity, &Tile)>,
     app_state: Res<State<AppState>>,
     game_settings: Res<GameSettings>,
+    players: Res<Players>,
     mut map: ResMut<Map>,
     mut spawn_tile_ev: EventReader<SpawnTileEv>,
     assets: Local<WorldAssets>,
 ) {
-    let alpha = if game_settings.fog_of_war == FogOfWar::None && *app_state.get() == AppState::Game
-    {
-        1.
-    } else {
-        0.5
-    };
-
     for SpawnTileEv { tile, pos } in spawn_tile_ev.read() {
+        let alpha = if *app_state.get() != AppState::Game
+            || (game_settings.fog_of_war != FogOfWar::None
+                && !players.get(0).visible_tiles.contains(&(tile.x, tile.y)))
+        {
+            0.5
+        } else {
+            1.
+        };
+
         // Check if there already exists a tile at the same position
         if let Some((tile_e, tile_c)) = tile_q.iter().find(|(_, t)| t.x == tile.x && t.y == tile.y)
         {
@@ -123,9 +127,7 @@ pub fn spawn_tile_event(
                     || (tile_c.leaf.is_none() && tile.leaf.is_some()))
             {
                 // Despawn the tile
-                println!("1");
                 commands.entity(tile_e).despawn_recursive();
-                println!("2");
 
                 // Delete the cache entries from the map that contain this tile
                 map.cache.invalidate(tile);
@@ -138,8 +140,8 @@ pub fn spawn_tile_event(
                     &assets,
                 );
             }
-        } else {
-            _spawn_tile(&mut commands, &tile, pos.unwrap(), alpha, &assets);
+        } else if let Some(pos) = pos {
+            _spawn_tile(&mut commands, &tile, *pos, alpha, &assets);
         }
     }
 }

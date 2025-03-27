@@ -7,6 +7,7 @@ use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
+use bevy_renet::renet::ClientId;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -205,7 +206,7 @@ pub struct AntCmp {
     pub key: Option<KeyCode>,
 
     /// Team the ant corresponds to
-    pub team: u64,
+    pub team: ClientId,
 
     /// Color of the ant. None for monsters
     pub color: Option<AntColor>,
@@ -503,10 +504,10 @@ impl AntCmp {
                 kind: Ant::YellowScorpion,
                 team: rng().random_range(100..10000),
                 scale: 0.05,
-                health: 300.,
-                max_health: 300.,
+                health: 200.,
+                max_health: 200.,
                 speed: DEFAULT_WALK_SPEED,
-                damage: 25.,
+                damage: 10.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 ..default()
@@ -679,7 +680,7 @@ impl AntCmp {
 #[derive(Component, Clone)]
 pub struct Egg {
     /// Team the egg corresponds to
-    pub team: u64,
+    pub team: ClientId,
 
     /// Current health
     pub health: f32,

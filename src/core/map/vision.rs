@@ -52,62 +52,64 @@ pub fn update_vision(
             }
         });
 
-        if game_settings.fog_of_war != FogOfWar::Full {
-            // Spawn all tiles to keep the map up to date
-            map.tiles.iter().for_each(|tile| {
-                spawn_tile_ev.send(SpawnTileEv {
-                    tile: tile.clone(),
-                    pos: None,
+        if player.id == 0 {
+            if game_settings.fog_of_war != FogOfWar::Full {
+                // Spawn all tiles to keep the map up to date
+                map.tiles.iter().for_each(|tile| {
+                    spawn_tile_ev.send(SpawnTileEv {
+                        tile: tile.clone(),
+                        pos: None,
+                    });
                 });
-            });
-        } else {
-            // Spawn only visible tiles
-            player.visible_tiles.iter().for_each(|(x, y)| {
-                let tile = map.get_tile_mut(*x, *y).unwrap();
+            } else {
+                // Spawn only visible tiles
+                player.visible_tiles.iter().for_each(|(x, y)| {
+                    let tile = map.get_tile_mut(*x, *y).unwrap();
 
-                tile.explored.insert(player.id);
-                spawn_tile_ev.send(SpawnTileEv {
-                    tile: tile.clone(),
-                    pos: None,
+                    tile.explored.insert(player.id);
+                    spawn_tile_ev.send(SpawnTileEv {
+                        tile: tile.clone(),
+                        pos: None,
+                    });
                 });
-            });
-        }
+            }
 
-        // Adjust the fog of war on the map
-        if game_settings.fog_of_war != FogOfWar::None {
-            tile_q.iter_mut().for_each(|(tile_e, mut sprite, tile)| {
-                let color = if player.visible_tiles.contains(&(tile.x, tile.y)) {
-                    Color::WHITE
-                } else {
-                    Color::srgba(1., 1., 1., 0.5)
-                };
+            // Adjust the fog of war on the map
+            if game_settings.fog_of_war != FogOfWar::None {
+                tile_q.iter_mut().for_each(|(tile_e, mut sprite, tile)| {
+                    let color = if player.visible_tiles.contains(&(tile.x, tile.y)) {
+                        Color::WHITE
+                    } else {
+                        Color::srgba(1., 1., 1., 0.5)
+                    };
 
-                sprite.color = color;
+                    sprite.color = color;
 
-                // Update child (leaf) sprite color
-                if let Ok(children) = children_q.get(tile_e) {
-                    for &child in children.iter() {
-                        if let Ok(mut leaf_s) = leaf_q.get_mut(child) {
-                            leaf_s.color = color;
+                    // Update child (leaf) sprite color
+                    if let Ok(children) = children_q.get(tile_e) {
+                        for &child in children.iter() {
+                            if let Ok(mut leaf_s) = leaf_q.get_mut(child) {
+                                leaf_s.color = color;
+                            }
                         }
                     }
-                }
-            });
+                });
 
-            // Show/hide enemies on the map
-            for (_, ant_t, mut ant_v, ant) in &mut ant_q {
-                if ant.team != player.id {
-                    if map
-                        .get_tile_from_coord(&ant_t.translation)
-                        .map_or(false, |tile| {
-                            player.visible_tiles.contains(&(tile.x, tile.y))
-                        })
-                    {
-                        // The enemy is visible, show it
-                        *ant_v = Visibility::Inherited;
-                    } else if ant.health > 0. {
-                        // The enemy is no longer visible, hide it (unless corpse)
-                        *ant_v = Visibility::Hidden;
+                // Show/hide enemies on the map
+                for (_, ant_t, mut ant_v, ant) in &mut ant_q {
+                    if ant.team != player.id {
+                        if map
+                            .get_tile_from_coord(&ant_t.translation)
+                            .map_or(false, |tile| {
+                                player.visible_tiles.contains(&(tile.x, tile.y))
+                            })
+                        {
+                            // The enemy is visible, show it
+                            *ant_v = Visibility::Inherited;
+                        } else if ant.health > 0. {
+                            // The enemy is no longer visible, hide it (unless corpse)
+                            *ant_v = Visibility::Hidden;
+                        }
                     }
                 }
             }

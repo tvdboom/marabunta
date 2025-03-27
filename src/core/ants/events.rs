@@ -14,9 +14,11 @@ use bevy::color::palettes::basic::{BLACK, LIME};
 use bevy::color::Color;
 use bevy::math::{Vec2, Vec3};
 use bevy::prelude::*;
+use bevy_renet::renet::ClientId;
 
 #[derive(Event)]
 pub struct QueueAntEv {
+    pub id: ClientId,
     pub ant: Ant,
 }
 
@@ -48,9 +50,8 @@ pub fn queue_ant_event(
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut players: ResMut<Players>,
 ) {
-    let player = players.get_mut(0);
-
     for ev in queue_ant_ev.read() {
+        let player = players.get_mut(ev.id);
         let ant_c = AntCmp::base(&ev.ant);
 
         if ant_c.key.is_some() {
@@ -64,8 +65,10 @@ pub fn queue_ant_event(
             if player.resources >= price && player.queue.len() < MAX_QUEUE_LENGTH {
                 player.resources -= &price;
                 player.queue.push_back(ant_c.kind);
-                play_audio_ev.send(PlayAudioEv::new("button"));
-            } else {
+                if player.id == 0 {
+                    play_audio_ev.send(PlayAudioEv::new("button"));
+                }
+            } else if player.id == 0 {
                 play_audio_ev.send(PlayAudioEv::new("error"));
             }
         }
@@ -109,6 +112,11 @@ pub fn spawn_egg_event(
                     ..default()
                 },
                 egg.clone(),
+                if game_settings.fog_of_war == FogOfWar::None || egg.team == 0 {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
                 TeamCmp(egg.team),
                 NoRotationParentCmp,
                 MapCmp,
@@ -122,11 +130,7 @@ pub fn spawn_egg_event(
                             ..default()
                         },
                         AntHealthWrapperCmp,
-                        if game_settings.fog_of_war == FogOfWar::None || egg.team == 0 {
-                            Visibility::Inherited
-                        } else {
-                            Visibility::Hidden
-                        },
+                        Visibility::Hidden,
                         NoRotationChildCmp,
                         MapCmp,
                     ))

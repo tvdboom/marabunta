@@ -481,6 +481,7 @@ pub fn on_click_colony_button(
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
     queue_ant_ev.send(QueueAntEv {
+        id: 0,
         ant: btn_q.get(trigger.entity()).unwrap().0.clone(),
     });
 }

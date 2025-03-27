@@ -64,7 +64,6 @@ pub fn select_loc_on_click(
 
                         ant.command = Some(Behavior::ProtectLoc(loc));
                         ant.action = Action::Walk(loc);
-                        println!("walk!");
                     }
                 }
             } else {
@@ -73,7 +72,6 @@ pub fn select_loc_on_click(
                         if ant.kind == Ant::Excavator {
                             ant.command = Some(Behavior::Dig(loc));
                             ant.action = Action::Idle;
-                            println!("{:?}", loc);
                         }
                     }
                 }

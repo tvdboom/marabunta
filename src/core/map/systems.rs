@@ -7,6 +7,7 @@ use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
+use crate::core::menu::settings::FogOfWar;
 use crate::core::player::{Player, Players};
 use bevy::prelude::*;
 use rand::{rng, Rng};
@@ -76,41 +77,43 @@ pub fn draw_map(
             pos: Some(pos),
         });
 
-        // Spawn queen
-        if tile.texture_index == 9 {
-            commands.spawn((
-                Sprite {
-                    image: assets.image("base"),
-                    custom_size: Some(Vec2::splat(Tile::SIZE + 20.)),
-                    ..default()
-                },
-                Transform {
-                    translation: Vec3::new(
-                        pos.x + Tile::SIZE * 0.5,
-                        pos.y - Tile::SIZE * 0.5,
-                        TILE_Z_SCORE + 0.1,
-                    ),
-                    ..default()
-                },
-                MapCmp,
-            ));
+        if let Some(real_tile) = map.get_tile(tile.x, tile.y) {
+            if real_tile.texture_index == 9 {
+                let player = players.get(*real_tile.explored.iter().next().unwrap());
 
-            spawn_ant_ev.send(SpawnAntEv {
-                ant: AntCmp::new(
-                    &Ant::Queen,
-                    &players.get(*tile.explored.iter().next().unwrap()),
-                ),
-                transform: Transform {
-                    translation: pos.extend(0.),
-                    rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                    ..default()
-                },
-            });
+                if player.id == 0 || game_settings.fog_of_war != FogOfWar::Full {
+                    commands.spawn((
+                        Sprite {
+                            image: assets.image("base"),
+                            custom_size: Some(Vec2::splat(Tile::SIZE + 20.)),
+                            ..default()
+                        },
+                        Transform {
+                            translation: Vec3::new(
+                                pos.x + Tile::SIZE * 0.5,
+                                pos.y - Tile::SIZE * 0.5,
+                                TILE_Z_SCORE + 0.1,
+                            ),
+                            ..default()
+                        },
+                        MapCmp,
+                    ));
+                }
 
-            if tile.explored.contains(&0) {
-                // Place the camera on top of the player's base
-                projection.scale = 0.5; // Increase zoom
-                camera_t.translation = pos.extend(camera_t.translation.z);
+                spawn_ant_ev.send(SpawnAntEv {
+                    ant: AntCmp::new(&Ant::Queen, player),
+                    transform: Transform {
+                        translation: pos.extend(0.),
+                        rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                        ..default()
+                    },
+                });
+
+                if tile.explored.contains(&0) {
+                    // Place the camera on top of the player's base
+                    projection.scale = 0.5; // Increase zoom
+                    camera_t.translation = pos.extend(camera_t.translation.z);
+                }
             }
         }
     }

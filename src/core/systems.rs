@@ -1,5 +1,5 @@
 use crate::core::ants::components::{Ant, AntCmp};
-use crate::core::ants::events::SpawnAntEv;
+use crate::core::ants::events::{QueueAntEv, SpawnAntEv};
 use crate::core::ants::selection::AntSelection;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::{MAX_TRAITS, MONSTER_SPAWN_CHANCE};
@@ -13,8 +13,11 @@ use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use bevy::window::WindowResized;
+use bevy_renet::renet::ClientId;
+use rand::prelude::IteratorRandom;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
+use strum::IntoEnumIterator;
 
 pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSettings>) {
     commands.insert_resource(Players::default());
@@ -68,8 +71,10 @@ pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut players: ResMut<Playe
 }
 
 pub fn spawn_enemies(
+    mut queue_ant_ev: EventWriter<QueueAntEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut game_settings: ResMut<GameSettings>,
+    mut players: ResMut<Players>,
     map: Res<Map>,
     time: Res<Time>,
 ) {
@@ -77,6 +82,43 @@ pub fn spawn_enemies(
     game_settings.enemy_timer.tick(time);
 
     if game_settings.enemy_timer.just_finished() {
+        // NPCs spawn ants
+        for player in players
+            .0
+            .iter_mut()
+            .filter(|p| p.id != 0 && p.id != ClientId::MAX)
+        {
+            // Select ants that can be bought
+            let ants = Ant::iter()
+                .filter(|a| a.is_ant() && player.has_ant(a))
+                .map(|a| AntCmp::new(&a, player))
+                .filter(|a| player.resources >= a.price)
+                .collect::<Vec<_>>();
+
+            if !ants.is_empty() {
+                // Compute saving probability
+                let max_leaves = ants.iter().map(|a| a.price.leaves as u32).max().unwrap() as f32;
+                let max_nutrients =
+                    ants.iter().map(|a| a.price.nutrients as u32).max().unwrap() as f32;
+                let save_prob = 0.6
+                    + (max_leaves + max_nutrients)
+                        / (max_leaves
+                            + max_nutrients
+                            + player.resources.leaves
+                            + player.resources.nutrients);
+
+                if rng().random::<f32>() >= save_prob {
+                    let ant = ants.into_iter().choose(&mut rng()).unwrap();
+                    player.resources -= ant.price;
+                    queue_ant_ev.send(QueueAntEv {
+                        id: player.id,
+                        ant: ant.kind,
+                    });
+                }
+            }
+        }
+
+        // Check holes to see if monsters should spawn
         map.tiles.iter().for_each(|tile| {
             if !tile.explored.is_empty() {
                 if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {

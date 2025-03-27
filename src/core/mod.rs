@@ -201,10 +201,7 @@ impl Plugin for GamePlugin {
             .add_systems(OnExit(GameState::GameOver), despawn::<MenuCmp>)
             .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
             // Ants
-            .add_systems(
-                PreUpdate,
-                (update_vision, resolve_pre_action).in_set(InRunningGameSet),
-            )
+            .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
             .add_systems(
                 Update,
                 update_ant_components.in_set(InRunningOrPausedGameSet),
@@ -233,7 +230,7 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    spawn_tile_event,
+                    (update_vision, spawn_tile_event).chain(),
                     select_trait_event,
                     (
                         queue_ant_event,
