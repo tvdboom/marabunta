@@ -78,4 +78,18 @@ impl Loc {
             _ => unreachable!(),
         }
     }
+
+    pub fn get_closest_dig_loc(&self) -> Self {
+        Loc {
+            x: self.x,
+            y: self.y,
+            bit: match self.bit {
+                0 => 1,
+                3 => 2,
+                12 => 13,
+                15 => 14,
+                b => b,
+            },
+        }
+    }
 }

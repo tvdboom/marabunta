@@ -3,7 +3,7 @@ use crate::core::menu::settings::AntColor;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
-use bevy::utils::hashbrown::{HashMap, HashSet};
+use bevy::utils::hashbrown::HashSet;
 use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -38,7 +38,6 @@ pub struct Player {
     pub id: ClientId,
     pub color: AntColor,
     pub resources: Resources,
-    pub colony: HashMap<Ant, u32>,
     pub visible_tiles: HashSet<(u32, u32)>,
     pub queue: VecDeque<Ant>,
     pub traits: Vec<Trait>,
@@ -53,7 +52,6 @@ impl Default for Player {
                 leaves: 150.,
                 nutrients: 0.,
             },
-            colony: HashMap::new(),
             visible_tiles: HashSet::new(),
             queue: VecDeque::from([Ant::Worker, Ant::Worker, Ant::Worker]),
             traits: Vec::new(),

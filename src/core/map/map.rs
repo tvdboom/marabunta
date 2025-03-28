@@ -388,13 +388,19 @@ impl Map {
 
     // Pathing ================================================================
 
-    pub fn can_see(&mut self, player: &Player, current_pos: &Vec3, enemy_pos: &Vec3) -> bool {
-        let loc = self.get_loc(enemy_pos);
+    pub fn can_see(
+        &mut self,
+        pos: &Vec3,
+        enemy_pos: &Vec3,
+        player: &Player,
+        enemy_player: &Player,
+    ) -> bool {
         if player.id == ClientId::MAX {
-            // For monsters, it's enough to be able to reach the tile (they "see" everything)
-            let current_loc = self.get_loc(current_pos);
-            self.shortest_path_option(&current_loc, &loc).is_some()
+            // Monsters "see" everything -> check if the enemy player can reach the monster
+            let tile = self.get_tile_from_coord(pos).unwrap();
+            tile.explored.contains(&enemy_player.id)
         } else {
+            let loc = self.get_loc(enemy_pos);
             player.visible_tiles.contains(&(loc.x, loc.y))
         }
     }
@@ -464,6 +470,7 @@ impl Map {
     }
 
     pub fn find_tunnel(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
+        let end = end.get_closest_dig_loc();
         astar(
             start,
             |loc| {
@@ -471,19 +478,19 @@ impl Map {
                     .into_iter()
                     .filter(|l| {
                         self.get_tile(l.x, l.y).map_or(false, |t| !t.has_stone)
-                            && ![0, 4, 12, 15].contains(&l.bit)
+                            && (![0, 3, 12, 15].contains(&l.bit) || *l == end)
                     })
                     .map(|l| (l, if self.is_walkable(&l) { 1 } else { 10000 }))
                     .collect::<Vec<_>>()
             },
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
-            |loc| loc == end,
+            |loc| *loc == end,
         )
         .map(|(path, _)| path)
     }
 
     /// Use A* to find the shortest path between two locations
-    fn find_path(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
+    fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
         astar(
             start,
             |loc| {
@@ -497,10 +504,11 @@ impl Map {
             |loc| loc == end,
         )
         .map(|(path, _)| path)
+        .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
     }
 
     /// Find the shortest path between two locations (using the cache if available)
-    pub fn shortest_path_option(&mut self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
+    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
         // If within 2 tiles range, calculate the path directly
         if (start.x as i32 - end.x as i32).abs() + (start.y as i32 - end.y as i32).abs()
             < Tile::SIDE as i32
@@ -510,7 +518,7 @@ impl Map {
 
         // Store the calculated path in the cache if not available
         if !self.cache.contains_key(start, end) {
-            let path = self.find_path(start, end)?;
+            let path = self.find_path(start, end);
             self.cache.insert(*start, *end, path.to_vec().clone());
             self.cache
                 .insert(*end, *start, path.iter().rev().cloned().collect::<Vec<_>>());
@@ -527,24 +535,17 @@ impl Map {
             .collect();
 
         // Calculate a new path for the first and last tile only
-        let mut first_tile = self.find_path(start, middle_tiles.first().unwrap())?;
+        let mut first_tile = self.find_path(start, middle_tiles.first().unwrap());
         first_tile.pop();
         let last_tile = self
-            .find_path(middle_tiles.last().unwrap(), end)?
+            .find_path(middle_tiles.last().unwrap(), end)
             .split_off(1);
 
-        Some(
-            first_tile
-                .into_iter()
-                .chain(middle_tiles.into_iter())
-                .chain(last_tile.into_iter())
-                .collect(),
-        )
-    }
-
-    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
-        self.shortest_path_option(start, end)
-            .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
+        first_tile
+            .into_iter()
+            .chain(middle_tiles.into_iter())
+            .chain(last_tile.into_iter())
+            .collect()
     }
 
     pub fn distance(&mut self, loc1: &Loc, loc2: &Loc) -> usize {
@@ -573,25 +574,17 @@ impl Map {
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
-    pub fn find_tile(
-        &self,
-        tile: &Tile,
-        directions: &HashSet<Direction>,
-        ids: &Vec<ClientId>,
-    ) -> Tile {
+    pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>) -> Tile {
         let mut possible_tiles = vec![];
 
         for texture_index in 0..Tile::MASKS.len() {
             for &rotation in &Tile::ANGLES {
-                let mut tile_clone = tile.clone();
-                tile_clone.explored.extend(ids.clone());
-
                 let new_t = Tile {
                     texture_index,
                     rotation,
                     terraform: MAX_TERRAFORM_POINTS,
                     has_stone: false,
-                    ..tile_clone
+                    ..tile.clone()
                 };
 
                 if Direction::CARDINALS.iter().all(|dir| {
@@ -614,14 +607,9 @@ impl Map {
         possible_tiles.choose(&mut rng()).unwrap().clone()
     }
 
-    pub fn find_and_replace_tile(
-        &mut self,
-        tile: &Tile,
-        directions: &HashSet<Direction>,
-        ids: Vec<ClientId>,
-    ) {
+    pub fn find_and_replace_tile(&mut self, tile: &Tile, directions: &HashSet<Direction>) {
         // Replace the tile dug
-        let mut new_t = self.find_tile(tile, directions, &ids);
+        let mut new_t = self.find_tile(tile, directions);
 
         // Add (possibly) a leaf on newly dug tiles
         if new_t.leaf.is_none() && rng().random::<f32>() < TILE_LEAF_CHANCE {
@@ -633,7 +621,7 @@ impl Map {
         // Replace tiles in the provided directions
         for dir in directions.iter() {
             if let Some(t) = self.get_adjacent_tile(tile.x, tile.y, &dir.opposite()) {
-                let new_t = self.find_tile(t, &HashSet::new(), &ids);
+                let new_t = self.find_tile(t, &HashSet::new());
                 self.replace_tile(&new_t);
             }
         }

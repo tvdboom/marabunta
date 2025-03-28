@@ -161,34 +161,32 @@ pub fn resolve_digging(
             if tile.terraform > terraform {
                 tile.terraform -= terraform;
             } else {
-                // Possibly spawn a scorpion on the newly dug tile
-                if let Some(enemy) = match rng().random::<f32>() {
-                    0.95..0.99 => Some(Ant::BlackScorpion),
-                    0.99..1. => Some(Ant::YellowScorpion),
-                    _ => None,
-                } {
-                    if ants.iter().any(|(_, a)| a.team == 0) {
-                        play_audio_ev.send(PlayAudioEv {
-                            name: "warning",
-                            volume: 0.5,
+                // Possibly spawn a scorpion on the newly dug tile (only for players)
+                if ants.iter().all(|(_, a)| a.team == 0) {
+                    if let Some(enemy) = match rng().random::<f32>() {
+                        0.95..0.99 => Some(Ant::BlackScorpion),
+                        0.99..1. => Some(Ant::YellowScorpion),
+                        _ => None,
+                    } {
+                        if ants.iter().any(|(_, a)| a.team == 0) {
+                            play_audio_ev.send(PlayAudioEv {
+                                name: "warning",
+                                volume: 0.5,
+                            });
+                        }
+
+                        spawn_ant_ev.send(SpawnAntEv {
+                            ant: AntCmp::base(&enemy),
+                            transform: Transform {
+                                translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                                rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                                ..default()
+                            },
                         });
                     }
-
-                    spawn_ant_ev.send(SpawnAntEv {
-                        ant: AntCmp::base(&enemy),
-                        transform: Transform {
-                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
-                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                            ..default()
-                        },
-                    });
                 }
 
-                map.find_and_replace_tile(
-                    &tile,
-                    &directions,
-                    ants.iter().map(|(_, a)| a.team).collect::<Vec<_>>(),
-                );
+                map.find_and_replace_tile(&tile, &directions);
 
                 // Set digging ants onto a new task
                 ants.iter_mut().for_each(|(_, ant)| {
@@ -356,7 +354,12 @@ pub fn resolve_pre_action(
 
         for (enemy_e, enemy_team, enemy_a, enemy_t, enemy_s) in enemies.iter() {
             if ant.team != *enemy_team
-                && map.can_see(player, &ant_t.translation, &enemy_t.translation)
+                && map.can_see(
+                    &ant_t.translation,
+                    &enemy_t.translation,
+                    &player,
+                    &players.get(*enemy_team),
+                )
             {
                 // The queen attacks enemies in the base (except when wandering)
                 // Protecting ants attack enemies attacking the protected ant
@@ -385,8 +388,12 @@ pub fn resolve_pre_action(
         // Worker ants collect nutrients when close to a corpse
         if ant.kind == Ant::Worker {
             for (corpse_e, corpse_t, team) in corpse_q.iter() {
-                if map.can_see(player, &ant_t.translation, &corpse_t.translation)
-                    || ant.team == team.0
+                if map.can_see(
+                    &ant_t.translation,
+                    &corpse_t.translation,
+                    &player,
+                    &players.get(team.0),
+                ) || ant.team == team.0
                 {
                     let ant_loc = map.get_loc(&ant_t.translation);
                     let corpse_loc = map.get_loc(&corpse_t.translation);
@@ -473,8 +480,8 @@ pub fn resolve_die_action(
 }
 
 pub fn resolve_idle_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
-    corpse_q: Query<(Entity, &Transform), With<Corpse>>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), Without<Corpse>>,
+    corpse_q: Query<(Entity, &Transform, &AntCmp), With<Corpse>>,
     egg_q: Query<(Entity, &Transform, &Egg)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
     players: Res<Players>,
@@ -503,12 +510,17 @@ pub fn resolve_idle_action(
             if ant.kind != Ant::Queen {
                 if let Some((entity, _)) = corpse_q
                     .iter()
-                    .filter_map(|(e, t)| {
-                        map.can_see(player, &ant_t.translation, &t.translation)
-                            .then(|| {
-                                let loc = map.get_loc(&t.translation);
-                                (e, map.distance(&current_loc, &loc))
-                            })
+                    .filter_map(|(e, t, a)| {
+                        map.can_see(
+                            &ant_t.translation,
+                            &t.translation,
+                            &player,
+                            &players.get(a.team),
+                        )
+                        .then(|| {
+                            let loc = map.get_loc(&t.translation);
+                            (e, map.distance(&current_loc, &loc))
+                        })
                     })
                     .min_by_key(|&(_, dist)| dist)
                 {
@@ -534,7 +546,8 @@ pub fn resolve_idle_action(
                             .map(|(e, t, egg)| (e, egg.team, &t.translation)),
                     )
                     .filter(|(_, team, t)| {
-                        ant.team != *team && map.can_see(player, &ant_t.translation, t)
+                        ant.team != *team
+                            && map.can_see(&ant_t.translation, t, &player, &players.get(*team))
                     })
                     .collect();
 

@@ -6,7 +6,6 @@ use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::settings::{spawn_label, SettingsBtn};
-use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
@@ -143,7 +142,12 @@ pub fn setup_menu(
                             spawn_label(
                                 parent,
                                 "Number of opponents",
-                                vec![SettingsBtn::One, SettingsBtn::Two, SettingsBtn::Three],
+                                vec![
+                                    SettingsBtn::Zero,
+                                    SettingsBtn::One,
+                                    SettingsBtn::Two,
+                                    SettingsBtn::Three,
+                                ],
                                 &game_settings,
                                 &assets,
                                 &window,
@@ -193,13 +197,17 @@ pub fn setup_in_game_menu(
 
 pub fn setup_end_game(
     mut commands: Commands,
-    mut ant_q: Query<&mut Visibility, With<AntCmp>>,
+    mut ant_q: Query<(&mut Visibility, &AntCmp)>,
     mut tile_q: Query<&mut Sprite, With<TileCmp>>,
-    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
-    let image = if players.get(0).colony[&Ant::Queen] == 0 {
+    let image = if ant_q
+        .iter()
+        .filter(|(_, a)| a.kind == Ant::Queen && a.team == 0 && a.health > 0.)
+        .count()
+        == 0
+    {
         "defeat"
     } else {
         "victory"
@@ -208,10 +216,7 @@ pub fn setup_end_game(
     commands
         .spawn((add_root_node(), MenuCmp))
         .with_children(|parent| {
-            parent.spawn((
-                ImageNode::new(assets.image(image)),
-                // Transform::from_scale(Vec3::splat(0.5)),
-            ));
+            parent.spawn(ImageNode::new(assets.image(image)));
             spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
         });
 
@@ -223,5 +228,5 @@ pub fn setup_end_game(
     // Show all enemies on the map
     ant_q
         .iter_mut()
-        .for_each(|mut v| *v = Visibility::Inherited);
+        .for_each(|(mut v, _)| *v = Visibility::Inherited);
 }

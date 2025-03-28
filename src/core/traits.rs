@@ -260,7 +260,7 @@ pub fn select_trait_event(
 
             player.traits.push(selected);
 
-            match ev.selected {
+            match selected {
                 Trait::DoubleQueen => {
                     spawn_ant_ev.send(SpawnAntEv {
                         ant: AntCmp::new(&Ant::Queen, &player),
@@ -301,7 +301,9 @@ pub fn select_trait_event(
                     let soldier = AntCmp::new(&Ant::Soldier, &player);
                     ant_q
                         .iter_mut()
-                        .filter(|(_, _, a)| a.kind == Ant::Worker && a.team == player.id)
+                        .filter(|(_, _, a)| {
+                            a.kind == Ant::Worker && a.team == player.id && a.health > 0.
+                        })
                         .for_each(|(_, mut t, mut a)| transform_ant(&mut t, &mut a, &soldier));
                 }
                 Trait::Necromancer => {

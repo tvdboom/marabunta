@@ -100,7 +100,7 @@ pub fn spawn_enemies(
                 let max_leaves = ants.iter().map(|a| a.price.leaves as u32).max().unwrap() as f32;
                 let max_nutrients =
                     ants.iter().map(|a| a.price.nutrients as u32).max().unwrap() as f32;
-                let save_prob = 0.6
+                let save_prob = 0.55
                     + (max_leaves + max_nutrients)
                         / (max_leaves
                             + max_nutrients

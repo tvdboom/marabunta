@@ -36,21 +36,32 @@ pub fn update_vision(
                     .extend(reveal_tiles(current_tile, &map, None, 0))
             });
 
-        // Add tiles with 2 or more revealed neighbors to the list
-        tile_q.iter().for_each(|(_, _, t)| {
-            let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                .iter()
-                .filter(|(dx, dy)| {
-                    let nx = t.x as i32 + dx;
-                    let ny = t.y as i32 + dy;
-                    nx >= 0 && ny >= 0 && player.visible_tiles.contains(&(nx as u32, ny as u32))
-                })
-                .count();
+        // Add stone tiles with 2 or more revealed neighbors to the list
+        tile_q
+            .iter()
+            .filter(|(_, _, t)| t.has_stone)
+            .for_each(|(_, _, t)| {
+                let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                    .iter()
+                    .filter(|(dx, dy)| {
+                        let nx = t.x as i32 + dx;
+                        let ny = t.y as i32 + dy;
+                        nx >= 0 && ny >= 0 && player.visible_tiles.contains(&(nx as u32, ny as u32))
+                    })
+                    .count();
 
-            if visible_neighbors >= 2 {
-                player.visible_tiles.insert((t.x, t.y));
-            }
-        });
+                if visible_neighbors >= 2 {
+                    player.visible_tiles.insert((t.x, t.y));
+                }
+            });
+
+        // Add the exploration marker
+        map.tiles
+            .iter_mut()
+            .filter(|t| player.visible_tiles.contains(&(t.x, t.y)))
+            .for_each(|t| {
+                t.explored.insert(player.id);
+            });
 
         if player.id == 0 {
             if game_settings.fog_of_war != FogOfWar::Full {

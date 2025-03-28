@@ -282,13 +282,7 @@ pub fn draw_ui(
                             })
                             .with_children(|parent| {
                                 parent.spawn((
-                                    add_text(
-                                        format!("{}", player.colony.get(ant).unwrap_or(&0)),
-                                        "bold",
-                                        10.,
-                                        &assets,
-                                        &window,
-                                    ),
+                                    add_text(format!("{}", 0), "bold", 10., &assets, &window),
                                     ColonyLabelCmp(ant.clone()),
                                 ));
                             });
@@ -423,6 +417,7 @@ pub fn animate_ui(mut animation_q: Query<(&mut AnimationCmp, &mut ImageNode)>, t
 }
 
 pub fn update_ui(
+    ant_q: Query<&AntCmp>,
     mut leaves_q: Query<&mut Text, With<LeavesLabelCmp>>,
     mut nutrients_q: Query<&mut Text, (With<NutrientsLabelCmp>, Without<LeavesLabelCmp>)>,
     mut colony_q: Query<
@@ -445,7 +440,13 @@ pub fn update_ui(
 
     // Update the colony labels
     for (mut text, colony) in colony_q.iter_mut() {
-        text.0 = format!("{}", player.colony.get(&colony.0).unwrap_or(&0));
+        text.0 = format!(
+            "{}",
+            ant_q
+                .iter()
+                .filter(|a| a.kind == colony.0 && a.team == 0 && a.health > 0.)
+                .count()
+        );
     }
 
     // Hide the larva if the queue is empty

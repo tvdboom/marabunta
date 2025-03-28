@@ -156,7 +156,6 @@ pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     game_settings: Res<GameSettings>,
-    mut players: ResMut<Players>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Local<WorldAssets>,
@@ -264,32 +263,25 @@ pub fn spawn_ant_event(
                     Visibility::Hidden,
                 ));
             });
-
-        players
-            .get_mut(ant.team)
-            .colony
-            .entry(ant.kind.clone())
-            .and_modify(|c| *c += 1)
-            .or_insert(1);
     }
 }
 
 pub fn despawn_ant_event(
+    ant_q: Query<&AntCmp>,
     mut commands: Commands,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
-    players: Res<Players>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
+        let queens = ant_q
+            .iter()
+            .filter(|a| a.kind == Ant::Queen && a.health > 0.)
+            .collect::<Vec<_>>();
+
+        let player_queens = queens.iter().filter(|a| a.team == 0).collect::<Vec<_>>();
+
         // End game if your queen died or there is only one queen left
-        if players.get(0).colony[&Ant::Queen] == 0
-            || players
-                .0
-                .iter()
-                .filter(|p| p.colony.get(&Ant::Queen).unwrap_or(&1) == &0)
-                .count()
-                == 1
-        {
+        if player_queens.is_empty() || queens.len() == player_queens.len() {
             next_game_state.set(GameState::EndGame);
         } else {
             commands.entity(*entity).despawn_recursive();
@@ -300,11 +292,11 @@ pub fn despawn_ant_event(
 pub fn damage_event(
     mut commands: Commands,
     mut damage_ev: EventReader<DamageAntEv>,
-    mut play_audio_ev: EventWriter<PlayAudioEv>,
     mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
     mut egg_q: Query<(Entity, &mut Egg)>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     mut players: ResMut<Players>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
         let attacker = ant_q.get(*attacker).unwrap().1;
@@ -342,15 +334,8 @@ pub fn damage_event(
 
                 ant_t.translation.z = ANT_Z_SCORE;
 
-                if ant_c.team == player_d.id {
-                    player_d.colony.entry(ant_c.kind.clone()).and_modify(|c| {
-                        *c = c.saturating_sub(1);
-                    });
-
-                    // If the queen died, the player lost the game
-                    if player_d.id == 0 && player_d.colony[&Ant::Queen] == 0 {
-                        play_audio_ev.send(PlayAudioEv::new("game-over"));
-                    }
+                if ant_c.kind == Ant::Queen && ant_c.team == 0 {
+                    play_audio_ev.send(PlayAudioEv::new("defeat"));
                 }
             }
         } else if let Ok((egg_e, mut egg)) = egg_q.get_mut(*defender) {
