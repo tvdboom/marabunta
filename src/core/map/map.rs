@@ -489,6 +489,10 @@ impl Map {
         .map(|(path, _)| path)
     }
 
+    pub fn tile_distance(&self, loc1: &Loc, loc2: &Loc) -> usize {
+        ((loc1.x as i32 - loc2.x as i32).abs() - (loc1.y as i32 - loc2.y as i32).abs()) as usize
+    }
+
     /// Use A* to find the shortest path between two locations
     fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
         astar(
@@ -500,7 +504,7 @@ impl Map {
                     .map(|l| (l, 1))
                     .collect::<Vec<_>>()
             },
-            |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
+            |loc| 4 * self.tile_distance(start, loc),
             |loc| loc == end,
         )
         .map(|(path, _)| path)

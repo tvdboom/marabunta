@@ -350,6 +350,8 @@ pub fn resolve_pre_action(
 
         for (enemy_e, enemy_team, enemy_t) in enemies.iter() {
             // All ants attack enemies who are nearby
+            let loc1 = map.get_loc(&ant_t.translation);
+            let loc2 = map.get_loc(enemy_t);
             if ant.team != *enemy_team
                 && map.can_see(
                     &ant_t.translation,
