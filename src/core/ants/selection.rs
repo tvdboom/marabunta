@@ -211,7 +211,8 @@ pub fn select_ant_on_click(
                                 sel.action = Action::Walk(loc);
                             }
                         } else if ant.team != player.id {
-                            // If clicked on an enemy, move towards it (which will lead to an attack)
+                            // If clicked on an enemy, attack it
+                            sel.command = Some(Behavior::Attack);
                             sel.action = Action::TargetedWalk(*sel_e);
                         } else if ant_e != *sel_e {
                             // If clicked on an ally, protect it

@@ -332,61 +332,41 @@ pub fn resolve_healing(
 }
 
 pub fn resolve_pre_action(
-    mut ant_q: Query<(Entity, &Transform, &Sprite, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
     corpse_q: Query<(Entity, &Transform, &TeamCmp), With<Corpse>>,
     mut map: ResMut<Map>,
     players: Res<Players>,
-    images: Res<Assets<Image>>,
-    atlases: Res<Assets<TextureAtlasLayout>>,
 ) {
     let enemies = ant_q
         .iter()
-        .filter_map(|(e, t, s, a)| {
-            (a.health > 0.).then_some((e, a.team, a.action.clone(), t.clone(), s.clone()))
-        })
+        .filter_map(|(e, t, a)| (a.health > 0.).then_some((e, a.team, t.translation)))
         .collect::<Vec<_>>();
 
-    'ant: for (_, ant_t, ant_s, mut ant) in ant_q
+    'ant: for (_, ant_t, mut ant) in ant_q
         .iter_mut()
-        .filter(|(_, _, _, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
+        .filter(|(_, _, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
     {
         let player = players.get(ant.team);
 
-        for (enemy_e, enemy_team, enemy_a, enemy_t, enemy_s) in enemies.iter() {
+        for (enemy_e, enemy_team, enemy_t) in enemies.iter() {
+            // All ants attack enemies who are nearby
             if ant.team != *enemy_team
                 && map.can_see(
                     &ant_t.translation,
-                    &enemy_t.translation,
+                    enemy_t,
                     &player,
                     &players.get(*enemy_team),
                 )
+                && map.distance_from_coord(&ant_t.translation, enemy_t) < MAX_DISTANCE_PROTECT
             {
-                // The queen attacks enemies in the base (except when wandering)
-                // Protecting ants attack enemies attacking the protected ant
-                // All ants attack when adjacent
-                if (ant.kind == Ant::Queen
-                    && !player.has_trait(&Trait::WanderingQueen)
-                    && ant.command.is_none()
-                    && map
-                        .get_tile_from_coord(&enemy_t.translation)
-                        .unwrap()
-                        .base
-                        .filter(|b| *b == ant.team)
-                        .is_some())
-                    || matches!(
-                        (enemy_a, &ant.command),
-                        (Action::Attack(e1), Some(Behavior::ProtectAnt(e2))) if e1 == e2
-                    )
-                    || collision((&ant_t, &ant_s), (enemy_t, enemy_s), &images, &atlases)
-                {
-                    ant.action = Action::TargetedWalk(*enemy_e);
-                    continue 'ant;
-                }
+                ant.command = Some(Behavior::Attack);
+                ant.action = Action::TargetedWalk(*enemy_e);
+                continue 'ant;
             }
         }
 
         // Worker ants collect nutrients when close to a corpse
-        if ant.kind == Ant::Worker {
+        if ant.kind == Ant::Worker && !matches!(ant.command, Some(Behavior::HarvestCorpse(_))) {
             for (corpse_e, corpse_t, team) in corpse_q.iter() {
                 if map.can_see(
                     &ant_t.translation,
@@ -404,6 +384,47 @@ pub fn resolve_pre_action(
                     }
                 }
             }
+        }
+    }
+}
+
+pub fn resolve_death(
+    mut commands: Commands,
+    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
+    egg_q: Query<(Entity, &Egg)>,
+    mut players: ResMut<Players>,
+    mut selection: ResMut<AntSelection>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
+) {
+    for (ant_e, mut ant_t, mut ant) in &mut ant_q {
+        if ant.health == 0. && !matches!(ant.action, Action::Die(_)) {
+            let player = players.get_mut(ant.team);
+
+            commands.entity(ant_e).insert(Corpse);
+            selection.0.remove(&ant_e);
+
+            ant.action = Action::Die(Timer::from_seconds(
+                DEATH_TIME
+                    * if player.has_trait(&Trait::Corpses) {
+                        2.
+                    } else {
+                        1.
+                    },
+                TimerMode::Once,
+            ));
+
+            // Place corpses behind all other ants
+            ant_t.translation.z = ANT_Z_SCORE;
+
+            if ant.kind == Ant::Queen && ant.team == 0 {
+                play_audio_ev.send(PlayAudioEv::new("defeat"));
+            }
+        }
+    }
+
+    for (egg_e, egg) in &egg_q {
+        if egg.health == 0. {
+            commands.entity(egg_e).despawn_recursive();
         }
     }
 }
@@ -429,6 +450,7 @@ pub fn resolve_attack_action(
                 }
             } else {
                 // The enemy is dead
+                ant.command = None;
                 ant.action = Action::Idle;
             }
         }

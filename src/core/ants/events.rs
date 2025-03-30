@@ -1,5 +1,5 @@
 use crate::core::ants::components::*;
-use crate::core::ants::selection::select_ant_on_click;
+use crate::core::ants::selection::{select_ant_on_click};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
@@ -273,76 +273,52 @@ pub fn despawn_ant_event(
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
-        let queens = ant_q
-            .iter()
-            .filter(|a| a.kind == Ant::Queen && a.health > 0.)
-            .collect::<Vec<_>>();
+        if let Ok(ant) = ant_q.get(*entity) {
+            if ant.kind == Ant::Queen {
+                let queens = ant_q
+                    .iter()
+                    .filter(|a| a.kind == Ant::Queen && a.health > 0.)
+                    .collect::<Vec<_>>();
 
-        let player_queens = queens.iter().filter(|a| a.team == 0).collect::<Vec<_>>();
+                let player_queens = queens.iter().filter(|a| a.team == 0).collect::<Vec<_>>();
 
-        // End game if your queen died or there is only one queen left
-        if player_queens.is_empty() || queens.len() == player_queens.len() {
-            next_game_state.set(GameState::EndGame);
-        } else {
-            commands.entity(*entity).despawn_recursive();
+                // End game if your queen died or there is only one queen left
+                if player_queens.is_empty() || queens.len() == player_queens.len() {
+                    next_game_state.set(GameState::EndGame);
+                    return;
+                }
+            }
         }
+
+        commands.entity(*entity).despawn_recursive();
     }
 }
 
 pub fn damage_event(
-    mut commands: Commands,
     mut damage_ev: EventReader<DamageAntEv>,
-    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
-    mut egg_q: Query<(Entity, &mut Egg)>,
-    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-    mut players: ResMut<Players>,
-    mut play_audio_ev: EventWriter<PlayAudioEv>,
+    mut ant_q: Query<&mut AntCmp>,
+    mut egg_q: Query<&mut Egg>,
+    players: Res<Players>,
 ) {
     for DamageAntEv { attacker, defender } in damage_ev.read() {
-        let attacker = ant_q.get(*attacker).unwrap().1;
+        let attacker = ant_q.get(*attacker).unwrap();
         let player_a = players.get(attacker.team);
         let damage = attacker.damage;
 
-        if let Ok((mut ant_t, mut ant_c)) = ant_q.get_mut(*defender) {
+        if let Ok( mut ant) = ant_q.get_mut(*defender) {
             // Apply extra bonus factors against monsters
             let damage = damage
-                * if (ant_c.kind.is_scorpion() && player_a.has_trait(&Trait::ScorpionKiller))
-                    || (ant_c.kind == Ant::Wasp && player_a.has_trait(&Trait::WaspKiller))
-                    || (ant_c.kind.is_termite() && player_a.has_trait(&Trait::TermiteKiller))
+                * if (ant.kind.is_scorpion() && player_a.has_trait(&Trait::ScorpionKiller))
+                    || (ant.kind == Ant::Wasp && player_a.has_trait(&Trait::WaspKiller))
+                    || (ant.kind.is_termite() && player_a.has_trait(&Trait::TermiteKiller))
                 {
                     2.
                 } else {
                     1.
                 };
-
-            ant_c.health = (ant_c.health - damage).max(0.);
-
-            if ant_c.health == 0. && !matches!(ant_c.action, Action::Die(_)) {
-                let player_d = players.get_mut(ant_c.team);
-
-                commands.entity(*defender).insert(Corpse);
-
-                ant_c.action = Action::Die(Timer::from_seconds(
-                    DEATH_TIME
-                        * if player_d.has_trait(&Trait::Corpses) {
-                            2.
-                        } else {
-                            1.
-                        },
-                    TimerMode::Once,
-                ));
-
-                ant_t.translation.z = ANT_Z_SCORE;
-
-                if ant_c.kind == Ant::Queen && ant_c.team == 0 {
-                    play_audio_ev.send(PlayAudioEv::new("defeat"));
-                }
-            }
-        } else if let Ok((egg_e, mut egg)) = egg_q.get_mut(*defender) {
+            ant.health = (ant.health - damage).max(0.);
+        } else if let Ok(mut egg) = egg_q.get_mut(*defender) {
             egg.health = (egg.health - damage).max(0.);
-            if egg.health == 0. {
-                despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
-            }
         }
     }
 }

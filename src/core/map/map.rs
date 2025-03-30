@@ -480,7 +480,7 @@ impl Map {
                         self.get_tile(l.x, l.y).map_or(false, |t| !t.has_stone)
                             && (![0, 3, 12, 15].contains(&l.bit) || *l == end)
                     })
-                    .map(|l| (l, if self.is_walkable(&l) { 1 } else { 10000 }))
+                    .map(|l| (l, if self.is_walkable(&l) { 1 } else { 3 }))
                     .collect::<Vec<_>>()
             },
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
@@ -550,6 +550,12 @@ impl Map {
 
     pub fn distance(&mut self, loc1: &Loc, loc2: &Loc) -> usize {
         self.shortest_path(loc1, loc2).len()
+    }
+
+    pub fn distance_from_coord(&mut self, pos1: &Vec3, pos2: &Vec3) -> usize {
+        let loc1 = self.get_loc(pos1);
+        let loc2 = self.get_loc(pos2);
+        self.distance(&loc1, &loc2)
     }
 
     // Map updates ============================================================

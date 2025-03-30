@@ -201,7 +201,12 @@ impl Plugin for GamePlugin {
             .add_systems(OnExit(GameState::EndGame), despawn::<MenuCmp>)
             .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))
             // Ants
-            .add_systems(PreUpdate, resolve_pre_action.in_set(InRunningGameSet))
+            .add_systems(
+                PreUpdate,
+                (resolve_pre_action, resolve_death)
+                    .chain()
+                    .in_set(InRunningGameSet),
+            )
             .add_systems(
                 Update,
                 update_ant_components.in_set(InRunningOrPausedGameSet),
