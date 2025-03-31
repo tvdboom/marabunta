@@ -1,5 +1,5 @@
 use crate::core::ants::components::*;
-use crate::core::ants::selection::{select_ant_on_click};
+use crate::core::ants::selection::select_ant_on_click;
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
@@ -305,7 +305,7 @@ pub fn damage_event(
         let player_a = players.get(attacker.team);
         let damage = attacker.damage;
 
-        if let Ok( mut ant) = ant_q.get_mut(*defender) {
+        if let Ok(mut ant) = ant_q.get_mut(*defender) {
             // Apply extra bonus factors against monsters
             let damage = damage
                 * if (ant.kind.is_scorpion() && player_a.has_trait(&Trait::ScorpionKiller))

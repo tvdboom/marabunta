@@ -349,17 +349,12 @@ pub fn resolve_pre_action(
         let player = players.get(ant.team);
 
         for (enemy_e, enemy_team, enemy_t) in enemies.iter() {
-            // All ants attack enemies who are nearby
-            let loc1 = map.get_loc(&ant_t.translation);
-            let loc2 = map.get_loc(enemy_t);
+            // All ants immediately attack enemies who are nearby
             if ant.team != *enemy_team
-                && map.can_see(
-                    &ant_t.translation,
-                    enemy_t,
-                    &player,
-                    &players.get(*enemy_team),
-                )
-                && map.distance_from_coord(&ant_t.translation, enemy_t) < MAX_DISTANCE_PROTECT
+                && map
+                    .distance_from_coord_option(&ant_t.translation, enemy_t)
+                    .unwrap_or(usize::MAX)
+                    < MAX_DISTANCE_PROTECT
             {
                 ant.command = Some(Behavior::Attack);
                 ant.action = Action::TargetedWalk(*enemy_e);

@@ -490,11 +490,11 @@ impl Map {
     }
 
     pub fn tile_distance(&self, loc1: &Loc, loc2: &Loc) -> usize {
-        ((loc1.x as i32 - loc2.x as i32).abs() - (loc1.y as i32 - loc2.y as i32).abs()) as usize
+        ((loc1.x as i32 - loc2.x as i32).abs() + (loc1.y as i32 - loc2.y as i32).abs()) as usize
     }
 
     /// Use A* to find the shortest path between two locations
-    fn find_path(&self, start: &Loc, end: &Loc) -> Vec<Loc> {
+    fn find_path(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
         astar(
             start,
             |loc| {
@@ -508,21 +508,18 @@ impl Map {
             |loc| loc == end,
         )
         .map(|(path, _)| path)
-        .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
     }
 
     /// Find the shortest path between two locations (using the cache if available)
-    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
+    pub fn shortest_path_option(&mut self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
         // If within 2 tiles range, calculate the path directly
-        if (start.x as i32 - end.x as i32).abs() + (start.y as i32 - end.y as i32).abs()
-            < Tile::SIDE as i32
-        {
+        if self.tile_distance(start, end) < Tile::SIDE as usize {
             return self.find_path(start, end);
         }
 
         // Store the calculated path in the cache if not available
         if !self.cache.contains_key(start, end) {
-            let path = self.find_path(start, end);
+            let path = self.find_path(start, end)?;
             self.cache.insert(*start, *end, path.to_vec().clone());
             self.cache
                 .insert(*end, *start, path.iter().rev().cloned().collect::<Vec<_>>());
@@ -539,27 +536,34 @@ impl Map {
             .collect();
 
         // Calculate a new path for the first and last tile only
-        let mut first_tile = self.find_path(start, middle_tiles.first().unwrap());
+        let mut first_tile = self.find_path(start, middle_tiles.first().unwrap())?;
         first_tile.pop();
         let last_tile = self
-            .find_path(middle_tiles.last().unwrap(), end)
+            .find_path(middle_tiles.last().unwrap(), end)?
             .split_off(1);
 
-        first_tile
-            .into_iter()
-            .chain(middle_tiles.into_iter())
-            .chain(last_tile.into_iter())
-            .collect()
+        Some(
+            first_tile
+                .into_iter()
+                .chain(middle_tiles.into_iter())
+                .chain(last_tile.into_iter())
+                .collect(),
+        )
+    }
+
+    pub fn shortest_path(&mut self, start: &Loc, end: &Loc) -> Vec<Loc> {
+        self.shortest_path_option(start, end)
+            .expect(format!("No path found from {:?} to {:?}.", start, end).as_str())
     }
 
     pub fn distance(&mut self, loc1: &Loc, loc2: &Loc) -> usize {
         self.shortest_path(loc1, loc2).len()
     }
 
-    pub fn distance_from_coord(&mut self, pos1: &Vec3, pos2: &Vec3) -> usize {
+    pub fn distance_from_coord_option(&mut self, pos1: &Vec3, pos2: &Vec3) -> Option<usize> {
         let loc1 = self.get_loc(pos1);
         let loc2 = self.get_loc(pos2);
-        self.distance(&loc1, &loc2)
+        Some(self.shortest_path_option(&loc1, &loc2)?.len())
     }
 
     // Map updates ============================================================
