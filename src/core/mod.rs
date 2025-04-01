@@ -17,7 +17,9 @@ mod traits;
 mod utils;
 
 use crate::core::ants::events::*;
-use crate::core::ants::selection::remove_command_from_selection;
+use crate::core::ants::selection::{
+    animate_pin, remove_command_from_selection, spawn_pin_event, PinEv,
+};
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
@@ -70,6 +72,7 @@ impl Plugin for GamePlugin {
             .add_event::<QueueAntEv>()
             .add_event::<SpawnEggEv>()
             .add_event::<SpawnAntEv>()
+            .add_event::<PinEv>()
             .add_event::<DespawnAntEv>()
             .add_event::<DamageAntEv>()
             .add_event::<SelectAntEv>()
@@ -218,6 +221,7 @@ impl Plugin for GamePlugin {
                     queue_ants_keyboard,
                     hatch_eggs,
                     animate_ants,
+                    animate_pin,
                     resolve_digging,
                     resolve_harvesting,
                     resolve_harvesting_corpse,
@@ -241,6 +245,7 @@ impl Plugin for GamePlugin {
                         queue_ant_event,
                         spawn_egg_event,
                         spawn_ant_event,
+                        spawn_pin_event,
                         despawn_ant_event,
                         damage_event,
                     )

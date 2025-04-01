@@ -96,6 +96,7 @@ pub fn draw_map(
                             ),
                             ..default()
                         },
+                        PickingBehavior::IGNORE,
                         MapCmp,
                     ));
                 }

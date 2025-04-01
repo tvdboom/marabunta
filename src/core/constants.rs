@@ -38,7 +38,7 @@ pub const WASP_TEAM: u64 = 90;
 pub const NON_MAP_ID: u32 = 9999;
 pub const VISION_RANGE: u32 = 2;
 pub const MAX_TERRAFORM_POINTS: f32 = 100.;
-pub const TILE_LEAF_CHANCE: f32 = 0.15;
+pub const TILE_LEAF_CHANCE: f32 = 0.2;
 pub const CAPPED_DELTA_SECS_SPEED: f32 = 0.05;
 
 // Ants

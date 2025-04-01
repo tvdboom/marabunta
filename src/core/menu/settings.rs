@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use strum_macros::EnumIter;
 
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub enum SettingsBtn {
     Black,
     Red,

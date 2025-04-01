@@ -351,7 +351,7 @@ impl AntCmp {
                     2.
                 },
                 hatch_time: 5.,
-                max_carry: Resources::new(30., 50.),
+                max_carry: Resources::new(30., 20.),
                 behavior: Behavior::HarvestRandom,
                 action: Action::Idle,
                 description: "\
@@ -366,7 +366,7 @@ impl AntCmp {
                 team: player.id,
                 color: Some(player.color.clone()),
                 z_score: 0.2,
-                price: Resources::from_leaves(150.),
+                price: Resources::from_leaves(100.),
                 health: 10.,
                 max_health: 10.,
                 speed: DEFAULT_WALK_SPEED + 10.,
@@ -391,7 +391,7 @@ impl AntCmp {
                     0.04
                 },
                 z_score: 0.5,
-                price: Resources::from_leaves(100.),
+                price: Resources::from_leaves(80.),
                 health: 50.,
                 max_health: 50.,
                 speed: if player.has_trait(&Trait::EnhancedSoldiers) {
@@ -420,24 +420,24 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.04,
                 z_score: 0.6,
-                price: Resources::new(150., 10.),
+                price: Resources::new(150., 30.),
                 health: if player.has_trait(&Trait::EnhancedWarriors) {
-                    65.
+                    85.
                 } else {
-                    50.
+                    65.
                 },
                 max_health: if player.has_trait(&Trait::EnhancedWarriors) {
-                    65.
+                    85.
                 } else {
-                    50.
+                    65.
                 },
                 speed: DEFAULT_WALK_SPEED + 5.,
                 damage: if player.has_trait(&Trait::EnhancedWarriors) {
-                    12.
+                    13.
                 } else {
-                    9.
+                    10.
                 },
-                hatch_time: 12.,
+                hatch_time: 18.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
@@ -453,7 +453,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.05,
                 z_score: 0.9,
-                price: Resources::new(200., 30.),
+                price: Resources::new(180., 60.),
                 health: 50.,
                 max_health: 50.,
                 speed: DEFAULT_WALK_SPEED + 2.,
@@ -474,7 +474,7 @@ impl AntCmp {
                 color: Some(player.color.clone()),
                 scale: 0.06,
                 z_score: 0.7,
-                price: Resources::new(200., 30.),
+                price: Resources::new(180., 60.),
                 health: 300.,
                 max_health: 300.,
                 speed: DEFAULT_WALK_SPEED - 6.,

@@ -560,12 +560,6 @@ impl Map {
         self.shortest_path(loc1, loc2).len()
     }
 
-    pub fn distance_from_coord_option(&mut self, pos1: &Vec3, pos2: &Vec3) -> Option<usize> {
-        let loc1 = self.get_loc(pos1);
-        let loc2 = self.get_loc(pos2);
-        Some(self.shortest_path_option(&loc1, &loc2)?.len())
-    }
-
     // Map updates ============================================================
 
     pub fn replace_tile(&mut self, tile: &Tile) {
