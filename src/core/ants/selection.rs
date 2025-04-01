@@ -46,7 +46,7 @@ pub fn spawn_pin_event(
             Sprite::from_image(assets.image("pin")),
             Transform {
                 translation: (pos + Vec2::new(0., 5.)).extend(MAX_Z_SCORE),
-                scale: Vec3::splat(0.05),
+                scale: Vec3::splat(0.03),
                 ..default()
             },
             PickingBehavior::IGNORE,
@@ -422,13 +422,16 @@ pub fn update_selection_icons(
     let mut to_defend: HashSet<Entity> = HashSet::new();
     for ant_e in &selection.0 {
         if let Ok((_, ant)) = ant_q.get(*ant_e) {
-            if let Some(Behavior::ProtectAnt(entity)) = ant.command {
-                to_defend.insert(entity);
-            }
-            if ant.command == Some(Behavior::Attack) {
-                if let Action::TargetedWalk(entity) = ant.action {
-                    to_attack.insert(entity);
+            match ant.command {
+                Some(Behavior::ProtectAnt(entity)) => {
+                    to_defend.insert(entity);
                 }
+                Some(Behavior::Attack) => {
+                    if let Action::TargetedWalk(entity) = ant.action {
+                        to_attack.insert(entity);
+                    }
+                }
+                _ => (),
             }
         }
     }

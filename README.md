@@ -38,7 +38,7 @@
 - `w-a-s-d`: Move the camera.
 
 **Ant control**
-- `left-click`: Select ant (ctrl + click) to add to the selection.
+- `left-click`: Select ants (ctrl + click) to add to the selection.
 - `right-click`: Move/defend/attack target position/ant.
 - `delete`: Remove commands from selected ants.
 
