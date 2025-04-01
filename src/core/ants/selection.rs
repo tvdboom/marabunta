@@ -1,4 +1,4 @@
-use crate::core::ants::components::{Action, Ant, AntCmp, Behavior};
+use crate::core::ants::components::{Action, Ant, AntCmp, AttackCmp, Behavior, DefendCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_Z_SCORE;
@@ -297,11 +297,11 @@ pub fn select_ant_on_click(
                         } else if ant.team != player.id {
                             // If clicked on an enemy, attack it
                             sel.command = Some(Behavior::Attack);
-                            sel.action = Action::TargetedWalk(*sel_e);
-                        } else if ant_e != *sel_e {
+                            sel.action = Action::TargetedWalk(ant_e);
+                        } else {
                             // If clicked on an ally, protect it
-                            sel.command = Some(Behavior::ProtectAnt(*sel_e));
-                            sel.action = Action::TargetedWalk(*sel_e);
+                            sel.command = Some(Behavior::ProtectAnt(ant_e));
+                            sel.action = Action::TargetedWalk(ant_e);
                         }
                     }
                 }
@@ -406,6 +406,49 @@ pub fn remove_command_from_selection(
             if let Ok(mut ant) = ant_q.get_mut(*sel_e) {
                 pin_q.iter().for_each(|e| commands.entity(e).despawn());
                 ant.command = None;
+            }
+        }
+    }
+}
+
+pub fn update_selection_icons(
+    ant_q: Query<(Entity, &AntCmp)>,
+    mut attack_q: Query<&mut Visibility, With<AttackCmp>>,
+    mut defend_q: Query<&mut Visibility, (With<DefendCmp>, Without<AttackCmp>)>,
+    children_q: Query<&Children>,
+    selection: Res<AntSelection>,
+) {
+    let mut to_attack: HashSet<Entity> = HashSet::new();
+    let mut to_defend: HashSet<Entity> = HashSet::new();
+    for ant_e in &selection.0 {
+        if let Ok((_, ant)) = ant_q.get(*ant_e) {
+            if let Some(Behavior::ProtectAnt(entity)) = ant.command {
+                to_defend.insert(entity);
+            }
+            if ant.command == Some(Behavior::Attack) {
+                if let Action::TargetedWalk(entity) = ant.action {
+                    to_attack.insert(entity);
+                }
+            }
+        }
+    }
+
+    for (ant_e, _) in &ant_q {
+        for child in children_q.iter_descendants(ant_e) {
+            if let Ok(mut visibility) = defend_q.get_mut(child) {
+                *visibility = if to_defend.contains(&ant_e) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+
+            if let Ok(mut visibility) = attack_q.get_mut(child) {
+                *visibility = if to_attack.contains(&ant_e) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
             }
         }
     }

@@ -207,6 +207,7 @@ pub fn spawn_ant_event(
                         },
                         AntHealthWrapperCmp,
                         Visibility::Hidden,
+                        PickingBehavior::IGNORE,
                         NoRotationChildCmp,
                     ))
                     .with_children(|parent| {
@@ -233,27 +234,35 @@ pub fn spawn_ant_event(
                     Transform::from_translation(Vec3::new(0., 0., -0.1)),
                     SelectedCmp,
                     Visibility::Hidden,
+                    PickingBehavior::IGNORE,
                 ));
 
                 parent.spawn((
-                    Sprite {
-                        image: assets.image("leaf2"),
-                        ..default()
-                    },
+                    Sprite::from_image(assets.image("attack")),
                     Transform {
-                        translation: Vec3::new(0., 5., 0.1),
-                        scale: Vec3::splat(3.),
+                        translation: Vec3::new(0., 0., 0.8),
+                        scale: Vec3::splat(0.25),
                         ..default()
                     },
-                    LeafCarryCmp,
+                    AttackCmp,
                     Visibility::Hidden,
+                    PickingBehavior::IGNORE,
                 ));
 
                 parent.spawn((
-                    Sprite {
-                        image: assets.image("blood"),
+                    Sprite::from_image(assets.image("defend")),
+                    Transform {
+                        translation: Vec3::new(0., 0., 0.8),
+                        scale: Vec3::splat(0.25),
                         ..default()
                     },
+                    DefendCmp,
+                    Visibility::Hidden,
+                    PickingBehavior::IGNORE,
+                ));
+
+                parent.spawn((
+                    Sprite::from_image(assets.image("blood")),
                     Transform {
                         translation: Vec3::new(0., -75., 0.2),
                         scale: Vec3::splat(0.1),
@@ -261,6 +270,7 @@ pub fn spawn_ant_event(
                     },
                     NutrientCarryCmp,
                     Visibility::Hidden,
+                    PickingBehavior::IGNORE,
                 ));
             });
     }

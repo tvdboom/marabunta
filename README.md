@@ -1,7 +1,7 @@
 <div align="center">
 
 # Marabunta
-### An ant colony rts game written in rust
+### An ant colony meets rts game written in rust
 
 <br><br>
 [![Play](https://gist.githubusercontent.com/cxmeel/0dbc95191f239b631c3874f4ccf114e2/raw/play.svg)](https://tvdboom.itch.io/marabunta)
@@ -25,11 +25,24 @@
 ## 🎮 Gameplay
 
 
+### Commands
+
+
+
 <br>
 
 ### Key bindings
 
+**Camera**
+- `scroll`: Zoom in/out.
+- `w-a-s-d`: Move the camera.
+
+**Ant control**
+- `left-click`: Select ant (ctrl + click) to add to the selection.
+- `right-click`: Move/defend/attack target position/ant.
+- `delete`: Remove commands from selected ants.
+
+**Others**
 - `escape`: Enter/exit the menu.
 - `space`: Pause/unpause the game.
 - `m`: Toggle the audio button.
-- `delete`: Remove commands from selected ants.

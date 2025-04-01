@@ -23,6 +23,12 @@ pub struct AntHealthCmp;
 pub struct SelectedCmp;
 
 #[derive(Component)]
+pub struct AttackCmp;
+
+#[derive(Component)]
+pub struct DefendCmp;
+
+#[derive(Component)]
 pub struct LeafCarryCmp;
 
 #[derive(Component)]
