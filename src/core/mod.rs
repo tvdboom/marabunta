@@ -17,14 +17,14 @@ mod traits;
 mod utils;
 
 use crate::core::ants::events::*;
-use crate::core::ants::selection::{
-    animate_pin, remove_command_from_selection, spawn_pin_event, update_selection_icons, PinEv,
-};
+use crate::core::ants::selection::*;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
+use crate::core::constants::ENEMY_TIMER;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{spawn_tile_event, SpawnTileEv};
+use crate::core::map::holes::{resolve_expeditions, spawn_enemies};
 use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
 use crate::core::map::vision::update_vision;
@@ -41,8 +41,10 @@ use crate::core::traits::{select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use ants::selection::{select_ants_from_rect, select_ants_to_res, SelectAntEv};
 use bevy::prelude::*;
+use bevy::time::common_conditions::on_timer;
 use bevy_renet::renet::{RenetClient, RenetServer};
 use map::ui::systems::setup_trait_selection;
+use std::time::Duration;
 use strum::IntoEnumIterator;
 
 pub struct GamePlugin;
@@ -232,7 +234,9 @@ impl Plugin for GamePlugin {
                     resolve_idle_action,
                     resolve_targeted_walk_action,
                     resolve_walk_action,
-                    spawn_enemies,
+                    npc_buy_ants.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
+                    spawn_enemies.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
+                    resolve_expeditions.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
                 )
                     .in_set(InRunningGameSet),
             )

@@ -1,4 +1,5 @@
 pub mod events;
+pub mod holes;
 pub mod loc;
 pub mod map;
 pub mod systems;

@@ -196,6 +196,7 @@ pub enum Action {
     Brood(Timer),   // Brooding time remaining
     Die(Timer),     // Time the body remains visible
     Dig(Tile),      // Tile to dig
+    DoNothing,
     Harvest,
     Heal,
     Idle,
@@ -666,7 +667,7 @@ impl AntCmp {
                     Animation::LookAround
                 }
             }
-            Action::Brood(_) | Action::Idle => Animation::Idle,
+            Action::Brood(_) | Action::Idle | Action::DoNothing => Animation::Idle,
             Action::TargetedWalk(_) => {
                 if self.kind.can_fly() {
                     Animation::Fly

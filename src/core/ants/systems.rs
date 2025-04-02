@@ -339,7 +339,9 @@ pub fn resolve_pre_action(
 ) {
     let enemies = ant_q
         .iter()
-        .filter_map(|(e, t, a)| (a.health > 0.).then_some((e, a.team, t.translation)))
+        .filter_map(|(e, t, a)| {
+            (a.health > 0. && a.action != Action::DoNothing).then_some((e, a.team, t.translation))
+        })
         .collect::<Vec<_>>();
 
     'ant: for (_, ant_t, mut ant) in ant_q
@@ -440,7 +442,9 @@ pub fn resolve_attack_action(
 ) {
     let enemies: HashMap<_, _> = ant_q
         .iter()
-        .filter_map(|(e, t, s, a)| (a.health > 0.).then_some((e, (t.clone(), s.clone()))))
+        .filter_map(|(e, t, s, a)| {
+            (a.health > 0. && a.action != Action::DoNothing).then_some((e, (t.clone(), s.clone())))
+        })
         .chain(egg_q.iter().map(|(e, t, s)| (e, (t.clone(), s.clone()))))
         .collect();
 
@@ -452,7 +456,7 @@ pub fn resolve_attack_action(
                     ant.action = Action::TargetedWalk(entity);
                 }
             } else {
-                // The enemy is dead
+                // The enemy is dead (or in a hole)
                 ant.command = None;
                 ant.action = Action::Idle;
             }
@@ -519,7 +523,10 @@ pub fn resolve_idle_action(
 
     let ants: HashMap<_, _> = ant_q
         .iter()
-        .filter_map(|(e, t, a)| (a.health > 0.).then_some((e, (t.translation, a.clone()))))
+        .filter_map(|(e, t, a)| {
+            (a.health > 0. && a.action != Action::DoNothing)
+                .then_some((e, (t.translation, a.clone())))
+        })
         .collect();
 
     for (_, ant_t, mut ant) in ant_q
@@ -810,16 +817,16 @@ pub fn resolve_targeted_walk_action(
 }
 
 pub fn resolve_walk_action(
-    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
-    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-    players: Res<Players>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &mut AntCmp)>,
+    mut players: ResMut<Players>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
+    mut selection: ResMut<AntSelection>,
     time: Res<Time>,
 ) {
-    for (ant_e, mut ant_t, mut ant) in ant_q.iter_mut() {
+    for (ant_e, mut ant_t, mut ant_v, mut ant) in ant_q.iter_mut() {
         if let Action::Walk(target_loc) = ant.action {
-            let player = players.get(ant.team);
+            let player = players.get_mut(ant.team);
 
             let current_loc = map.get_loc(&ant_t.translation);
             if current_loc != target_loc {
@@ -841,13 +848,20 @@ pub fn resolve_walk_action(
                     &time,
                 );
             } else {
-                // If the ant reached a hole, despawn it
+                // If the ant reached a hole, hide it
                 if let Some(Behavior::ProtectLoc(loc)) = ant.command {
-                    if loc.x == current_loc.x
+                    if ant.kind != Ant::Queen
+                        && loc.x == current_loc.x
                         && loc.y == current_loc.y
                         && map.get_tile(loc.x, loc.y).unwrap().texture_index == 64
                     {
-                        despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
+                        ant.command = None;
+                        ant.action = Action::DoNothing;
+
+                        selection.0.remove(&ant_e);
+                        *ant_v = Visibility::Hidden;
+
+                        continue;
                     }
                 }
 

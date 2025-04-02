@@ -1,4 +1,4 @@
-use crate::core::constants::MAX_TERRAFORM_POINTS;
+use crate::core::constants::{MAX_TERRAFORM_POINTS, NON_MAP_ID};
 use crate::core::map::loc::Direction;
 use crate::core::map::utils::rotate_bitmap;
 use bevy::prelude::*;
@@ -49,8 +49,8 @@ pub struct Tile {
 impl Default for Tile {
     fn default() -> Self {
         Tile {
-            x: 9999,
-            y: 9999,
+            x: NON_MAP_ID,
+            y: NON_MAP_ID,
             texture_index: Self::SOIL[0],
             rotation: 0,
             base: None,
@@ -65,7 +65,7 @@ impl Default for Tile {
 impl Tile {
     pub const SIZE: f32 = 32.; // Pixel size
 
-    pub const SIDE: u8 = 4;
+    pub const SIDE: u8 = 4; // Pixels per side
 
     pub const SOIL: [usize; 3] = [29, 66, 67];
 

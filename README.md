@@ -8,10 +8,10 @@
 <br><br>
 </div>
 
-<img src="https://github.com/tvdboom/marabunta/blob/master/assets/scenery/s1.png?raw=true" alt="Early game">
-<img src="https://github.com/tvdboom/marabunta/blob/master/assets/scenery/s2.png?raw=true" alt="Traits">
-<img src="https://github.com/tvdboom/marabunta/blob/master/assets/scenery/s3.png?raw=true" alt="Late game">
-<img src="https://github.com/tvdboom/fortress/blob/master/assets/scenery/s4.png?raw=true" alt="Overview">
+<img src="https://github.com/tvdboom/marabunta/blob/master/assets/images/scenery/s1.png?raw=true" alt="Early game">
+<img src="https://github.com/tvdboom/marabunta/blob/master/assets/images/scenery/s2.png?raw=true" alt="Traits">
+<img src="https://github.com/tvdboom/marabunta/blob/master/assets/images/scenery/s3.png?raw=true" alt="Late game">
+<img src="https://github.com/tvdboom/marabunta/blob/master/assets/images/scenery/s4.png?raw=true" alt="Overview">
 
 <br>
 
@@ -69,6 +69,12 @@ Use the `delete` key to remove all commands from the selected ants.
 Every fixed amount of time, the players can choose from one of three traits to improve their
 colonies. There are many different traits with varying effects, ranging from improving the
 capabilities of your ants, to reviving fallen ants or even having two queens.
+
+### Holes
+
+It's possible to send ants (except the queen) into a hole. This can result in one of the 
+following: the ant returns after a while with no changes, the ant returns with increased
+health/damage, a worker ant can return with resources, or the ant never returns.
 
 <br>
 

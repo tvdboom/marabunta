@@ -77,6 +77,7 @@ pub fn change_audio_event(
         if let Ok(mut node) = btn_q.get_single_mut() {
             node.image = match game_settings.audio {
                 AudioState::Mute => {
+                    audio.stop();
                     next_audio_state.set(AudioState::Mute);
                     assets.image("mute")
                 }
