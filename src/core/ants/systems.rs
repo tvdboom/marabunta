@@ -611,34 +611,42 @@ pub fn resolve_idle_action(
                     .unwrap_or(map.random_loc(ant.team, false).unwrap()),
             ),
             Behavior::Harvest(entity) => {
-                Action::TargetedWalk(if ant.carry.leaves < ant.max_carry.leaves / 2. {
-                    *entity
-                } else {
-                    queens
+                if ant.carry.leaves >= ant.max_carry.leaves / 2. {
+                    if let Some((queen_e, _, _)) = queens
                         .iter()
                         .filter(|(_, t, _)| *t == ant.team)
                         .min_by_key(|(_, _, t)| {
                             let loc = map.get_loc(t);
                             map.distance(&current_loc, &loc)
                         })
-                        .unwrap()
-                        .0
-                })
+                    {
+                        Action::TargetedWalk(*queen_e)
+                    } else {
+                        // No queen left (before it despawns) -> walk around
+                        Action::Walk(map.random_loc(ant.team, false).unwrap())
+                    }
+                } else {
+                    Action::TargetedWalk(*entity)
+                }
             }
             Behavior::HarvestCorpse(entity) => {
-                Action::TargetedWalk(if ant.carry.nutrients < ant.max_carry.nutrients / 2. {
-                    *entity
-                } else {
-                    queens
+                if ant.carry.nutrients >= ant.max_carry.nutrients / 2. {
+                    if let Some((queen_e, _, _)) = queens
                         .iter()
                         .filter(|(_, t, _)| *t == ant.team)
                         .min_by_key(|(_, _, t)| {
                             let loc = map.get_loc(t);
                             map.distance(&current_loc, &loc)
                         })
-                        .unwrap()
-                        .0
-                })
+                    {
+                        Action::TargetedWalk(*queen_e)
+                    } else {
+                        // No queen left (before it despawns) -> walk around
+                        Action::Walk(map.random_loc(ant.team, false).unwrap())
+                    }
+                } else {
+                    Action::TargetedWalk(*entity)
+                }
             }
             Behavior::HarvestRandom => {
                 // Select visible leaves and compute distance weight
@@ -653,25 +661,29 @@ pub fn resolve_idle_action(
                     })
                     .collect::<Vec<_>>();
 
-                if !leaves.is_empty() {
-                    // If above half carry capacity or no more leaves, walk to the queen
-                    Action::TargetedWalk(if ant.carry < ant.max_carry / 2. {
-                        let index = WeightedIndex::new(leaves.iter().map(|(_, d)| d)).unwrap();
-                        leaves.iter().nth(index.sample(&mut rng())).unwrap().0
+                // If above half-capacity -> go back to the queen
+                if ant.carry.leaves >= ant.max_carry.leaves / 2. {
+                    if let Some((queen_e, _, _)) = queens
+                        .iter()
+                        .filter(|(_, t, _)| *t == ant.team)
+                        .min_by_key(|(_, _, t)| {
+                            let loc = map.get_loc(t);
+                            map.distance(&current_loc, &loc)
+                        })
+                    {
+                        Action::TargetedWalk(*queen_e)
                     } else {
-                        queens
-                            .iter()
-                            .filter(|(_, t, _)| *t == ant.team)
-                            .min_by_key(|(_, _, t)| {
-                                let loc = map.get_loc(t);
-                                map.distance(&current_loc, &loc)
-                            })
-                            .unwrap()
-                            .0
-                    })
+                        // No queen left (before it despawns) -> walk around
+                        Action::Walk(map.random_loc(ant.team, false).unwrap())
+                    }
                 } else {
-                    // If there are no leaves left, wander around
-                    Action::Walk(map.random_loc(ant.team, false).unwrap())
+                    if let Ok(index) = WeightedIndex::new(leaves.iter().map(|(_, d)| d)) {
+                        // Walk towards leaf
+                        Action::TargetedWalk(leaves.iter().nth(index.sample(&mut rng())).unwrap().0)
+                    } else {
+                        // No more leaves left -> walk around
+                        Action::Walk(map.random_loc(ant.team, false).unwrap())
+                    }
                 }
             }
             Behavior::Heal(_) => {
@@ -798,13 +810,14 @@ pub fn resolve_targeted_walk_action(
 }
 
 pub fn resolve_walk_action(
-    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
+    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     players: Res<Players>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     time: Res<Time>,
 ) {
-    for (mut ant_t, mut ant) in ant_q.iter_mut() {
+    for (ant_e, mut ant_t, mut ant) in ant_q.iter_mut() {
         if let Action::Walk(target_loc) = ant.action {
             let player = players.get(ant.team);
 
@@ -828,7 +841,17 @@ pub fn resolve_walk_action(
                     &time,
                 );
             } else {
-                // Ant reached the target -> continue with default action
+                // If the ant reached a hole, despawn it
+                if let Some(Behavior::ProtectLoc(loc)) = ant.command {
+                    if loc.x == current_loc.x
+                        && loc.y == current_loc.y
+                        && map.get_tile(loc.x, loc.y).unwrap().texture_index == 64
+                    {
+                        despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
+                    }
+                }
+
+                // Else continue with default action
                 ant.action = match ant.get_behavior() {
                     Behavior::Brood => {
                         if !player.queue.is_empty() {

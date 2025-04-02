@@ -206,8 +206,9 @@ impl TraitCmp {
                 kind: Trait::WanderingQueen,
                 image: "wandering".to_string(),
                 description: "\
-                    The queen moves outside the base. It lays eggs anywhere and wander \
-                    around the map."
+                    The queen is able to move outside the base. It can lay eggs anywhere and \
+                    her default behavior becomes wandering around the map. The player can give \
+                    commands to the queen."
                     .to_string(),
             },
             Trait::Warlike => Self {

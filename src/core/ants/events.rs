@@ -262,6 +262,21 @@ pub fn spawn_ant_event(
                 ));
 
                 parent.spawn((
+                    Sprite {
+                        image: assets.image("leaf2"),
+                        ..default()
+                    },
+                    Transform {
+                        translation: Vec3::new(0., 5., 0.1),
+                        scale: Vec3::splat(3.),
+                        ..default()
+                    },
+                    LeafCarryCmp,
+                    Visibility::Hidden,
+                    PickingBehavior::IGNORE,
+                ));
+
+                parent.spawn((
                     Sprite::from_image(assets.image("blood")),
                     Transform {
                         translation: Vec3::new(0., -75., 0.2),

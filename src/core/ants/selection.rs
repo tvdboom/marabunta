@@ -1,7 +1,8 @@
-use crate::core::ants::components::{Action, Ant, AntCmp, AttackCmp, Behavior, DefendCmp};
+use crate::core::ants::components::{Action, Ant, AntCmp, AttackCmp, Behavior, Corpse, DefendCmp};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_Z_SCORE;
+use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Leaf;
@@ -20,7 +21,7 @@ pub struct SelectAntEv {
 }
 
 #[derive(Event)]
-pub struct PinEv(pub Vec2);
+pub struct PinEv(pub Loc);
 
 #[derive(Default, PartialEq)]
 pub struct SelectionBox {
@@ -28,29 +29,28 @@ pub struct SelectionBox {
 }
 
 #[derive(Component)]
-pub struct PinAnimationCmp {
+pub struct PinCmp {
+    pub loc: Loc,
     pub timer: Timer,
     pub index: usize,
 }
 
 pub fn spawn_pin_event(
     mut commands: Commands,
-    pin_q: Query<Entity, With<PinAnimationCmp>>,
     mut pin_ev: EventReader<PinEv>,
     assets: Local<WorldAssets>,
 ) {
-    for PinEv(pos) in pin_ev.read() {
-        pin_q.iter().for_each(|e| commands.entity(e).despawn());
-
+    for PinEv(loc) in pin_ev.read() {
         commands.spawn((
             Sprite::from_image(assets.image("pin")),
             Transform {
-                translation: (pos + Vec2::new(0., 5.)).extend(MAX_Z_SCORE),
+                translation: (Map::get_coord_from_loc(loc) + Vec2::new(0., 5.)).extend(MAX_Z_SCORE),
                 scale: Vec3::splat(0.03),
                 ..default()
             },
             PickingBehavior::IGNORE,
-            PinAnimationCmp {
+            PinCmp {
+                loc: loc.clone(),
                 timer: Timer::from_seconds(0.12, TimerMode::Repeating),
                 index: 0,
             },
@@ -59,7 +59,7 @@ pub fn spawn_pin_event(
     }
 }
 
-pub fn animate_pin(mut pin_q: Query<(&mut Transform, &mut PinAnimationCmp)>, time: Res<Time>) {
+pub fn animate_pin(mut pin_q: Query<(&mut Transform, &mut PinCmp)>, time: Res<Time>) {
     for (mut transform, mut animation) in &mut pin_q {
         animation.timer.tick(time.delta());
 
@@ -77,13 +77,10 @@ pub fn animate_pin(mut pin_q: Query<(&mut Transform, &mut PinAnimationCmp)>, tim
 
 pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
-    mut commands: Commands,
     mut ant_q: Query<&mut AntCmp>,
-    pin_q: Query<Entity, With<PinAnimationCmp>>,
     players: Res<Players>,
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
-    mut pin_ev: EventWriter<PinEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     keyboard: Res<ButtonInput<KeyCode>>,
     camera: Single<(&Camera, &GlobalTransform)>,
@@ -96,7 +93,6 @@ pub fn select_loc_on_click(
         PointerButton::Primary
             if !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) =>
         {
-            pin_q.iter().for_each(|e| commands.entity(e).despawn());
             selection.0.clear();
         }
         PointerButton::Secondary => {
@@ -141,9 +137,7 @@ pub fn select_loc_on_click(
                 }
             }
 
-            if success {
-                pin_ev.send(PinEv(cursor));
-            } else {
+            if !success {
                 play_audio_ev.send(PlayAudioEv {
                     name: "error",
                     volume: 0.5,
@@ -158,7 +152,6 @@ pub fn select_leaf_on_click(
     mut trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
-    mut pin_ev: EventWriter<PinEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     players: Res<Players>,
     map: Res<Map>,
@@ -174,30 +167,24 @@ pub fn select_leaf_on_click(
 
             // Workers go harvest the leaf; the rest protects the location
             for ant_e in selection.0.iter() {
-                if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
-                    if ant.kind == Ant::Worker {
-                        ant.command = Some(Behavior::Harvest(leaf_e));
-                        ant.action = Action::Walk(loc);
+                if let Ok(mut sel) = ant_q.get_mut(*ant_e) {
+                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
+                        continue;
+                    }
+
+                    if sel.kind == Ant::Worker {
+                        sel.command = Some(Behavior::Harvest(leaf_e));
+                        sel.action = Action::Walk(loc);
                         success = true;
-                    } else if ant.kind != Ant::Queen
-                        || player.has_trait(&Trait::WanderingQueen)
-                        || map
-                            .get_tile(loc.x, loc.y)
-                            .unwrap()
-                            .base
-                            .filter(|b| *b == player.id)
-                            .is_some()
-                    {
-                        ant.command = Some(Behavior::ProtectLoc(loc));
-                        ant.action = Action::Walk(loc);
+                    } else {
+                        sel.command = Some(Behavior::ProtectLoc(loc));
+                        sel.action = Action::Walk(loc);
                         success = true;
                     }
                 }
             }
 
-            if success {
-                pin_ev.send(PinEv(leaf_t.translation().truncate()));
-            } else {
+            if !success {
                 play_audio_ev.send(PlayAudioEv {
                     name: "error",
                     volume: 0.5,
@@ -216,6 +203,7 @@ pub fn select_ant_on_click(
     players: Res<Players>,
     map: Res<Map>,
     mut select_ants_ev: EventWriter<SelectAntEv>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
     selection: Res<AntSelection>,
     mut last_clicked_t: Local<f32>,
     time: Res<Time>,
@@ -267,20 +255,13 @@ pub fn select_ant_on_click(
         }
         // Right mouse button used to set a new action
         PointerButton::Secondary => {
+            let mut success = false;
+
             for sel_e in selection.0.iter() {
-                if let Ok((_, sel_t, mut sel)) = ant_q.get_mut(*sel_e) {
+                if let Ok((_, _, mut sel)) = ant_q.get_mut(*sel_e) {
+                    // The queen cannot be ordered around except when wandering
                     if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
-                        // Restrict the queen's movement to the base
-                        let loc = map.get_loc(&sel_t.translation);
-                        if map
-                            .get_tile(loc.x, loc.y)
-                            .unwrap()
-                            .base
-                            .filter(|b| *b == player.id)
-                            .is_none()
-                        {
-                            continue;
-                        }
+                        continue;
                     }
 
                     // Skip commands onto himself
@@ -294,17 +275,27 @@ pub fn select_ant_on_click(
                                 sel.command = Some(Behavior::ProtectLoc(loc));
                                 sel.action = Action::Walk(loc);
                             }
+                            success = true;
                         } else if ant.team != player.id {
                             // If clicked on an enemy, attack it
                             sel.command = Some(Behavior::Attack);
                             sel.action = Action::TargetedWalk(ant_e);
+                            success = true;
                         } else {
                             // If clicked on an ally, protect it
                             sel.command = Some(Behavior::ProtectAnt(ant_e));
                             sel.action = Action::TargetedWalk(ant_e);
+                            success = true;
                         }
                     }
                 }
+            }
+
+            if !success {
+                play_audio_ev.send(PlayAudioEv {
+                    name: "error",
+                    volume: 0.5,
+                });
             }
         }
         _ => (),
@@ -368,8 +359,6 @@ pub fn select_ants_from_rect(
 }
 
 pub fn select_ants_to_res(
-    mut commands: Commands,
-    pin_q: Query<Entity, With<PinAnimationCmp>>,
     mut select_ant_ev: EventReader<SelectAntEv>,
     mut selection: ResMut<AntSelection>,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -378,7 +367,6 @@ pub fn select_ants_to_res(
     if mouse.just_released(MouseButton::Left)
         && !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
     {
-        pin_q.iter().for_each(|e| commands.entity(e).despawn());
         selection.0.clear();
     }
 
@@ -395,16 +383,13 @@ pub fn select_ants_to_res(
 }
 
 pub fn remove_command_from_selection(
-    mut commands: Commands,
     mut ant_q: Query<&mut AntCmp>,
-    pin_q: Query<Entity, With<PinAnimationCmp>>,
     selection: Res<AntSelection>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     if keyboard.just_pressed(KeyCode::Delete) {
         for sel_e in selection.0.iter() {
             if let Ok(mut ant) = ant_q.get_mut(*sel_e) {
-                pin_q.iter().for_each(|e| commands.entity(e).despawn());
                 ant.command = None;
             }
         }
@@ -412,28 +397,64 @@ pub fn remove_command_from_selection(
 }
 
 pub fn update_selection_icons(
+    mut commands: Commands,
     ant_q: Query<(Entity, &AntCmp)>,
+    pin_q: Query<(Entity, &PinCmp)>,
+    leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
+    corpse_q: Query<(Entity, &GlobalTransform), With<Corpse>>,
     mut attack_q: Query<&mut Visibility, With<AttackCmp>>,
     mut defend_q: Query<&mut Visibility, (With<DefendCmp>, Without<AttackCmp>)>,
     children_q: Query<&Children>,
+    mut pin_ev: EventWriter<PinEv>,
+    map: Res<Map>,
     selection: Res<AntSelection>,
 ) {
+    let mut to_pin: HashSet<Loc> = HashSet::new();
     let mut to_attack: HashSet<Entity> = HashSet::new();
     let mut to_defend: HashSet<Entity> = HashSet::new();
+
     for ant_e in &selection.0 {
         if let Ok((_, ant)) = ant_q.get(*ant_e) {
             match ant.command {
-                Some(Behavior::ProtectAnt(entity)) => {
-                    to_defend.insert(entity);
-                }
                 Some(Behavior::Attack) => {
                     if let Action::TargetedWalk(entity) = ant.action {
                         to_attack.insert(entity);
                     }
                 }
+                Some(Behavior::Dig(loc)) => {
+                    to_pin.insert(loc);
+                }
+                Some(Behavior::Harvest(entity)) => {
+                    if let Ok((_, leaf_t)) = leaf_q.get(entity) {
+                        to_pin.insert(map.get_loc(&leaf_t.translation()));
+                    }
+                }
+                Some(Behavior::HarvestCorpse(entity)) | Some(Behavior::Heal(entity)) => {
+                    if let Ok((_, corpse_t)) = corpse_q.get(entity) {
+                        to_pin.insert(map.get_loc(&corpse_t.translation()));
+                    }
+                }
+                Some(Behavior::ProtectAnt(entity)) => {
+                    to_defend.insert(entity);
+                }
+                Some(Behavior::ProtectLoc(loc)) => {
+                    to_pin.insert(loc);
+                }
                 _ => (),
             }
         }
+    }
+
+    for (pin_e, pin) in &pin_q {
+        if to_pin.contains(&pin.loc) {
+            to_pin.remove(&pin.loc);
+        } else {
+            commands.entity(pin_e).despawn();
+        }
+    }
+
+    for loc in to_pin {
+        pin_ev.send(PinEv(loc));
     }
 
     for (ant_e, _) in &ant_q {
