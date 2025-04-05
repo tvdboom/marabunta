@@ -1,11 +1,8 @@
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{
-    BUTTON_TEXT_SIZE, HOVERED_BUTTON_COLOR, NORMAL_BUTTON_COLOR, PRESSED_BUTTON_COLOR,
-};
-use crate::core::game_settings::{GameMode, GameSettings};
+use crate::core::constants::*;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
-use crate::core::menu::settings::AntColor;
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::player::{Player, Players};
@@ -43,7 +40,7 @@ pub fn on_click_menu_button(
     btn_q: Query<&MenuBtn>,
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
-    mut game_settings: ResMut<GameSettings>,
+    game_settings: Res<GameSettings>,
     mut load_game_ev: EventWriter<LoadGameEv>,
     mut save_game_ev: EventWriter<SaveGameEv>,
     app_state: Res<State<AppState>>,
@@ -56,22 +53,21 @@ pub fn on_click_menu_button(
         }
         MenuBtn::NewGame => {
             // Add the player to the resource
-            let mut p = vec![Player::new(0, game_settings.color.clone())];
+            let mut players = vec![Player::new(0, game_settings.color.clone())];
 
             // Add the NPCs to the resource
-            (1..=game_settings.n_opponents)
-                .for_each(|id| p.push(Player::new(id, game_settings.color.inverse())));
+            (1..=game_settings.npcs)
+                .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
 
-            // Create map before pushing default player
-            commands.insert_resource(create_map(&p));
+            // Create the map before pushing the default player
+            commands.insert_resource(create_map(&players));
 
             // Add the default value used for monsters
-            p.push(Player::default());
+            players.push(Player::default());
 
             // Update the resource
-            commands.insert_resource(Players(p));
+            commands.insert_resource(Players(players));
 
-            game_settings.mode = GameMode::SinglePlayer;
             next_app_state.set(AppState::Game);
         }
         MenuBtn::LoadGame => {
@@ -104,29 +100,36 @@ pub fn on_click_menu_button(
             // Multiplayer context
             let mut server = server.unwrap();
 
-            let mut ids = vec![0];
-            ids.extend(server.clients_id());
+            // Add the host to the resource
+            let mut players = vec![Player::new(0, game_settings.color.clone())];
 
-            let players = ids
+            // Add the NPCs to the resource
+            (1..=game_settings.npcs)
+                .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
+
+            // Add clients to the resource
+            server
+                .clients_id()
                 .iter()
-                .map(|id| Player::new(*id, game_settings.color.inverse()))
-                .collect::<Vec<_>>();
+                .for_each(|id| players.push(Player::new(*id, game_settings.color)));
 
+            // Create the map before pushing the default player
             let map = create_map(&players);
+
+            // Add the default value used for monsters
+            players.push(Player::default());
 
             // Send the start game signal to all clients with their player id
             for client in server.clients_id().iter() {
                 let message = bincode::serialize(&ServerMessage::StartGame {
                     id: *client,
-                    color: AntColor::Red,
-                    settings: game_settings.clone(),
+                    fog_of_war: game_settings.fog_of_war.clone(),
                     map: map.clone(),
                 })
                 .unwrap();
                 server.send_message(*client, DefaultChannel::ReliableOrdered, message);
             }
 
-            game_settings.mode = GameMode::MultiPlayer(ids);
             commands.insert_resource(Players(players));
             commands.insert_resource(map);
 

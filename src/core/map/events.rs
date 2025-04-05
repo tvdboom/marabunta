@@ -109,7 +109,7 @@ pub fn spawn_tile_event(
     for SpawnTileEv { tile, pos } in spawn_tile_ev.read() {
         let alpha = if *app_state.get() != AppState::Game
             || (game_settings.fog_of_war != FogOfWar::None
-                && !players.get(0).visible_tiles.contains(&(tile.x, tile.y)))
+                && !players.main().visible_tiles.contains(&(tile.x, tile.y)))
         {
             0.5
         } else {

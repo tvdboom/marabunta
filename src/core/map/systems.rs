@@ -28,7 +28,7 @@ pub fn create_map(players: &Vec<Player>) -> Map {
         .insert_holes(10);
     } else {
         // Insert bases at random locations
-        let mut bases: Vec<UVec2> = Vec::new();
+        let mut bases: Vec<UVec2> = vec![];
 
         while bases.len() < players.len() {
             let candidate = UVec2 {
@@ -66,7 +66,11 @@ pub fn draw_map(
 ) {
     let (mut camera_t, mut projection) = camera.into_inner();
 
-    for (i, tile) in map.world(&game_settings.fog_of_war).iter().enumerate() {
+    for (i, tile) in map
+        .world(&game_settings.fog_of_war, players.main_id())
+        .iter()
+        .enumerate()
+    {
         let pos = Vec2::new(
             Map::WORLD_VIEW.min.x + Tile::SIZE * ((i as u32 % Map::WORLD_SIZE.x) as f32 + 0.5),
             Map::WORLD_VIEW.max.y - Tile::SIZE * ((i as u32 / Map::WORLD_SIZE.x) as f32 + 0.5),
@@ -81,7 +85,7 @@ pub fn draw_map(
             if real_tile.texture_index == 9 {
                 let player = players.get(*real_tile.explored.iter().next().unwrap());
 
-                if player.id == 0 || game_settings.fog_of_war != FogOfWar::Full {
+                if player.id == players.main_id() || game_settings.fog_of_war != FogOfWar::Full {
                     commands.spawn((
                         Sprite {
                             image: assets.image("base"),
@@ -101,16 +105,19 @@ pub fn draw_map(
                     ));
                 }
 
-                spawn_ant_ev.send(SpawnAntEv {
-                    ant: AntCmp::new(&Ant::Queen, player),
-                    transform: Transform {
-                        translation: pos.extend(0.),
-                        rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                        ..default()
-                    },
-                });
+                if player.id == players.main_id() || !player.is_human() {
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::new(&Ant::Queen, player),
+                        transform: Transform {
+                            translation: pos.extend(0.),
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                        entity: None,
+                    });
+                }
 
-                if tile.explored.contains(&0) {
+                if tile.explored.contains(&players.main_id()) {
                     // Place the camera on top of the player's base
                     projection.scale = 0.5; // Increase zoom
                     camera_t.translation = pos.extend(camera_t.translation.z);

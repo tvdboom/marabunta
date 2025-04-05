@@ -249,7 +249,7 @@ pub fn select_trait_event(
         play_audio_ev.send(PlayAudioEv::new("button"));
 
         for player in players.0.iter_mut().filter(|p| p.id != ClientId::MAX) {
-            let selected = if player.id == 0 {
+            let selected = if player.is_human() {
                 ev.selected.clone()
             } else {
                 // For NPCs, select a random trait they don't have
@@ -276,6 +276,7 @@ pub fn select_trait_event(
                             rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                             ..default()
                         },
+                        entity: None,
                     });
                 }
                 Trait::EnhancedSoldiers => {
@@ -339,6 +340,7 @@ pub fn select_trait_event(
                                 rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                                 ..default()
                             },
+                            entity: None,
                         });
                     }
                 }

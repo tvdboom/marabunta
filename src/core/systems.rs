@@ -6,7 +6,7 @@ use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::map::ui::utils::TextSize;
-use crate::core::network::Population;
+use crate::core::network::EntityMap;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
@@ -21,7 +21,7 @@ pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSet
     commands.insert_resource(Players::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(AntSelection::default());
-    commands.insert_resource(Population::default());
+    commands.insert_resource(EntityMap::default());
 
     // Reset in-game settings
     game_settings.reset();
@@ -45,7 +45,7 @@ pub fn check_trait_timer(
     players: Res<Players>,
     time: Res<Time>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
 
     let time = scale_duration(time.delta(), game_settings.speed);
     game_settings.trait_timer.tick(time);
@@ -57,7 +57,7 @@ pub fn check_trait_timer(
 }
 
 pub fn check_keys(keyboard: Res<ButtonInput<KeyCode>>, mut players: ResMut<Players>) {
-    let player = players.get_mut(0);
+    let player = players.main_mut();
 
     if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {

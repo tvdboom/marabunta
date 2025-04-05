@@ -6,6 +6,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::systems::MapCmp;
 use crate::core::menu::settings::FogOfWar;
+use crate::core::network::EntityMap;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;
@@ -26,12 +27,14 @@ pub struct QueueAntEv {
 pub struct SpawnEggEv {
     pub ant: AntCmp,
     pub transform: Transform,
+    pub entity: Option<Entity>,
 }
 
 #[derive(Event)]
 pub struct SpawnAntEv {
     pub ant: AntCmp,
     pub transform: Transform,
+    pub entity: Option<Entity>,
 }
 
 #[derive(Event)]
@@ -65,10 +68,10 @@ pub fn queue_ant_event(
             if player.resources >= price && player.queue.len() < MAX_QUEUE_LENGTH {
                 player.resources -= &price;
                 player.queue.push_back(ant_c.kind);
-                if player.id == 0 {
+                if player.is_human() {
                     play_audio_ev.send(PlayAudioEv::new("button"));
                 }
-            } else if player.id == 0 {
+            } else if player.is_human() {
                 play_audio_ev.send(PlayAudioEv::new("error"));
             }
         }
@@ -80,9 +83,15 @@ pub fn spawn_egg_event(
     mut spawn_egg_ev: EventReader<SpawnEggEv>,
     game_settings: Res<GameSettings>,
     players: Res<Players>,
+    mut entity_map: ResMut<EntityMap>,
     assets: Local<WorldAssets>,
 ) {
-    for SpawnEggEv { ant, transform } in spawn_egg_ev.read() {
+    for SpawnEggEv {
+        ant,
+        transform,
+        entity,
+    } in spawn_egg_ev.read()
+    {
         let player = players.get(ant.team);
 
         let health_factor = if player.has_trait(&Trait::Breeding) {
@@ -99,7 +108,7 @@ pub fn spawn_egg_event(
             timer: Timer::from_seconds(ant.hatch_time, TimerMode::Once),
         };
 
-        commands
+        let id = commands
             .spawn((
                 Sprite {
                     image: assets.image("larva2"),
@@ -112,7 +121,7 @@ pub fn spawn_egg_event(
                     ..default()
                 },
                 egg.clone(),
-                if game_settings.fog_of_war == FogOfWar::None || egg.team == 0 {
+                if game_settings.fog_of_war == FogOfWar::None || egg.team == players.main_id() {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -148,7 +157,14 @@ pub fn spawn_egg_event(
                             AntHealthCmp,
                         ));
                     });
-            });
+            })
+            .id();
+
+        if let Some(entity) = entity {
+            entity_map.0.insert(*entity, id);
+        } else {
+            commands.entity(id).insert(Owned);
+        }
     }
 }
 
@@ -156,13 +172,21 @@ pub fn spawn_ant_event(
     mut commands: Commands,
     mut spawn_ant_ev: EventReader<SpawnAntEv>,
     game_settings: Res<GameSettings>,
+    players: Res<Players>,
+    mut entity_map: ResMut<EntityMap>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     assets: Local<WorldAssets>,
 ) {
-    for SpawnAntEv { ant, transform } in spawn_ant_ev.read() {
+    for SpawnAntEv {
+        ant,
+        transform,
+        entity,
+    } in spawn_ant_ev.read()
+    {
         let atlas = assets.atlas(&ant.atlas(&ant.animation()));
-        commands
+
+        let id = commands
             .spawn((
                 Sprite {
                     image: atlas.image,
@@ -188,7 +212,7 @@ pub fn spawn_ant_event(
                 },
                 TeamCmp(ant.team),
                 ant.clone(),
-                if game_settings.fog_of_war == FogOfWar::None || ant.team == 0 {
+                if game_settings.fog_of_war == FogOfWar::None || ant.team == players.main_id() {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -287,7 +311,14 @@ pub fn spawn_ant_event(
                     Visibility::Hidden,
                     PickingBehavior::IGNORE,
                 ));
-            });
+            })
+            .id();
+
+        if let Some(entity) = entity {
+            entity_map.0.insert(*entity, id);
+        } else {
+            commands.entity(id).insert(Owned);
+        }
     }
 }
 
@@ -296,6 +327,7 @@ pub fn despawn_ant_event(
     mut commands: Commands,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    players: Res<Players>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
         if let Ok(ant) = ant_q.get(*entity) {
@@ -305,7 +337,10 @@ pub fn despawn_ant_event(
                     .filter(|a| a.kind == Ant::Queen && a.health > 0.)
                     .collect::<Vec<_>>();
 
-                let player_queens = queens.iter().filter(|a| a.team == 0).collect::<Vec<_>>();
+                let player_queens = queens
+                    .iter()
+                    .filter(|a| a.team == players.main_id())
+                    .collect::<Vec<_>>();
 
                 // End game if your queen died or there is only one queen left
                 if player_queens.is_empty() || queens.len() == player_queens.len() {

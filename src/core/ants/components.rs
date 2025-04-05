@@ -38,6 +38,9 @@ pub struct NutrientCarryCmp;
 pub struct TeamCmp(pub u64);
 
 #[derive(Component)]
+pub struct Owned;
+
+#[derive(Component)]
 pub struct Corpse;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -497,7 +500,7 @@ impl AntCmp {
             },
             Ant::BlackScorpion => Self {
                 kind: Ant::BlackScorpion,
-                team: rng().random_range(100..10000),
+                team: rng().random_range(100..1000),
                 scale: 0.05,
                 health: 100.,
                 max_health: 100.,
@@ -509,7 +512,7 @@ impl AntCmp {
             },
             Ant::YellowScorpion => Self {
                 kind: Ant::YellowScorpion,
-                team: rng().random_range(100..10000),
+                team: rng().random_range(100..1000),
                 scale: 0.05,
                 health: 200.,
                 max_health: 200.,
@@ -684,7 +687,7 @@ impl AntCmp {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Serialize, Deserialize)]
 pub struct Egg {
     /// Team the egg corresponds to
     pub team: ClientId,

@@ -86,7 +86,7 @@ pub fn select_loc_on_click(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
     let (camera, global_t) = *camera;
 
     match trigger.event.button {
@@ -104,7 +104,7 @@ pub fn select_loc_on_click(
 
             let loc = map.get_loc(&cursor.extend(0.));
             let tile = map.get_tile(loc.x, loc.y).unwrap();
-            if tile.explored.contains(&0) && map.is_walkable(&loc) {
+            if tile.explored.contains(&players.main_id()) && map.is_walkable(&loc) {
                 for ant_e in selection.0.iter() {
                     if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
                         // Restrict the queen's movement to the base
@@ -157,7 +157,7 @@ pub fn select_leaf_on_click(
     map: Res<Map>,
     selection: Res<AntSelection>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
 
     if trigger.event.button == PointerButton::Secondary {
         if let Ok((leaf_e, leaf_t)) = leaf_q.get(trigger.entity()) {
@@ -210,7 +210,7 @@ pub fn select_ant_on_click(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
     let (camera, global_t) = *camera;
 
     let (ant_e, ant_t, ant) = ant_q.get(trigger.entity()).unwrap();
@@ -313,7 +313,7 @@ pub fn select_ants_from_rect(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
     let (camera, global_t) = *camera;
 
     // If shift is pressed, the camera moves

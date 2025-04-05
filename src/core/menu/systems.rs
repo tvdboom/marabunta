@@ -6,6 +6,7 @@ use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
 use crate::core::menu::buttons::{spawn_menu_button, LobbyTextCmp, MenuBtn, MenuCmp};
 use crate::core::menu::settings::{spawn_label, SettingsBtn};
+use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::TITLE;
 use bevy::prelude::*;
@@ -199,12 +200,13 @@ pub fn setup_end_game(
     mut commands: Commands,
     mut ant_q: Query<(&mut Visibility, &AntCmp)>,
     mut tile_q: Query<&mut Sprite, With<TileCmp>>,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
     let image = if ant_q
         .iter()
-        .filter(|(_, a)| a.kind == Ant::Queen && a.team == 0 && a.health > 0.)
+        .filter(|(_, a)| a.kind == Ant::Queen && a.team == players.main_id() && a.health > 0.)
         .count()
         == 0
     {

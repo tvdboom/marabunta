@@ -4,20 +4,12 @@ use crate::core::menu::settings::{AntColor, FogOfWar};
 use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
-use bevy_renet::renet::ClientId;
 use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum GameMode {
-    SinglePlayer,
-    MultiPlayer(Vec<ClientId>),
-}
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct GameSettings {
-    pub mode: GameMode,
     pub color: AntColor,
-    pub n_opponents: u64,
+    pub npcs: u64,
     pub fog_of_war: FogOfWar,
     pub audio: AudioState,
     pub speed: f32,
@@ -28,10 +20,9 @@ pub struct GameSettings {
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
-            mode: GameMode::SinglePlayer,
             fog_of_war: FogOfWar::default(),
             color: AntColor::default(),
-            n_opponents: 1,
+            npcs: 1,
             audio: AudioState::default(),
             speed: 1.0,
             trait_timer: Timer::from_seconds(TRAIT_TIMER, TimerMode::Repeating),

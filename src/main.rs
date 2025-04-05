@@ -28,7 +28,7 @@ fn main() {
                     fit_canvas_to_parent: true,
 
                     // Don't override browser's default behavior (ctrl+5, etc...)
-                    prevent_default_event_handling: false,
+                    prevent_default_event_handling: true,
 
                     ..default()
                 }),

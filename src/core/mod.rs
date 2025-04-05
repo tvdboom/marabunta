@@ -21,7 +21,7 @@ use crate::core::ants::selection::*;
 use crate::core::ants::systems::*;
 use crate::core::audio::*;
 use crate::core::camera::*;
-use crate::core::constants::ENEMY_TIMER;
+use crate::core::constants::{ENEMY_TIMER, NETWORK_TIMER};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{spawn_tile_event, SpawnTileEv};
 use crate::core::map::holes::{resolve_expeditions, spawn_enemies};
@@ -79,6 +79,7 @@ impl Plugin for GamePlugin {
             .add_event::<DamageAntEv>()
             .add_event::<SelectAntEv>()
             .add_event::<TraitSelectedEv>()
+            .add_event::<UpdatePopulationEv>()
             // Resources
             .init_resource::<GameSettings>()
             // Sets
@@ -150,8 +151,12 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Last,
                 (
-                    server_send_status.run_if(resource_exists::<RenetServer>),
-                    client_send_status.run_if(resource_exists::<RenetClient>),
+                    (
+                        server_send_status.run_if(resource_exists::<RenetServer>),
+                        client_send_status.run_if(resource_exists::<RenetClient>),
+                    )
+                        .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                    update_population_event,
                 )
                     .in_set(InGameSet),
             );

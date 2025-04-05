@@ -21,7 +21,7 @@ use std::f32::consts::PI;
 use strum::IntoEnumIterator;
 
 pub fn hatch_eggs(
-    mut egg_q: Query<(Entity, &mut Egg, &Transform)>,
+    mut egg_q: Query<(Entity, &mut Egg, &Transform), With<Owned>>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     game_settings: Res<GameSettings>,
@@ -47,6 +47,7 @@ pub fn hatch_eggs(
                     ..egg.ant.clone()
                 },
                 transform: egg_t.clone(),
+                entity: None,
             });
 
             despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
@@ -117,7 +118,7 @@ pub fn animate_ants(
 }
 
 pub fn resolve_digging(
-    mut ant_q: Query<(&mut Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&mut Transform, &mut AntCmp), With<Owned>>,
     mut tile_q: Query<&mut Tile>,
     mut map: ResMut<Map>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
@@ -162,18 +163,16 @@ pub fn resolve_digging(
                 tile.terraform -= terraform;
             } else {
                 // Possibly spawn a scorpion on the newly dug tile (only for players)
-                if ants.iter().all(|(_, a)| a.team == 0) {
+                if ants.iter().all(|(_, a)| a.team == players.main_id()) {
                     if let Some(enemy) = match rng().random::<f32>() {
                         0.95..0.99 => Some(Ant::BlackScorpion),
                         0.99..1. => Some(Ant::YellowScorpion),
                         _ => None,
                     } {
-                        if ants.iter().any(|(_, a)| a.team == 0) {
-                            play_audio_ev.send(PlayAudioEv {
-                                name: "warning",
-                                volume: 0.5,
-                            });
-                        }
+                        play_audio_ev.send(PlayAudioEv {
+                            name: "warning",
+                            volume: 0.5,
+                        });
 
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::base(&enemy),
@@ -182,6 +181,7 @@ pub fn resolve_digging(
                                 rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                                 ..default()
                             },
+                            entity: None,
                         });
                     }
                 }
@@ -207,7 +207,7 @@ pub fn resolve_digging(
 }
 
 pub fn resolve_harvesting(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&Transform, &mut AntCmp), With<Owned>>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
     players: Res<Players>,
@@ -260,7 +260,7 @@ pub fn resolve_harvesting(
 }
 
 pub fn resolve_harvesting_corpse(
-    mut ant_q: Query<(Entity, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut AntCmp), With<Owned>>,
     corpse_q: Query<Entity, With<Corpse>>,
     game_settings: Res<GameSettings>,
     players: Res<Players>,
@@ -303,7 +303,7 @@ pub fn resolve_harvesting_corpse(
 }
 
 pub fn resolve_healing(
-    mut ant_q: Query<(Entity, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut AntCmp), With<Owned>>,
     corpse_q: Query<Entity, With<Corpse>>,
     game_settings: Res<GameSettings>,
     time: Res<Time>,
@@ -332,7 +332,7 @@ pub fn resolve_healing(
 }
 
 pub fn resolve_pre_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), With<Owned>>,
     corpse_q: Query<(Entity, &Transform, &TeamCmp), With<Corpse>>,
     mut map: ResMut<Map>,
     players: Res<Players>,
@@ -395,8 +395,8 @@ pub fn resolve_pre_action(
 
 pub fn resolve_death(
     mut commands: Commands,
-    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp)>,
-    egg_q: Query<(Entity, &Egg)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp), With<Owned>>,
+    egg_q: Query<(Entity, &Egg), With<Owned>>,
     mut players: ResMut<Players>,
     mut selection: ResMut<AntSelection>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
@@ -421,7 +421,7 @@ pub fn resolve_death(
             // Place corpses behind all other ants
             ant_t.translation.z = ANT_Z_SCORE;
 
-            if ant.kind == Ant::Queen && ant.team == 0 {
+            if ant.kind == Ant::Queen && ant.team == players.main_id() {
                 play_audio_ev.send(PlayAudioEv::new("defeat"));
             }
         }
@@ -435,7 +435,7 @@ pub fn resolve_death(
 }
 
 pub fn resolve_attack_action(
-    mut ant_q: Query<(Entity, &Transform, &Sprite, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &Transform, &Sprite, &mut AntCmp), With<Owned>>,
     egg_q: Query<(Entity, &Transform, &Sprite), With<Egg>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
@@ -465,7 +465,7 @@ pub fn resolve_attack_action(
 }
 
 pub fn resolve_brood_action(
-    mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    mut ant_q: Query<(&Transform, &mut AntCmp), With<Owned>>,
     mut spawn_egg_ev: EventWriter<SpawnEggEv>,
     game_settings: Res<GameSettings>,
     mut players: ResMut<Players>,
@@ -482,6 +482,7 @@ pub fn resolve_brood_action(
                     spawn_egg_ev.send(SpawnEggEv {
                         ant: AntCmp::new(&ant_queue, &player),
                         transform: *ant_t,
+                        entity: None,
                     });
                 }
 
@@ -492,7 +493,7 @@ pub fn resolve_brood_action(
 }
 
 pub fn resolve_die_action(
-    mut ant_q: Query<(Entity, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut AntCmp), With<Owned>>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
     game_settings: Res<GameSettings>,
     time: Res<Time>,
@@ -509,7 +510,7 @@ pub fn resolve_die_action(
 }
 
 pub fn resolve_idle_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), Without<Corpse>>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), (With<Owned>, Without<Corpse>)>,
     corpse_q: Query<(Entity, &Transform, &AntCmp), With<Corpse>>,
     egg_q: Query<(Entity, &Transform, &Egg)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
@@ -607,7 +608,7 @@ pub fn resolve_idle_action(
             }),
             Behavior::Dig(loc) => map
                 .find_tunnel(&current_loc, &loc)
-                .and_then(|path| path.into_iter().find(|l| !map.is_walkable(l)))
+                .and_then(|path| path.into_iter().skip(1).find(|l| !map.is_walkable(l)))
                 .map(Action::Walk)
                 .unwrap_or_else(|| {
                     ant.command = None;
@@ -725,7 +726,7 @@ pub fn resolve_idle_action(
 }
 
 pub fn resolve_targeted_walk_action(
-    mut ant_q: Query<(Entity, &mut Transform, &Sprite, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &Sprite, &mut AntCmp), With<Owned>>,
     sprite_q: Query<(Entity, &GlobalTransform, &Sprite, &TeamCmp)>,
     corpse_q: Query<Entity, With<Corpse>>,
     mut players: ResMut<Players>,
@@ -817,7 +818,7 @@ pub fn resolve_targeted_walk_action(
 }
 
 pub fn resolve_walk_action(
-    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &mut AntCmp), With<Owned>>,
     mut players: ResMut<Players>,
     mut map: ResMut<Map>,
     game_settings: Res<GameSettings>,
@@ -1019,7 +1020,7 @@ pub fn queue_ants_keyboard(
     players: Res<Players>,
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
-    for ant in Ant::iter().filter(|a| players.get(0).has_ant(a)) {
+    for ant in Ant::iter().filter(|a| players.main().has_ant(a)) {
         if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
             queue_ant_ev.send(QueueAntEv { id: 0, ant });
         }

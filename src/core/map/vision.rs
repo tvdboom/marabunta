@@ -1,4 +1,4 @@
-use crate::core::ants::components::AntCmp;
+use crate::core::ants::components::{AntCmp, Egg};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
@@ -14,6 +14,7 @@ use bevy_renet::renet::ClientId;
 
 pub fn update_vision(
     mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
+    mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), Without<AntCmp>>,
     mut tile_q: Query<(Entity, &mut Sprite, &Tile)>,
     mut leaf_q: Query<&mut Sprite, (With<Leaf>, Without<Tile>)>,
     children_q: Query<&Children>,
@@ -63,7 +64,7 @@ pub fn update_vision(
                 t.explored.insert(player.id);
             });
 
-        if player.id == 0 {
+        if player.is_human() {
             if game_settings.fog_of_war != FogOfWar::Full {
                 // Spawn all tiles to keep the map up to date
                 map.tiles.iter().for_each(|tile| {
@@ -120,6 +121,21 @@ pub fn update_vision(
                         } else if ant.health > 0. {
                             // The enemy is no longer visible, hide it (unless corpse)
                             *ant_v = Visibility::Hidden;
+                        }
+                    }
+                }
+
+                for (_, egg_t, mut egg_v, egg) in &mut egg_q {
+                    if egg.team != player.id {
+                        if map
+                            .get_tile_from_coord(&egg_t.translation)
+                            .map_or(false, |tile| {
+                                player.visible_tiles.contains(&(tile.x, tile.y))
+                            })
+                        {
+                            *egg_v = Visibility::Inherited;
+                        } else {
+                            *egg_v = Visibility::Hidden;
                         }
                     }
                 }

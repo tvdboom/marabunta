@@ -153,7 +153,7 @@ pub fn draw_ui(
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
 
     commands
         .spawn((
@@ -432,7 +432,7 @@ pub fn update_ui(
     players: Res<Players>,
     assets: Local<WorldAssets>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
 
     // Update the resource labels
     leaves_q.get_single_mut().unwrap().0 = format!("{:.0}", player.resources.leaves);
@@ -444,7 +444,7 @@ pub fn update_ui(
             "{}",
             ant_q
                 .iter()
-                .filter(|a| a.kind == colony.0 && a.team == 0 && a.health > 0.)
+                .filter(|a| a.kind == colony.0 && a.team == players.main_id() && a.health > 0.)
                 .count()
         );
     }
@@ -492,7 +492,7 @@ pub fn on_click_queue_button(
     btn_q: Query<&QueueButtonCmp>,
     mut players: ResMut<Players>,
 ) {
-    let player = players.get_mut(0);
+    let player = players.main_mut();
 
     if trigger.event.button == PointerButton::Secondary {
         if let Ok(QueueButtonCmp(i, _)) = btn_q.get(trigger.entity()) {
@@ -519,7 +519,7 @@ pub fn setup_trait_selection(
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
-    let player = players.get(0);
+    let player = players.main();
 
     let traits = Trait::iter()
         .filter(|t| !player.has_trait(&t))

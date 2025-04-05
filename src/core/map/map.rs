@@ -128,7 +128,7 @@ impl Map {
 
     pub fn insert_holes(&mut self, n: usize) -> &mut Self {
         // Insert holes at random locations
-        let mut holes: Vec<UVec2> = Vec::new();
+        let mut holes: Vec<UVec2> = vec![];
 
         let base_positions: Vec<UVec2> = self
             .tiles
@@ -202,7 +202,7 @@ impl Map {
         self
     }
 
-    pub fn world(&self, fow: &FogOfWar) -> Vec<Tile> {
+    pub fn world(&self, fow: &FogOfWar, id: ClientId) -> Vec<Tile> {
         (0..Self::WORLD_SIZE.y)
             .flat_map(|y| (0..Self::WORLD_SIZE.x).map(move |x| (x, y)))
             .map(|(x, y)| {
@@ -214,7 +214,7 @@ impl Map {
                     let tile = self
                         .get_tile(x - Self::OFFSET.x, y - Self::OFFSET.y)
                         .unwrap();
-                    if *fow != FogOfWar::Full || tile.explored.contains(&0) {
+                    if *fow != FogOfWar::Full || tile.explored.contains(&id) {
                         tile.clone()
                     } else {
                         Tile::soil(tile.x, tile.y).with_stone(tile.has_stone)

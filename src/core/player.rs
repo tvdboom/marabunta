@@ -31,6 +31,18 @@ impl Players {
             .find(|p| p.id == id || p.id == ClientId::MAX)
             .unwrap()
     }
+
+    pub fn main(&self) -> &Player {
+        self.0.first().unwrap()
+    }
+
+    pub fn main_mut(&mut self) -> &mut Player {
+        self.0.first_mut().unwrap()
+    }
+
+    pub fn main_id(&self) -> ClientId {
+        self.main().id
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -54,7 +66,7 @@ impl Default for Player {
             },
             visible_tiles: HashSet::new(),
             queue: VecDeque::from([Ant::Worker, Ant::Worker, Ant::Worker]),
-            traits: Vec::new(),
+            traits: vec![],
         }
     }
 }
@@ -66,6 +78,11 @@ impl Player {
             color,
             ..default()
         }
+    }
+
+    /// Whether the player is human
+    pub fn is_human(&self) -> bool {
+        self.id == 0 || (self.id > 1000 && self.id < ClientId::MAX)
     }
 
     /// Whether the player has the specified trait

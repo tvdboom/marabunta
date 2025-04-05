@@ -24,6 +24,7 @@ pub fn spawn_enemies(
                         rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                         ..default()
                     },
+                    entity: None,
                 });
             } else if tile.texture_index == 65 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
                 // Create random termite queue
@@ -55,6 +56,7 @@ pub fn spawn_enemies(
                         rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
                         ..default()
                     },
+                    entity: None,
                 });
             }
         }
