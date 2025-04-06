@@ -24,6 +24,7 @@ pub enum ServerMessage {
     StartGame {
         id: ClientId,
         fog_of_war: FogOfWar,
+        players: Vec<Player>,
         map: Map,
     },
     Status {
@@ -217,14 +218,14 @@ pub fn client_receive_message(
             ServerMessage::StartGame {
                 id,
                 fog_of_war,
+                players,
                 map,
             } => {
                 game_settings.fog_of_war = fog_of_war;
 
-                commands.insert_resource(Players(vec![
-                    Player::new(id, game_settings.color),
-                    Player::default(),
-                ]));
+                let mut all_players = vec![Player::new(id, game_settings.color)];
+                all_players.extend(players.iter().filter(|p| p.id != id).cloned());
+                commands.insert_resource(Players(all_players));
 
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
@@ -277,7 +278,7 @@ pub fn update_population_event(
         for (ant_e, _, _) in &ant_q {
             if !population
                 .ants
-                .contains_key(entity_map.0.get(&ant_e).unwrap())
+                .contains_key(entity_map.0.get(&ant_e).unwrap_or(&Entity::PLACEHOLDER))
             {
                 despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
