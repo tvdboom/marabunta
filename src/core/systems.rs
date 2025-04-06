@@ -72,7 +72,7 @@ pub fn npc_buy_ants(mut queue_ant_ev: EventWriter<QueueAntEv>, mut players: ResM
     for player in players
         .0
         .iter_mut()
-        .filter(|p| p.id != 0 && p.id != ClientId::MAX)
+        .filter(|p| !p.is_human() && p.id != ClientId::MAX)
     {
         // Select ants that can be bought
         let ants = Ant::iter()

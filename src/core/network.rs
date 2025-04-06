@@ -278,7 +278,7 @@ pub fn update_population_event(
         for (ant_e, _, _) in &ant_q {
             if !population
                 .ants
-                .contains_key(entity_map.0.get_by_right(&ant_e).unwrap_or(&Entity::PLACEHOLDER))
+                .contains_key(entity_map.0.get_by_right(&ant_e).unwrap())
             {
                 despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
