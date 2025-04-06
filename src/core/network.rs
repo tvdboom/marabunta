@@ -9,14 +9,20 @@ use crate::core::persistence::Population;
 use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashMap;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
+use bimap::BiMap;
 
 const PROTOCOL_ID: u64 = 7;
+
+#[derive(Resource, Default)]
+pub struct EntityMap(pub BiMap<Entity, Entity>);
+
+#[derive(Event)]
+pub struct UpdatePopulationEv(pub Population);
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
@@ -258,12 +264,6 @@ pub fn client_receive_message(
     }
 }
 
-#[derive(Resource, Default)]
-pub struct EntityMap(pub HashMap<Entity, Entity>);
-
-#[derive(Event)]
-pub struct UpdatePopulationEv(pub Population);
-
 pub fn update_population_event(
     mut update_population_ev: EventReader<UpdatePopulationEv>,
     mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp), Without<Owned>>,
@@ -278,7 +278,7 @@ pub fn update_population_event(
         for (ant_e, _, _) in &ant_q {
             if !population
                 .ants
-                .contains_key(entity_map.0.get(&ant_e).unwrap_or(&Entity::PLACEHOLDER))
+                .contains_key(entity_map.0.get_by_right(&ant_e).unwrap_or(&Entity::PLACEHOLDER))
             {
                 despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
             }
@@ -287,7 +287,7 @@ pub fn update_population_event(
         for (egg_e, _, _) in &egg_q {
             if !population
                 .eggs
-                .contains_key(entity_map.0.get(&egg_e).unwrap())
+                .contains_key(entity_map.0.get_by_right(&egg_e).unwrap())
             {
                 despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
             }
@@ -295,7 +295,7 @@ pub fn update_population_event(
 
         // Update the current population
         for (entity, (t, a)) in population.ants.iter() {
-            if let Some(ant_e) = entity_map.0.get(entity) {
+            if let Some(ant_e) = entity_map.0.get_by_left(entity) {
                 if let Ok((_, mut ant_t, mut ant)) = ant_q.get_mut(*ant_e) {
                     *ant_t = *t;
                     *ant = a.clone();
@@ -310,7 +310,7 @@ pub fn update_population_event(
         }
 
         for (entity, (t, e)) in population.eggs.iter() {
-            if let Some(egg_e) = entity_map.0.get(entity) {
+            if let Some(egg_e) = entity_map.0.get_by_left(entity) {
                 if let Ok((_, mut egg_t, mut egg)) = egg_q.get_mut(*egg_e) {
                     *egg_t = *t;
                     *egg = e.clone();
