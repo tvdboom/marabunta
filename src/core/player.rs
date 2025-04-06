@@ -85,6 +85,11 @@ impl Player {
         self.id == 0 || (self.id > 1000 && self.id < ClientId::MAX)
     }
 
+    /// Whether the player is an NPC
+    pub fn is_npc(&self) -> bool {
+        self.id > 0 && self.id < 1000
+    }
+
     /// Whether the player has the specified trait
     pub fn has_trait(&self, t: &Trait) -> bool {
         self.traits.contains(t)

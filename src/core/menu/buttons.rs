@@ -124,7 +124,6 @@ pub fn on_click_menu_button(
                 let message = bincode::serialize(&ServerMessage::StartGame {
                     id: *client,
                     fog_of_war: game_settings.fog_of_war.clone(),
-                    players: players.clone(),
                     map: map.clone(),
                 })
                 .unwrap();

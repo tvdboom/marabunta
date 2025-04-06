@@ -105,7 +105,7 @@ pub fn draw_map(
                     ));
                 }
 
-                if player.id == players.main_id() || !player.is_human() {
+                if player.id == players.main_id() || player.is_npc() {
                     spawn_ant_ev.send(SpawnAntEv {
                         ant: AntCmp::new(&Ant::Queen, player),
                         transform: Transform {

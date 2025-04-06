@@ -11,10 +11,10 @@ use crate::core::states::{AppState, GameState};
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
+use bimap::BiMap;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
-use bimap::BiMap;
 
 const PROTOCOL_ID: u64 = 7;
 
@@ -30,7 +30,6 @@ pub enum ServerMessage {
     StartGame {
         id: ClientId,
         fog_of_war: FogOfWar,
-        players: Vec<Player>,
         map: Map,
     },
     Status {
@@ -224,14 +223,14 @@ pub fn client_receive_message(
             ServerMessage::StartGame {
                 id,
                 fog_of_war,
-                players,
                 map,
             } => {
                 game_settings.fog_of_war = fog_of_war;
 
-                let mut all_players = vec![Player::new(id, game_settings.color)];
-                all_players.extend(players.iter().filter(|p| p.id != id).cloned());
-                commands.insert_resource(Players(all_players));
+                commands.insert_resource(Players(Vec::from([
+                    Player::new(id, game_settings.color),
+                    Player::default(),
+                ])));
 
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
@@ -268,6 +267,7 @@ pub fn update_population_event(
     mut update_population_ev: EventReader<UpdatePopulationEv>,
     mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp), Without<Owned>>,
     mut egg_q: Query<(Entity, &mut Transform, &mut Egg), (Without<Owned>, Without<AntCmp>)>,
+    players: Res<Players>,
     entity_map: Res<EntityMap>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut spawn_egg_ev: EventWriter<SpawnEggEv>,
@@ -294,7 +294,11 @@ pub fn update_population_event(
         }
 
         // Update the current population
-        for (entity, (t, a)) in population.ants.iter() {
+        for (entity, (t, a)) in population
+            .ants
+            .iter()
+            .filter(|(_, (_, a))| a.team != players.main_id())
+        {
             if let Some(ant_e) = entity_map.0.get_by_left(entity) {
                 if let Ok((_, mut ant_t, mut ant)) = ant_q.get_mut(*ant_e) {
                     *ant_t = *t;
@@ -309,7 +313,11 @@ pub fn update_population_event(
             }
         }
 
-        for (entity, (t, e)) in population.eggs.iter() {
+        for (entity, (t, e)) in population
+            .eggs
+            .iter()
+            .filter(|(_, (_, e))| e.team != players.main_id())
+        {
             if let Some(egg_e) = entity_map.0.get_by_left(entity) {
                 if let Ok((_, mut egg_t, mut egg)) = egg_q.get_mut(*egg_e) {
                     *egg_t = *t;

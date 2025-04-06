@@ -1,4 +1,4 @@
-use crate::core::ants::components::{AntCmp, Egg};
+use crate::core::ants::components::{AntCmp, Egg, Owned};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
@@ -10,11 +10,10 @@ use bevy::color::Color;
 use bevy::hierarchy::Children;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
-use bevy_renet::renet::ClientId;
 
 pub fn update_vision(
-    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
-    mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), Without<AntCmp>>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp), With<Owned>>,
+    mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), (With<Owned>, Without<AntCmp>)>,
     mut tile_q: Query<(Entity, &mut Sprite, &Tile)>,
     mut leaf_q: Query<&mut Sprite, (With<Leaf>, Without<Tile>)>,
     children_q: Query<&Children>,
@@ -23,7 +22,8 @@ pub fn update_vision(
     mut players: ResMut<Players>,
     mut map: ResMut<Map>,
 ) {
-    for player in players.0.iter_mut().filter(|p| p.id != ClientId::MAX) {
+    let id = players.main_id();
+    for player in players.0.iter_mut().filter(|p| p.id == id || p.is_npc()) {
         player.visible_tiles = HashSet::new();
 
         // Calculate all tiles currently visible by the player
