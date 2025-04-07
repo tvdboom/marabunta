@@ -1,14 +1,22 @@
 use crate::core::ants::components::Ant;
 use crate::core::constants::TRAIT_TIMER;
-use crate::core::menu::settings::{AntColor, FogOfWar};
+use crate::core::menu::settings::{AntColor, Background, FogOfWar};
 use crate::core::states::AudioState;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum GameMode {
+    SinglePlayer,
+    Multiplayer,
+}
+
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct GameSettings {
+    pub game_mode: GameMode,
     pub color: AntColor,
+    pub background: Background,
     pub npcs: u64,
     pub fog_of_war: FogOfWar,
     pub audio: AudioState,
@@ -20,7 +28,9 @@ pub struct GameSettings {
 impl Default for GameSettings {
     fn default() -> Self {
         Self {
+            game_mode: GameMode::SinglePlayer,
             fog_of_war: FogOfWar::default(),
+            background: Background::default(),
             color: AntColor::default(),
             npcs: 1,
             audio: AudioState::default(),

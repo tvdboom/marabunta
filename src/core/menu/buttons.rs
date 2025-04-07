@@ -1,16 +1,16 @@
 use crate::core::assets::WorldAssets;
 use crate::core::constants::*;
-use crate::core::game_settings::GameSettings;
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
-use crate::core::network::{new_renet_client, new_renet_server, ServerMessage};
+use crate::core::network::{new_renet_client, new_renet_server, ServerMessage, ServerSendMessage};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
 use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use bevy_renet::netcode::{NetcodeClientTransport, NetcodeServerTransport};
-use bevy_renet::renet::{DefaultChannel, RenetClient, RenetServer};
+use bevy_renet::renet::{RenetClient, RenetServer};
 
 #[derive(Component)]
 pub struct MenuCmp;
@@ -40,9 +40,10 @@ pub fn on_click_menu_button(
     btn_q: Query<&MenuBtn>,
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
-    game_settings: Res<GameSettings>,
+    mut game_settings: ResMut<GameSettings>,
     mut load_game_ev: EventWriter<LoadGameEv>,
     mut save_game_ev: EventWriter<SaveGameEv>,
+    mut server_send_message: EventWriter<ServerSendMessage>,
     app_state: Res<State<AppState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
@@ -52,6 +53,8 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::SinglePlayerMenu);
         }
         MenuBtn::NewGame => {
+            game_settings.game_mode = GameMode::SinglePlayer;
+
             // Add the player to the resource
             let mut players = vec![Player::new(0, game_settings.color.clone())];
 
@@ -97,8 +100,10 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::Lobby);
         }
         MenuBtn::Play => {
+            game_settings.game_mode = GameMode::Multiplayer;
+
             // Multiplayer context
-            let mut server = server.unwrap();
+            let server = server.unwrap();
 
             // Add the host to the resource
             let mut players = vec![Player::new(0, game_settings.color.clone())];
@@ -121,13 +126,15 @@ pub fn on_click_menu_button(
 
             // Send the start game signal to all clients with their player id
             for client in server.clients_id().iter() {
-                let message = bincode::serialize(&ServerMessage::StartGame {
-                    id: *client,
-                    fog_of_war: game_settings.fog_of_war.clone(),
-                    map: map.clone(),
-                })
-                .unwrap();
-                server.send_message(*client, DefaultChannel::ReliableOrdered, message);
+                server_send_message.send(ServerSendMessage {
+                    message: ServerMessage::StartGame {
+                        id: *client,
+                        background: game_settings.background,
+                        fog_of_war: game_settings.fog_of_war,
+                        map: map.clone(),
+                    },
+                    client: Some(*client),
+                });
             }
 
             commands.insert_resource(Players(players));

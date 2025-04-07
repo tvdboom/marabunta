@@ -6,10 +6,11 @@ use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
-use crate::core::menu::settings::FogOfWar;
+use crate::core::menu::settings::{Background, FogOfWar};
 use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
+use crate::utils::NameFromEnum;
 use bevy::prelude::*;
 use rand::{rng, Rng};
 use std::f32::consts::PI;
@@ -17,20 +18,24 @@ use std::f32::consts::PI;
 #[derive(Component)]
 pub struct TileCmp;
 
+#[derive(Component)]
+pub struct LeafCmp;
+
 #[derive(Event)]
 pub struct SpawnTileEv {
     pub tile: Tile,
     pub pos: Option<Vec2>,
 }
 
-pub fn _spawn_tile(
+fn _spawn_tile(
     commands: &mut Commands,
     tile: &Tile,
     pos: Vec2,
     alpha: f32,
+    background: &Background,
     assets: &Local<WorldAssets>,
 ) {
-    let texture = assets.texture("tiles");
+    let texture = assets.texture(format!("tiles-{}", background.to_lowername()).as_str());
 
     let id = commands
         .spawn((
@@ -83,7 +88,7 @@ pub fn _spawn_tile(
                             ..default()
                         },
                         TeamCmp(LEAF_TEAM),
-                        leaf.clone(),
+                        LeafCmp,
                         NoRotationChildCmp,
                     ))
                     .observe(select_leaf_on_click);
@@ -107,6 +112,12 @@ pub fn spawn_tile_event(
     assets: Local<WorldAssets>,
 ) {
     for SpawnTileEv { tile, pos } in spawn_tile_ev.read() {
+        let background = if *app_state.get() == AppState::Game {
+            game_settings.background
+        } else {
+            Background::Soil
+        };
+
         let alpha = if *app_state.get() != AppState::Game
             || (game_settings.fog_of_war != FogOfWar::None
                 && !players.main().visible_tiles.contains(&(tile.x, tile.y)))
@@ -137,11 +148,12 @@ pub fn spawn_tile_event(
                     &tile,
                     Map::get_coord_from_xy(tile_c.x, tile_c.y),
                     alpha,
+                    &background,
                     &assets,
                 );
             }
         } else if let Some(pos) = pos {
-            _spawn_tile(&mut commands, &tile, *pos, alpha, &assets);
+            _spawn_tile(&mut commands, &tile, *pos, alpha, &background, &assets);
         }
     }
 }

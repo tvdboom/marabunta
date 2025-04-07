@@ -6,8 +6,9 @@ use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
+use crate::core::map::events::LeafCmp;
 use crate::core::map::map::Map;
-use crate::core::map::tile::{Leaf, Tile};
+use crate::core::map::tile::Tile;
 use crate::core::player::Players;
 use crate::core::resources::Resources;
 use crate::core::traits::Trait;
@@ -513,7 +514,7 @@ pub fn resolve_idle_action(
     mut ant_q: Query<(Entity, &Transform, &mut AntCmp), (With<Owned>, Without<Corpse>)>,
     corpse_q: Query<(Entity, &Transform, &AntCmp), With<Corpse>>,
     egg_q: Query<(Entity, &Transform, &Egg)>,
-    leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
+    leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     players: Res<Players>,
     mut map: ResMut<Map>,
 ) {
@@ -1022,7 +1023,10 @@ pub fn queue_ants_keyboard(
 ) {
     for ant in Ant::iter().filter(|a| players.main().has_ant(a)) {
         if matches!(AntCmp::base(&ant).key, Some(key) if keyboard.just_pressed(key)) {
-            queue_ant_ev.send(QueueAntEv { id: 0, ant });
+            queue_ant_ev.send(QueueAntEv {
+                id: players.main_id(),
+                ant,
+            });
         }
     }
 }

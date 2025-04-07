@@ -6,7 +6,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::systems::MapCmp;
 use crate::core::menu::settings::FogOfWar;
-use crate::core::network::EntityMap;
+use crate::core::multiplayer::EntityMap;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;

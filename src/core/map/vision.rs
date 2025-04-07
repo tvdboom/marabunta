@@ -1,8 +1,8 @@
 use crate::core::ants::components::{AntCmp, Egg, Owned};
 use crate::core::game_settings::GameSettings;
-use crate::core::map::events::SpawnTileEv;
+use crate::core::map::events::{LeafCmp, SpawnTileEv};
 use crate::core::map::map::Map;
-use crate::core::map::tile::{Leaf, Tile};
+use crate::core::map::tile::Tile;
 use crate::core::map::utils::reveal_tiles;
 use crate::core::menu::settings::FogOfWar;
 use crate::core::player::Players;
@@ -15,7 +15,7 @@ pub fn update_vision(
     mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp), With<Owned>>,
     mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), (With<Owned>, Without<AntCmp>)>,
     mut tile_q: Query<(Entity, &mut Sprite, &Tile)>,
-    mut leaf_q: Query<&mut Sprite, (With<Leaf>, Without<Tile>)>,
+    mut leaf_q: Query<&mut Sprite, (With<LeafCmp>, Without<Tile>)>,
     children_q: Query<&Children>,
     mut spawn_tile_ev: EventWriter<SpawnTileEv>,
     game_settings: Res<GameSettings>,

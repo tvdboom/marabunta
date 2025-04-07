@@ -87,7 +87,8 @@ impl FromWorld for WorldAssets {
             // Map
             ("defeat", assets.load("images/map/defeat.png")),
             ("victory", assets.load("images/map/victory.png")),
-            ("tiles", assets.load("images/map/soil_tileset.png")),
+            ("tiles-soil", assets.load("images/map/soil_tileset.png")),
+            ("tiles-rock", assets.load("images/map/rock_tileset.png")),
             ("base", assets.load("images/map/base.png")),
             ("food", assets.load("images/map/food.png")),
             ("nutrient", assets.load("images/map/nutrient.png")),
@@ -173,15 +174,24 @@ impl FromWorld for WorldAssets {
             .get_resource_mut::<Assets<TextureAtlasLayout>>()
             .unwrap();
 
-        let tiles = TextureAtlasLayout::from_grid(UVec2::splat(128), 8, 9, None, None);
-
-        let textures: HashMap<&'static str, TextureInfo> = HashMap::from([(
-            "tiles",
-            TextureInfo {
-                image: images["tiles"].clone_weak(),
-                layout: texture.add(tiles),
-            },
-        )]);
+        let tiles_soil = TextureAtlasLayout::from_grid(UVec2::splat(128), 8, 9, None, None);
+        let tiles_rock = TextureAtlasLayout::from_grid(UVec2::splat(128), 8, 9, None, None);
+        let textures: HashMap<&'static str, TextureInfo> = HashMap::from([
+            (
+                "tiles-soil",
+                TextureInfo {
+                    image: images["tiles-soil"].clone_weak(),
+                    layout: texture.add(tiles_soil),
+                },
+            ),
+            (
+                "tiles-rock",
+                TextureInfo {
+                    image: images["tiles-rock"].clone_weak(),
+                    layout: texture.add(tiles_rock),
+                },
+            ),
+        ]);
 
         let mut atlas = HashMap::new();
 

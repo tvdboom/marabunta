@@ -6,7 +6,7 @@ use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::map::ui::utils::TextSize;
-use crate::core::network::EntityMap;
+use crate::core::multiplayer::EntityMap;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::utils::scale_duration;
@@ -16,12 +16,14 @@ use bevy_renet::renet::ClientId;
 use rand::prelude::IteratorRandom;
 use rand::{rng, Rng};
 use strum::IntoEnumIterator;
+use crate::core::traits::AfterTraitCount;
 
 pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSettings>) {
     commands.insert_resource(Players::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(AntSelection::default());
     commands.insert_resource(EntityMap::default());
+    commands.insert_resource(AfterTraitCount::default());
 
     // Reset in-game settings
     game_settings.reset();
@@ -47,12 +49,15 @@ pub fn check_trait_timer(
 ) {
     let player = players.main();
 
-    let time = scale_duration(time.delta(), game_settings.speed);
-    game_settings.trait_timer.tick(time);
+    // Only the host starts the trait selection
+    if player.id == 0 {
+        let time = scale_duration(time.delta(), game_settings.speed);
+        game_settings.trait_timer.tick(time);
 
-    if game_settings.trait_timer.finished() && player.traits.len() < MAX_TRAITS {
-        play_audio_ev.send(PlayAudioEv::new("message"));
-        next_game_state.set(GameState::TraitSelection);
+        if game_settings.trait_timer.finished() && player.traits.len() < MAX_TRAITS {
+            play_audio_ev.send(PlayAudioEv::new("message"));
+            next_game_state.set(GameState::TraitSelection);
+        }
     }
 }
 

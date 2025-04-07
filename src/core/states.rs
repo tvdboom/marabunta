@@ -21,6 +21,7 @@ pub enum GameState {
     Paused,
     InGameMenu,
     TraitSelection,
+    AfterTraitSelection,
     EndGame,
 }
 

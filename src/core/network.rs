@@ -1,48 +1,74 @@
-use crate::core::ants::components::{AntCmp, Egg, Owned};
-use crate::core::ants::events::{DespawnAntEv, SpawnAntEv, SpawnEggEv};
 use crate::core::audio::PlayAudioEv;
-use crate::core::game_settings::GameSettings;
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::map::Map;
 use crate::core::menu::buttons::LobbyTextCmp;
-use crate::core::menu::settings::FogOfWar;
+use crate::core::menu::settings::{Background, FogOfWar};
+use crate::core::multiplayer::UpdatePopulationEv;
 use crate::core::persistence::Population;
 use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
+use crate::core::traits::AfterTraitCount;
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
-use bimap::BiMap;
 use serde::{Deserialize, Serialize};
 use std::net::UdpSocket;
 use std::time::SystemTime;
 
 const PROTOCOL_ID: u64 = 7;
 
-#[derive(Resource, Default)]
-pub struct EntityMap(pub BiMap<Entity, Entity>);
+#[derive(Event)]
+pub struct ServerSendMessage {
+    pub message: ServerMessage,
+    pub client: Option<ClientId>,
+}
 
 #[derive(Event)]
-pub struct UpdatePopulationEv(pub Population);
+pub struct ClientSendMessage {
+    pub message: ClientMessage,
+}
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
     NPlayers(usize),
     StartGame {
         id: ClientId,
+        background: Background,
         fog_of_war: FogOfWar,
         map: Map,
     },
+    State(GameState),
     Status {
         speed: f32,
         map: Map,
         population: Population,
-        game_state: GameState,
     },
+}
+
+impl ServerMessage {
+    pub fn channel(&self) -> DefaultChannel {
+        match self {
+            ServerMessage::NPlayers(_) => DefaultChannel::ReliableOrdered,
+            ServerMessage::StartGame { .. } => DefaultChannel::ReliableOrdered,
+            ServerMessage::State(_) => DefaultChannel::ReliableOrdered,
+            ServerMessage::Status { .. } => DefaultChannel::Unreliable,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
+    State(GameState),
     Status { map: Map, population: Population },
+}
+
+impl ClientMessage {
+    pub fn channel(&self) -> DefaultChannel {
+        match self {
+            ClientMessage::State(_) => DefaultChannel::ReliableOrdered,
+            ClientMessage::Status { .. } => DefaultChannel::Unreliable,
+        }
+    }
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
@@ -129,39 +155,50 @@ pub fn server_update(
     }
 }
 
-pub fn server_send_status(
+pub fn server_send_message(
+    mut server_send_message: EventReader<ServerSendMessage>,
     mut server: ResMut<RenetServer>,
-    ant_q: Query<(Entity, &Transform, &AntCmp)>,
-    egg_q: Query<(Entity, &Transform, &Egg)>,
-    game_settings: Res<GameSettings>,
-    map: Res<Map>,
-    game_state: Res<State<GameState>>,
 ) {
-    let status = bincode::serialize(&ServerMessage::Status {
-        speed: game_settings.speed,
-        map: map.clone(),
-        population: Population {
-            ants: ant_q
-                .iter()
-                .map(|(e, t, a)| (e, (t.clone(), a.clone())))
-                .collect(),
-            eggs: egg_q
-                .iter()
-                .map(|(e, t, a)| (e, (t.clone(), a.clone())))
-                .collect(),
-        },
-        game_state: *game_state.get(),
-    });
-
-    server.broadcast_message(DefaultChannel::Unreliable, status.unwrap());
+    for ev in server_send_message.read() {
+        let message = bincode::serialize(&ev.message).unwrap();
+        if let Some(client_id) = ev.client {
+            server.send_message(client_id, ev.message.channel(), message);
+        } else {
+            server.broadcast_message(ev.message.channel(), message);
+        }
+    }
 }
 
-pub fn server_receive_status(
+pub fn server_receive_message(
     mut server: ResMut<RenetServer>,
     mut map: ResMut<Map>,
+    mut trait_count: ResMut<AfterTraitCount>,
     mut update_population_ev: EventWriter<UpdatePopulationEv>,
+    game_state: Res<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
 ) {
     for client_id in server.clients_id() {
+        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
+        {
+            match bincode::deserialize(&message).unwrap() {
+                ClientMessage::State(state) => match state {
+                    GameState::InGameMenu | GameState::Paused
+                        if *game_state.get() == GameState::Running =>
+                    {
+                        next_game_state.set(GameState::Paused);
+                    }
+                    GameState::Running => {
+                        next_game_state.set(GameState::Running);
+                    }
+                    GameState::AfterTraitSelection => {
+                        trait_count.0 += 1;
+                    }
+                    _ => (),
+                },
+                _ => (),
+            }
+        }
+
         while let Some(message) = server.receive_message(client_id, DefaultChannel::Unreliable) {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::Status {
@@ -171,36 +208,20 @@ pub fn server_receive_status(
                     map.update(new_map);
                     update_population_ev.send(UpdatePopulationEv(population));
                 }
+                _ => (),
             }
         }
     }
 }
 
-pub fn client_send_status(
+pub fn client_send_message(
+    mut client_send_message: EventReader<ClientSendMessage>,
     mut client: ResMut<RenetClient>,
-    ant_q: Query<(Entity, &Transform, &AntCmp)>,
-    egg_q: Query<(Entity, &Transform, &Egg)>,
-    players: Res<Players>,
-    map: Res<Map>,
 ) {
-    let status = bincode::serialize(&ClientMessage::Status {
-        map: map.clone(),
-        population: Population {
-            ants: ant_q
-                .iter()
-                .filter_map(|(e, t, a)| {
-                    (a.team == players.main_id()).then_some((e, (t.clone(), a.clone())))
-                })
-                .collect(),
-            eggs: egg_q
-                .iter()
-                .filter_map(|(e, t, egg)| {
-                    (egg.team == players.main_id()).then_some((e, (t.clone(), egg.clone())))
-                })
-                .collect(),
-        },
-    });
-    client.send_message(DefaultChannel::Unreliable, status.unwrap());
+    for ev in client_send_message.read() {
+        let message = bincode::serialize(&ev.message).unwrap();
+        client.send_message(ev.message.channel(), message);
+    }
 }
 
 pub fn client_receive_message(
@@ -209,6 +230,7 @@ pub fn client_receive_message(
     mut client: ResMut<RenetClient>,
     mut game_settings: ResMut<GameSettings>,
     mut map: ResMut<Map>,
+    game_state: Res<State<GameState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
     mut update_population_ev: EventWriter<UpdatePopulationEv>,
@@ -222,10 +244,16 @@ pub fn client_receive_message(
             }
             ServerMessage::StartGame {
                 id,
+                background,
                 fog_of_war,
                 map,
             } => {
-                game_settings.fog_of_war = fog_of_war;
+                *game_settings = GameSettings {
+                    game_mode: GameMode::Multiplayer,
+                    background,
+                    fog_of_war,
+                    ..game_settings.clone()
+                };
 
                 commands.insert_resource(Players(Vec::from([
                     Player::new(id, game_settings.color),
@@ -235,6 +263,15 @@ pub fn client_receive_message(
                 commands.insert_resource(map);
                 next_app_state.set(AppState::Game);
             }
+            ServerMessage::State(state) => match state {
+                GameState::InGameMenu | GameState::Paused
+                    if *game_state.get() == GameState::Running =>
+                {
+                    next_game_state.set(GameState::Paused)
+                }
+                s @ GameState::Running | s @ GameState::TraitSelection => next_game_state.set(s),
+                _ => (),
+            },
             _ => (),
         }
     }
@@ -245,91 +282,12 @@ pub fn client_receive_message(
                 speed,
                 map: map_status,
                 population,
-                game_state,
             } => {
                 game_settings.speed = speed;
                 map.update(map_status);
-
-                next_game_state.set(if game_state == GameState::InGameMenu {
-                    GameState::Paused
-                } else {
-                    game_state
-                });
-
                 update_population_ev.send(UpdatePopulationEv(population));
             }
             _ => (),
-        }
-    }
-}
-
-pub fn update_population_event(
-    mut update_population_ev: EventReader<UpdatePopulationEv>,
-    mut ant_q: Query<(Entity, &mut Transform, &mut AntCmp), Without<Owned>>,
-    mut egg_q: Query<(Entity, &mut Transform, &mut Egg), (Without<Owned>, Without<AntCmp>)>,
-    players: Res<Players>,
-    entity_map: Res<EntityMap>,
-    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
-    mut spawn_egg_ev: EventWriter<SpawnEggEv>,
-    mut despawn_ant_ev: EventWriter<DespawnAntEv>,
-) {
-    for UpdatePopulationEv(population) in update_population_ev.read() {
-        // Despawn all that are not in the new population
-        for (ant_e, _, _) in &ant_q {
-            if !population
-                .ants
-                .contains_key(entity_map.0.get_by_right(&ant_e).unwrap())
-            {
-                despawn_ant_ev.send(DespawnAntEv { entity: ant_e });
-            }
-        }
-
-        for (egg_e, _, _) in &egg_q {
-            if !population
-                .eggs
-                .contains_key(entity_map.0.get_by_right(&egg_e).unwrap())
-            {
-                despawn_ant_ev.send(DespawnAntEv { entity: egg_e });
-            }
-        }
-
-        // Update the current population
-        for (entity, (t, a)) in population
-            .ants
-            .iter()
-            .filter(|(_, (_, a))| a.team != players.main_id())
-        {
-            if let Some(ant_e) = entity_map.0.get_by_left(entity) {
-                if let Ok((_, mut ant_t, mut ant)) = ant_q.get_mut(*ant_e) {
-                    *ant_t = *t;
-                    *ant = a.clone();
-                }
-            } else {
-                spawn_ant_ev.send(SpawnAntEv {
-                    ant: a.clone(),
-                    transform: *t,
-                    entity: Some(*entity),
-                });
-            }
-        }
-
-        for (entity, (t, e)) in population
-            .eggs
-            .iter()
-            .filter(|(_, (_, e))| e.team != players.main_id())
-        {
-            if let Some(egg_e) = entity_map.0.get_by_left(entity) {
-                if let Ok((_, mut egg_t, mut egg)) = egg_q.get_mut(*egg_e) {
-                    *egg_t = *t;
-                    *egg = e.clone();
-                }
-            } else {
-                spawn_egg_ev.send(SpawnEggEv {
-                    ant: e.ant.clone(),
-                    transform: *t,
-                    entity: Some(*entity),
-                });
-            }
         }
     }
 }

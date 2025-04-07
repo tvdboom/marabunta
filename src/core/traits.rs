@@ -2,17 +2,21 @@ use crate::core::ants::components::{Action, Ant, AntCmp, Corpse};
 use crate::core::ants::events::SpawnAntEv;
 use crate::core::ants::utils::transform_ant;
 use crate::core::audio::PlayAudioEv;
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::player::Players;
 use crate::core::resources::Resources;
 use crate::core::states::GameState;
 use bevy::prelude::*;
-use bevy_renet::renet::ClientId;
+use bevy_renet::renet::{ClientId, RenetServer};
 use rand::prelude::IteratorRandom;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 use std::f32::consts::PI;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
+
+#[derive(Resource, Default)]
+pub struct AfterTraitCount(pub usize);
 
 #[derive(EnumIter, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Trait {
@@ -242,6 +246,7 @@ pub fn select_trait_event(
     mut trait_selected_ev: EventReader<TraitSelectedEv>,
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
+    game_settings: Res<GameSettings>,
     mut players: ResMut<Players>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
@@ -362,6 +367,24 @@ pub fn select_trait_event(
             }
         }
 
+        if game_settings.game_mode == GameMode::SinglePlayer {
+            next_game_state.set(GameState::Running);
+        } else {
+            next_game_state.set(GameState::AfterTraitSelection);
+        }
+    }
+}
+
+pub fn after_trait_check(
+    server: Res<RenetServer>,
+    mut trait_count: ResMut<AfterTraitCount>,
+    game_state: Res<State<GameState>>,
+    mut next_game_state: ResMut<NextState<GameState>>,
+) {
+    if *game_state.get() == GameState::AfterTraitSelection
+        && trait_count.0 == server.clients_id().len()
+    {
+        trait_count.0 = 0;
         next_game_state.set(GameState::Running);
     }
 }

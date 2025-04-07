@@ -2,10 +2,10 @@ use crate::core::ants::components::{Action, Ant, AntCmp, AttackCmp, Behavior, Co
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_Z_SCORE;
+use crate::core::map::events::LeafCmp;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
-use crate::core::map::tile::Leaf;
 use crate::core::player::Players;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
@@ -151,7 +151,7 @@ pub fn select_loc_on_click(
 pub fn select_leaf_on_click(
     mut trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<&mut AntCmp>,
-    leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
+    leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     players: Res<Players>,
     map: Res<Map>,
@@ -400,7 +400,7 @@ pub fn update_selection_icons(
     mut commands: Commands,
     ant_q: Query<(Entity, &AntCmp)>,
     pin_q: Query<(Entity, &PinCmp)>,
-    leaf_q: Query<(Entity, &GlobalTransform), With<Leaf>>,
+    leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     corpse_q: Query<(Entity, &GlobalTransform), With<Corpse>>,
     mut attack_q: Query<&mut Visibility, With<AttackCmp>>,
     mut defend_q: Query<&mut Visibility, (With<DefendCmp>, Without<AttackCmp>)>,

@@ -1,6 +1,6 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{BUTTON_TEXT_SIZE, TITLE_TEXT_SIZE};
+use crate::core::constants::BUTTON_TEXT_SIZE;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::TileCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text};
@@ -25,148 +25,153 @@ pub fn setup_menu(
         .with_children(|parent| {
             parent
                 .spawn(Node {
-                    top: Val::VMin(2.),
+                    top: Val::VMin(5.),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::Center,
-                    margin: UiRect::ZERO.with_bottom(Val::Percent(5.)),
+                    position_type: PositionType::Absolute,
                     ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn(add_text(TITLE, "medium", 60., &assets, &window));
                 });
 
-            match app_state.get() {
-                AppState::MainMenu => {
-                    spawn_menu_button(parent, MenuBtn::Singleplayer, &assets, &window);
-                    #[cfg(not(target_arch = "wasm32"))]
-                    spawn_menu_button(parent, MenuBtn::Multiplayer, &assets, &window);
-                    spawn_menu_button(parent, MenuBtn::Settings, &assets, &window);
-                    #[cfg(not(target_arch = "wasm32"))]
-                    spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
-                }
-                AppState::SinglePlayerMenu => {
-                    spawn_menu_button(parent, MenuBtn::NewGame, &assets, &window);
-                    #[cfg(not(target_arch = "wasm32"))]
-                    spawn_menu_button(parent, MenuBtn::LoadGame, &assets, &window);
-                    spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
-                }
-                AppState::MultiPlayerMenu => {
-                    spawn_menu_button(parent, MenuBtn::HostGame, &assets, &window);
-                    spawn_menu_button(parent, MenuBtn::FindGame, &assets, &window);
-                    spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
-                }
-                AppState::Lobby | AppState::ConnectedLobby => {
-                    if let Some(server) = server {
-                        let n_players = server.clients_id().len() + 1;
-
-                        parent.spawn((
-                            add_text(
-                                if n_players == 1 {
-                                    "Waiting for other players to join...".to_string()
-                                } else {
-                                    format!("There are {} players in the lobby...", n_players)
-                                },
-                                "bold",
-                                BUTTON_TEXT_SIZE,
-                                &assets,
-                                &window,
-                            ),
-                            LobbyTextCmp,
-                        ));
-
-                        if n_players > 1 {
-                            spawn_menu_button(parent, MenuBtn::Play, &assets, &window);
-                        }
-                    } else {
-                        parent.spawn((
-                            add_text(
-                                "Searching for a game...",
-                                "bold",
-                                BUTTON_TEXT_SIZE,
-                                &assets,
-                                &window,
-                            ),
-                            LobbyTextCmp,
-                        ));
+            parent
+                .spawn(Node {
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    flex_direction: FlexDirection::Column,
+                    margin: UiRect::ZERO.with_top(Val::Percent(10.)),
+                    ..default()
+                })
+                .with_children(|parent| match app_state.get() {
+                    AppState::MainMenu => {
+                        spawn_menu_button(parent, MenuBtn::Singleplayer, &assets, &window);
+                        #[cfg(not(target_arch = "wasm32"))]
+                        spawn_menu_button(parent, MenuBtn::Multiplayer, &assets, &window);
+                        spawn_menu_button(parent, MenuBtn::Settings, &assets, &window);
+                        #[cfg(not(target_arch = "wasm32"))]
+                        spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
                     }
+                    AppState::SinglePlayerMenu => {
+                        spawn_menu_button(parent, MenuBtn::NewGame, &assets, &window);
+                        #[cfg(not(target_arch = "wasm32"))]
+                        spawn_menu_button(parent, MenuBtn::LoadGame, &assets, &window);
+                        spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
+                    }
+                    AppState::MultiPlayerMenu => {
+                        spawn_menu_button(parent, MenuBtn::HostGame, &assets, &window);
+                        spawn_menu_button(parent, MenuBtn::FindGame, &assets, &window);
+                        spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
+                    }
+                    AppState::Lobby | AppState::ConnectedLobby => {
+                        if let Some(server) = server {
+                            let n_players = server.clients_id().len() + 1;
 
-                    spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
-                }
-                AppState::Settings => {
-                    parent
-                        .spawn((Node {
-                            width: Val::Percent(40.),
-                            flex_direction: FlexDirection::Column,
-                            margin: UiRect::ZERO.with_top(Val::Percent(-2.)),
-                            padding: UiRect {
-                                top: Val::Percent(1.),
-                                left: Val::Percent(2.5),
-                                right: Val::Percent(2.5),
-                                bottom: Val::Percent(1.),
-                            },
-                            ..default()
-                        },))
-                        .with_children(|parent| {
-                            parent
-                                .spawn((Node {
-                                    justify_content: JustifyContent::Center,
-                                    align_items: AlignItems::Center,
-                                    margin: UiRect::ZERO.with_bottom(Val::Percent(2.)),
-                                    ..default()
-                                },))
-                                .with_children(|parent| {
-                                    parent.spawn(add_text(
-                                        "Settings",
-                                        "bold",
-                                        TITLE_TEXT_SIZE,
-                                        &assets,
-                                        &window,
-                                    ));
-                                });
+                            parent.spawn((
+                                add_text(
+                                    if n_players == 1 {
+                                        "Waiting for other players to join...".to_string()
+                                    } else {
+                                        format!("There are {} players in the lobby...", n_players)
+                                    },
+                                    "bold",
+                                    BUTTON_TEXT_SIZE,
+                                    &assets,
+                                    &window,
+                                ),
+                                LobbyTextCmp,
+                            ));
 
-                            spawn_label(
-                                parent,
-                                "Color",
-                                vec![SettingsBtn::Black, SettingsBtn::Red],
-                                &game_settings,
-                                &assets,
-                                &window,
-                            );
-                            spawn_label(
-                                parent,
-                                "Fog of war",
-                                vec![SettingsBtn::None, SettingsBtn::Half, SettingsBtn::Full],
-                                &game_settings,
-                                &assets,
-                                &window,
-                            );
-                            spawn_label(
-                                parent,
-                                "Number of opponents",
-                                vec![
-                                    SettingsBtn::Zero,
-                                    SettingsBtn::One,
-                                    SettingsBtn::Two,
-                                    SettingsBtn::Three,
-                                ],
-                                &game_settings,
-                                &assets,
-                                &window,
-                            );
-                            spawn_label(
-                                parent,
-                                "Audio",
-                                vec![SettingsBtn::Mute, SettingsBtn::NoMusic, SettingsBtn::Sound],
-                                &game_settings,
-                                &assets,
-                                &window,
-                            );
-                        });
+                            if n_players > 1 {
+                                spawn_menu_button(parent, MenuBtn::Play, &assets, &window);
+                            }
+                        } else {
+                            parent.spawn((
+                                add_text(
+                                    "Searching for a game...",
+                                    "bold",
+                                    BUTTON_TEXT_SIZE,
+                                    &assets,
+                                    &window,
+                                ),
+                                LobbyTextCmp,
+                            ));
+                        }
 
-                    spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
-                }
-                _ => (),
-            }
+                        spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
+                    }
+                    AppState::Settings => {
+                        parent
+                            .spawn((Node {
+                                width: Val::Percent(40.),
+                                flex_direction: FlexDirection::Column,
+                                margin: UiRect::ZERO.with_top(Val::Percent(-2.)),
+                                padding: UiRect {
+                                    top: Val::Percent(1.),
+                                    left: Val::Percent(2.5),
+                                    right: Val::Percent(2.5),
+                                    bottom: Val::Percent(1.),
+                                },
+                                ..default()
+                            },))
+                            .with_children(|parent| {
+                                spawn_label(
+                                    parent,
+                                    "Color",
+                                    vec![SettingsBtn::Black, SettingsBtn::Red],
+                                    &game_settings,
+                                    &assets,
+                                    &window,
+                                );
+                                spawn_label(
+                                    parent,
+                                    "Background",
+                                    vec![SettingsBtn::Soil, SettingsBtn::Rock],
+                                    &game_settings,
+                                    &assets,
+                                    &window,
+                                );
+                                spawn_label(
+                                    parent,
+                                    "Fog of war",
+                                    vec![SettingsBtn::None, SettingsBtn::Half, SettingsBtn::Full],
+                                    &game_settings,
+                                    &assets,
+                                    &window,
+                                );
+                                spawn_label(
+                                    parent,
+                                    "Number of opponents",
+                                    vec![
+                                        SettingsBtn::Zero,
+                                        SettingsBtn::One,
+                                        SettingsBtn::Two,
+                                        SettingsBtn::Three,
+                                    ],
+                                    &game_settings,
+                                    &assets,
+                                    &window,
+                                );
+                                spawn_label(
+                                    parent,
+                                    "Audio",
+                                    vec![
+                                        SettingsBtn::Mute,
+                                        SettingsBtn::NoMusic,
+                                        SettingsBtn::Sound,
+                                    ],
+                                    &game_settings,
+                                    &assets,
+                                    &window,
+                                );
+                            });
+
+                        spawn_menu_button(parent, MenuBtn::Back, &assets, &window);
+                    }
+                    _ => (),
+                });
 
             parent
                 .spawn(Node {

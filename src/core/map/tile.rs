@@ -8,7 +8,7 @@ use rand::prelude::IndexedRandom;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
 
-#[derive(Component, Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Leaf {
     pub image: String,
     pub quantity: f32,

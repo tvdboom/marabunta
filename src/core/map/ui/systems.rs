@@ -1,7 +1,7 @@
 use crate::core::ants::components::{Animation, AnimationCmp, Ant, AntCmp};
 use crate::core::ants::events::QueueAntEv;
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{MAX_QUEUE_LENGTH, TITLE_TEXT_SIZE};
+use crate::core::constants::{BUTTON_TEXT_SIZE, MAX_QUEUE_LENGTH, TITLE_TEXT_SIZE};
 use crate::core::map::systems::MapCmp;
 use crate::core::map::ui::utils::{add_root_node, add_text, despawn_ui};
 use crate::core::menu::buttons::MenuCmp;
@@ -479,10 +479,11 @@ pub fn update_ui(
 pub fn on_click_colony_button(
     trigger: Trigger<Pointer<Click>>,
     btn_q: Query<&ColonyButtonCmp>,
+    players: Res<Players>,
     mut queue_ant_ev: EventWriter<QueueAntEv>,
 ) {
     queue_ant_ev.send(QueueAntEv {
-        id: 0,
+        id: players.main_id(),
         ant: btn_q.get(trigger.entity()).unwrap().0.clone(),
     });
 }
@@ -637,5 +638,23 @@ pub fn setup_trait_selection(
                             });
                     }
                 });
+        });
+}
+
+pub fn setup_after_trait(
+    mut commands: Commands,
+    assets: Local<WorldAssets>,
+    window: Single<&Window>,
+) {
+    commands
+        .spawn((add_root_node(), MenuCmp))
+        .with_children(|parent| {
+            parent.spawn(add_text(
+                "Waiting for other players to select a trait...".to_string(),
+                "bold",
+                BUTTON_TEXT_SIZE,
+                &assets,
+                &window,
+            ));
         });
 }

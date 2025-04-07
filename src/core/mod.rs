@@ -6,6 +6,7 @@ mod constants;
 mod game_settings;
 mod map;
 mod menu;
+mod multiplayer;
 mod network;
 mod pause;
 mod persistence;
@@ -26,10 +27,11 @@ use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{spawn_tile_event, SpawnTileEv};
 use crate::core::map::holes::{resolve_expeditions, spawn_enemies};
 use crate::core::map::systems::*;
-use crate::core::map::ui::systems::{animate_ui, draw_ui, update_ui, UiCmp};
+use crate::core::map::ui::systems::{animate_ui, draw_ui, setup_after_trait, update_ui, UiCmp};
 use crate::core::map::vision::update_vision;
 use crate::core::menu::buttons::MenuCmp;
 use crate::core::menu::systems::{setup_end_game, setup_in_game_menu, setup_menu};
+use crate::core::multiplayer::*;
 use crate::core::network::*;
 use crate::core::pause::*;
 #[cfg(not(target_arch = "wasm32"))]
@@ -37,7 +39,7 @@ use crate::core::persistence::{load_game, save_game};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::states::{AppState, AudioState, GameState};
 use crate::core::systems::*;
-use crate::core::traits::{select_trait_event, TraitSelectedEv};
+use crate::core::traits::{after_trait_check, select_trait_event, TraitSelectedEv};
 use crate::core::utils::{despawn, update_transform_no_rotation};
 use ants::selection::{select_ants_from_rect, select_ants_to_res, SelectAntEv};
 use bevy::prelude::*;
@@ -79,6 +81,8 @@ impl Plugin for GamePlugin {
             .add_event::<DamageAntEv>()
             .add_event::<SelectAntEv>()
             .add_event::<TraitSelectedEv>()
+            .add_event::<ServerSendMessage>()
+            .add_event::<ClientSendMessage>()
             .add_event::<UpdatePopulationEv>()
             // Resources
             .init_resource::<GameSettings>()
@@ -143,7 +147,7 @@ impl Plugin for GamePlugin {
             .add_systems(
                 First,
                 (
-                    (server_update, server_receive_status.in_set(InGameSet))
+                    (server_update, server_receive_message.in_set(InGameSet))
                         .run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
                 ),
@@ -152,10 +156,21 @@ impl Plugin for GamePlugin {
                 Last,
                 (
                     (
-                        server_send_status.run_if(resource_exists::<RenetServer>),
-                        client_send_status.run_if(resource_exists::<RenetClient>),
-                    )
-                        .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                        (
+                            server_send_status
+                                .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                            server_send_message,
+                        )
+                            .chain()
+                            .run_if(resource_exists::<RenetServer>),
+                        (
+                            client_send_status
+                                .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                            client_send_message,
+                        )
+                            .chain()
+                            .run_if(resource_exists::<RenetClient>),
+                    ),
                     update_population_event,
                 )
                     .in_set(InGameSet),
@@ -198,15 +213,33 @@ impl Plugin for GamePlugin {
             )
             // In-game states
             .add_systems(Startup, spawn_pause_banner)
-            .add_systems(OnEnter(GameState::Paused), pause_game)
+            .add_systems(OnEnter(GameState::Running), update_game_state)
+            .add_systems(OnEnter(GameState::Paused), (pause_game, update_game_state))
             .add_systems(OnExit(GameState::Paused), unpause_game)
-            .add_systems(OnEnter(GameState::InGameMenu), setup_in_game_menu)
+            .add_systems(
+                OnEnter(GameState::InGameMenu),
+                (setup_in_game_menu, update_game_state),
+            )
             .add_systems(OnExit(GameState::InGameMenu), despawn::<MenuCmp>)
-            .add_systems(OnEnter(GameState::TraitSelection), setup_trait_selection)
+            .add_systems(
+                OnEnter(GameState::TraitSelection),
+                (setup_trait_selection, update_game_state),
+            )
             .add_systems(
                 OnExit(GameState::TraitSelection),
                 (despawn::<MenuCmp>, despawn::<UiCmp>, draw_ui).chain(),
             )
+            .add_systems(
+                OnEnter(GameState::AfterTraitSelection),
+                (setup_after_trait, update_game_state),
+            )
+            .add_systems(
+                Update,
+                after_trait_check
+                    .run_if(resource_exists::<RenetServer>)
+                    .run_if(in_state(GameState::AfterTraitSelection)),
+            )
+            .add_systems(OnExit(GameState::AfterTraitSelection), despawn::<MenuCmp>)
             .add_systems(OnEnter(GameState::EndGame), setup_end_game)
             .add_systems(OnExit(GameState::EndGame), despawn::<MenuCmp>)
             .add_systems(Update, toggle_pause_keyboard.in_set(InGameSet))

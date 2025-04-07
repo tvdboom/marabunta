@@ -15,6 +15,8 @@ use strum_macros::EnumIter;
 pub enum SettingsBtn {
     Black,
     Red,
+    Soil,
+    Rock,
     None,
     Half,
     Full,
@@ -44,6 +46,13 @@ impl AntColor {
 }
 
 #[derive(EnumIter, Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub enum Background {
+    #[default]
+    Soil,
+    Rock,
+}
+
+#[derive(EnumIter, Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum FogOfWar {
     None,
     Half,
@@ -55,6 +64,8 @@ fn match_setting(setting: &SettingsBtn, game_settings: &GameSettings) -> bool {
     match setting {
         SettingsBtn::Black => game_settings.color == AntColor::Black,
         SettingsBtn::Red => game_settings.color == AntColor::Red,
+        SettingsBtn::Soil => game_settings.background == Background::Soil,
+        SettingsBtn::Rock => game_settings.background == Background::Rock,
         SettingsBtn::None => game_settings.fog_of_war == FogOfWar::None,
         SettingsBtn::Half => game_settings.fog_of_war == FogOfWar::Half,
         SettingsBtn::Full => game_settings.fog_of_war == FogOfWar::Full,
@@ -90,6 +101,8 @@ pub fn on_click_label_button(
     match btn_q.get(trigger.entity()).unwrap().1 {
         SettingsBtn::Black => game_settings.color = AntColor::Black,
         SettingsBtn::Red => game_settings.color = AntColor::Red,
+        SettingsBtn::Soil => game_settings.background = Background::Soil,
+        SettingsBtn::Rock => game_settings.background = Background::Rock,
         SettingsBtn::None => game_settings.fog_of_war = FogOfWar::None,
         SettingsBtn::Half => game_settings.fog_of_war = FogOfWar::Half,
         SettingsBtn::Full => game_settings.fog_of_war = FogOfWar::Full,
