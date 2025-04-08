@@ -64,8 +64,8 @@ pub fn animate_ants(
     time: Res<Time>,
 ) {
     for (ant_e, mut sprite, ant, mut animation) in ant_q.iter_mut() {
+        // If the ant's action matches the animation, continue the frames
         if ant.animation() == animation.animation {
-            // If the ant's action matches the animation, continue the frames
             animation
                 .timer
                 .tick(scale_duration(time.delta(), game_settings.speed));
@@ -333,22 +333,27 @@ pub fn resolve_healing(
 }
 
 pub fn resolve_pre_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), With<Owned>>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp, Option<&Owned>)>,
+    egg_q: Query<(Entity, &Transform, &Egg)>,
     corpse_q: Query<(Entity, &Transform, &TeamCmp), With<Corpse>>,
     mut map: ResMut<Map>,
     players: Res<Players>,
 ) {
     let enemies = ant_q
         .iter()
-        .filter_map(|(e, t, a)| {
+        .filter_map(|(e, t, a, _)| {
             (a.health > 0. && a.action != Action::DoNothing).then_some((e, a.team, t.translation))
         })
+        .chain(
+            egg_q
+                .iter()
+                .map(|(e, t, egg)| (e, egg.team, t.translation)),
+        )
         .collect::<Vec<_>>();
 
-    'ant: for (_, ant_t, mut ant) in ant_q
-        .iter_mut()
-        .filter(|(_, _, a)| !matches!(a.action, Action::Attack(_) | Action::Die(_)))
-    {
+    'ant: for (_, ant_t, mut ant, _) in ant_q.iter_mut().filter(|(_, _, a, o)| {
+        o.is_some() && !matches!(a.action, Action::Attack(_) | Action::Die(_))
+    }) {
         let player = players.get(ant.team);
 
         for (enemy_e, enemy_team, enemy_t) in enemies.iter() {
@@ -841,6 +846,7 @@ pub fn resolve_walk_action(
                         1.
                     };
 
+                println!("Walking to {:?}", ant.kind);
                 walk(
                     &mut ant_t,
                     &target_loc,

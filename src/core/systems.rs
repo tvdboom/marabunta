@@ -9,6 +9,7 @@ use crate::core::map::ui::utils::TextSize;
 use crate::core::multiplayer::EntityMap;
 use crate::core::player::Players;
 use crate::core::states::GameState;
+use crate::core::traits::AfterTraitCount;
 use crate::core::utils::scale_duration;
 use bevy::prelude::*;
 use bevy::window::WindowResized;
@@ -16,7 +17,6 @@ use bevy_renet::renet::ClientId;
 use rand::prelude::IteratorRandom;
 use rand::{rng, Rng};
 use strum::IntoEnumIterator;
-use crate::core::traits::AfterTraitCount;
 
 pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSettings>) {
     commands.insert_resource(Players::default());

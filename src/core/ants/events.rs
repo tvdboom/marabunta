@@ -350,7 +350,7 @@ pub fn despawn_ant_event(
             }
         }
 
-        commands.entity(*entity).despawn_recursive();
+        commands.entity(*entity).try_despawn_recursive();
     }
 }
 

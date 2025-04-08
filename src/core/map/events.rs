@@ -7,6 +7,7 @@ use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::map::tile::Tile;
 use crate::core::menu::settings::{Background, FogOfWar};
+use crate::core::network::{ClientMessage, ClientSendMessage, ServerMessage, ServerSendMessage};
 use crate::core::player::Players;
 use crate::core::states::AppState;
 use crate::core::utils::{NoRotationChildCmp, NoRotationParentCmp};
@@ -109,6 +110,8 @@ pub fn spawn_tile_event(
     players: Res<Players>,
     mut map: ResMut<Map>,
     mut spawn_tile_ev: EventReader<SpawnTileEv>,
+    mut send_server_message: EventWriter<ServerSendMessage>,
+    mut send_client_message: EventWriter<ClientSendMessage>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnTileEv { tile, pos } in spawn_tile_ev.read() {
@@ -151,6 +154,15 @@ pub fn spawn_tile_event(
                     &background,
                     &assets,
                 );
+
+                send_server_message.send(ServerSendMessage {
+                    message: ServerMessage::TileUpdate(tile.clone()),
+                    client: None,
+                });
+
+                send_client_message.send(ClientSendMessage {
+                    message: ClientMessage::TileUpdate(tile.clone()),
+                });
             }
         } else if let Some(pos) = pos {
             _spawn_tile(&mut commands, &tile, *pos, alpha, &background, &assets);

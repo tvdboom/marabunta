@@ -147,31 +147,25 @@ impl Plugin for GamePlugin {
             .add_systems(
                 First,
                 (
-                    (server_update, server_receive_message.in_set(InGameSet))
-                        .run_if(resource_exists::<RenetServer>),
+                    (server_update, server_receive_message).run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
-                ),
+                )
+                    .in_set(InGameSet),
             )
+            .add_systems(PreUpdate, update_population_event.in_set(InGameSet))
             .add_systems(
                 Last,
                 (
                     (
-                        (
-                            server_send_status
-                                .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
-                            server_send_message,
-                        )
-                            .chain()
-                            .run_if(resource_exists::<RenetServer>),
-                        (
-                            client_send_status
-                                .run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
-                            client_send_message,
-                        )
-                            .chain()
-                            .run_if(resource_exists::<RenetClient>),
-                    ),
-                    update_population_event,
+                        server_send_status.run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                        server_send_message,
+                    )
+                        .run_if(resource_exists::<RenetServer>),
+                    (
+                        client_send_status.run_if(on_timer(Duration::from_millis(NETWORK_TIMER))),
+                        client_send_message,
+                    )
+                        .run_if(resource_exists::<RenetClient>),
                 )
                     .in_set(InGameSet),
             );
@@ -252,7 +246,8 @@ impl Plugin for GamePlugin {
             )
             .add_systems(
                 Update,
-                (update_ant_components, update_selection_icons).in_set(InRunningOrPausedGameSet),
+                (animate_pin, update_ant_components, update_selection_icons)
+                    .in_set(InRunningOrPausedGameSet),
             )
             .add_systems(
                 Update,
@@ -261,7 +256,6 @@ impl Plugin for GamePlugin {
                     queue_ants_keyboard,
                     hatch_eggs,
                     animate_ants,
-                    animate_pin,
                     resolve_digging,
                     resolve_harvesting,
                     resolve_harvesting_corpse,

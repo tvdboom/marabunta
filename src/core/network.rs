@@ -1,6 +1,7 @@
 use crate::core::audio::PlayAudioEv;
 use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::map::Map;
+use crate::core::map::tile::Tile;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::menu::settings::{Background, FogOfWar};
 use crate::core::multiplayer::UpdatePopulationEv;
@@ -40,9 +41,9 @@ pub enum ServerMessage {
     State(GameState),
     Status {
         speed: f32,
-        map: Map,
         population: Population,
     },
+    TileUpdate(Tile),
 }
 
 impl ServerMessage {
@@ -52,6 +53,7 @@ impl ServerMessage {
             ServerMessage::StartGame { .. } => DefaultChannel::ReliableOrdered,
             ServerMessage::State(_) => DefaultChannel::ReliableOrdered,
             ServerMessage::Status { .. } => DefaultChannel::Unreliable,
+            ServerMessage::TileUpdate(_) => DefaultChannel::ReliableUnordered,
         }
     }
 }
@@ -59,7 +61,8 @@ impl ServerMessage {
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
     State(GameState),
-    Status { map: Map, population: Population },
+    Status { population: Population },
+    TileUpdate(Tile),
 }
 
 impl ClientMessage {
@@ -67,6 +70,7 @@ impl ClientMessage {
         match self {
             ClientMessage::State(_) => DefaultChannel::ReliableOrdered,
             ClientMessage::Status { .. } => DefaultChannel::Unreliable,
+            ClientMessage::TileUpdate(_) => DefaultChannel::ReliableUnordered,
         }
     }
 }
@@ -177,9 +181,8 @@ pub fn server_receive_message(
     game_state: Res<State<GameState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
-    for client_id in server.clients_id() {
-        while let Some(message) = server.receive_message(client_id, DefaultChannel::ReliableOrdered)
-        {
+    for id in server.clients_id() {
+        while let Some(message) = server.receive_message(id, DefaultChannel::ReliableOrdered) {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::State(state) => match state {
                     GameState::InGameMenu | GameState::Paused
@@ -195,20 +198,25 @@ pub fn server_receive_message(
                     }
                     _ => (),
                 },
-                _ => (),
+                _ => unreachable!(),
             }
         }
 
-        while let Some(message) = server.receive_message(client_id, DefaultChannel::Unreliable) {
+        while let Some(message) = server.receive_message(id, DefaultChannel::ReliableUnordered) {
             match bincode::deserialize(&message).unwrap() {
-                ClientMessage::Status {
-                    map: new_map,
-                    population,
-                } => {
-                    map.update(new_map);
-                    update_population_ev.send(UpdatePopulationEv(population));
+                ClientMessage::TileUpdate(tile) => {
+                    map.replace_tile(&tile);
                 }
-                _ => (),
+                _ => unreachable!(),
+            }
+        }
+
+        while let Some(message) = server.receive_message(id, DefaultChannel::Unreliable) {
+            match bincode::deserialize(&message).unwrap() {
+                ClientMessage::Status { population } => {
+                    update_population_ev.send(UpdatePopulationEv { population, id });
+                }
+                _ => unreachable!(),
             }
         }
     }
@@ -272,22 +280,26 @@ pub fn client_receive_message(
                 s @ GameState::Running | s @ GameState::TraitSelection => next_game_state.set(s),
                 _ => (),
             },
-            _ => (),
+            _ => unreachable!(),
+        }
+    }
+
+    while let Some(message) = client.receive_message(DefaultChannel::ReliableUnordered) {
+        match bincode::deserialize(&message).unwrap() {
+            ServerMessage::TileUpdate(tile) => {
+                map.replace_tile(&tile);
+            }
+            _ => unreachable!(),
         }
     }
 
     while let Some(message) = client.receive_message(DefaultChannel::Unreliable) {
         match bincode::deserialize(&message).unwrap() {
-            ServerMessage::Status {
-                speed,
-                map: map_status,
-                population,
-            } => {
+            ServerMessage::Status { speed, population } => {
                 game_settings.speed = speed;
-                map.update(map_status);
-                update_population_ev.send(UpdatePopulationEv(population));
+                update_population_ev.send(UpdatePopulationEv { population, id: 0 });
             }
-            _ => (),
+            _ => unreachable!(),
         }
     }
 }

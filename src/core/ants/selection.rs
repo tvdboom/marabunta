@@ -7,6 +7,7 @@ use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
 use crate::core::player::Players;
+use crate::core::states::GameState;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
@@ -82,10 +83,15 @@ pub fn select_loc_on_click(
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
+    game_state: Res<State<GameState>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+        return;
+    }
+
     let player = players.main();
     let (camera, global_t) = *camera;
 
@@ -156,7 +162,12 @@ pub fn select_leaf_on_click(
     players: Res<Players>,
     map: Res<Map>,
     selection: Res<AntSelection>,
+    game_state: Res<State<GameState>>,
 ) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+        return;
+    }
+
     let player = players.main();
 
     if trigger.event.button == PointerButton::Secondary {
@@ -205,11 +216,16 @@ pub fn select_ant_on_click(
     mut select_ants_ev: EventWriter<SelectAntEv>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     selection: Res<AntSelection>,
+    game_state: Res<State<GameState>>,
     mut last_clicked_t: Local<f32>,
     time: Res<Time>,
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+        return;
+    }
+
     let player = players.main();
     let (camera, global_t) = *camera;
 

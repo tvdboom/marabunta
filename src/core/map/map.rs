@@ -58,11 +58,6 @@ impl PathCache {
             }
         }
     }
-
-    pub fn update(&mut self, other: PathCache) {
-        self.paths.extend(other.paths);
-        self.nodes.extend(other.nodes);
-    }
 }
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
@@ -564,21 +559,6 @@ impl Map {
 
     pub fn replace_tile(&mut self, tile: &Tile) {
         self.tiles[(tile.x % Self::MAP_SIZE.x + tile.y * Self::MAP_SIZE.x) as usize] = tile.clone();
-    }
-
-    /// Update the map with another map
-    pub fn update(&mut self, new_map: Map) {
-        self.tiles
-            .iter_mut()
-            .zip(new_map.tiles)
-            .filter(|(t, new_t)| {
-                !new_t.is_soil() && new_t.bitmap().count_ones() >= t.bitmap().count_ones()
-            })
-            .for_each(|(t, new_t)| {
-                *t = new_t;
-            });
-
-        self.cache.update(new_map.cache);
     }
 
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
