@@ -344,7 +344,7 @@ impl Map {
             .iter()
             .filter(|t| t.explored.contains(&id) && tile.map_or(true, |c| c.equals(t)))
             .flat_map(|t| {
-                [1, 2, 7, 11, 13, 14, 4, 8].iter().map(move |&bit| Loc {
+                Tile::DIG_BITS.iter().map(move |&bit| Loc {
                     x: t.x,
                     y: t.y,
                     bit,
@@ -464,7 +464,7 @@ impl Map {
             .collect()
     }
 
-    pub fn find_tunnel(&self, start: &Loc, end: &Loc) -> Option<Vec<Loc>> {
+    pub fn find_tunnel(&self, start: &Loc, end: &Loc) -> Option<Loc> {
         let end = end.get_closest_dig_loc();
         astar(
             start,
@@ -481,7 +481,23 @@ impl Map {
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
             |loc| *loc == end,
         )
-        .map(|(path, _)| path)
+        .and_then(|(path, _)| {
+            let mut path = path.into_iter().skip(1);
+            let first = path.clone().next()?;
+
+            // Avoid walking further in the tile when not digged yet
+            if !self.is_walkable(&first) {
+                return None;
+            }
+
+            path.find(|l| !self.is_walkable(l)).filter(|l| {
+                // Return None if the first tile to dig has a stone
+                // This can happen when the player clicks on a loc next to the border
+                // of the tunnel but next to a stone tile
+                self.get_adjacent_tile(l.x, l.y, &l.get_direction())
+                    .map_or(false, |t| !t.has_stone)
+            })
+        })
     }
 
     pub fn tile_distance(&self, loc1: &Loc, loc2: &Loc) -> usize {

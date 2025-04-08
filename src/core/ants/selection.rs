@@ -78,7 +78,7 @@ pub fn animate_pin(mut pin_q: Query<(&mut Transform, &mut PinCmp)>, time: Res<Ti
 
 pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
-    mut ant_q: Query<&mut AntCmp>,
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
     players: Res<Players>,
     map: Res<Map>,
     mut selection: ResMut<AntSelection>,
@@ -112,7 +112,7 @@ pub fn select_loc_on_click(
             let tile = map.get_tile(loc.x, loc.y).unwrap();
             if tile.explored.contains(&players.main_id()) && map.is_walkable(&loc) {
                 for ant_e in selection.0.iter() {
-                    if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
+                    if let Ok((_, mut ant)) = ant_q.get_mut(*ant_e) {
                         // Restrict the queen's movement to the base
                         if ant.kind == Ant::Queen
                             && !player.has_trait(&Trait::WanderingQueen)
@@ -133,11 +133,14 @@ pub fn select_loc_on_click(
                 }
             } else {
                 for ant_e in selection.0.iter() {
-                    if let Ok(mut ant) = ant_q.get_mut(*ant_e) {
+                    if let Ok((ant_t, mut ant)) = ant_q.get_mut(*ant_e) {
                         if ant.kind == Ant::Excavator {
-                            ant.command = Some(Behavior::Dig(loc));
-                            ant.action = Action::Idle;
-                            success = true;
+                            let current_loc = map.get_loc(&ant_t.translation);
+                            if let Some(l) = map.find_tunnel(&current_loc, &loc) {
+                                ant.command = Some(Behavior::Dig(loc));
+                                ant.action = Action::Walk(l);
+                                success = true;
+                            }
                         }
                     }
                 }

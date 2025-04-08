@@ -344,11 +344,7 @@ pub fn resolve_pre_action(
         .filter_map(|(e, t, a, _)| {
             (a.health > 0. && a.action != Action::DoNothing).then_some((e, a.team, t.translation))
         })
-        .chain(
-            egg_q
-                .iter()
-                .map(|(e, t, egg)| (e, egg.team, t.translation)),
-        )
+        .chain(egg_q.iter().map(|(e, t, egg)| (e, egg.team, t.translation)))
         .collect::<Vec<_>>();
 
     'ant: for (_, ant_t, mut ant, _) in ant_q.iter_mut().filter(|(_, _, a, o)| {
@@ -614,7 +610,6 @@ pub fn resolve_idle_action(
             }),
             Behavior::Dig(loc) => map
                 .find_tunnel(&current_loc, &loc)
-                .and_then(|path| path.into_iter().skip(1).find(|l| !map.is_walkable(l)))
                 .map(Action::Walk)
                 .unwrap_or_else(|| {
                     ant.command = None;
@@ -846,7 +841,6 @@ pub fn resolve_walk_action(
                         1.
                     };
 
-                println!("Walking to {:?}", ant.kind);
                 walk(
                     &mut ant_t,
                     &target_loc,

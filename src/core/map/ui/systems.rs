@@ -507,10 +507,12 @@ pub fn on_click_queue_button(
 }
 
 pub fn select_trait(t: Trait) -> impl FnMut(Trigger<Pointer<Click>>, EventWriter<TraitSelectedEv>) {
-    move |_, mut trait_selected_ev: EventWriter<TraitSelectedEv>| {
-        trait_selected_ev.send(TraitSelectedEv {
-            selected: t.clone(),
-        });
+    move |trigger: Trigger<Pointer<Click>>, mut trait_selected_ev: EventWriter<TraitSelectedEv>| {
+        if trigger.event.button == PointerButton::Primary {
+            trait_selected_ev.send(TraitSelectedEv {
+                selected: t.clone(),
+            });
+        }
     }
 }
 

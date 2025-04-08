@@ -67,13 +67,13 @@ impl Loc {
 
     pub fn get_direction(&self) -> Direction {
         match self.bit {
-            0 => Direction::NorthWest,
+            0 | 5 => Direction::NorthWest,
             1 | 2 => Direction::North,
-            3 => Direction::NorthEast,
+            3 | 6 => Direction::NorthEast,
             7 | 11 => Direction::East,
-            12 => Direction::SouthEast,
+            10 | 12 => Direction::SouthEast,
             13 | 14 => Direction::South,
-            15 => Direction::SouthWest,
+            9 | 15 => Direction::SouthWest,
             4 | 8 => Direction::West,
             _ => unreachable!(),
         }
@@ -84,10 +84,10 @@ impl Loc {
             x: self.x,
             y: self.y,
             bit: match self.bit {
-                0 => 1,
-                3 => 2,
-                12 => 13,
-                15 => 14,
+                0 | 5 => 1,
+                3 | 6 => 2,
+                9 | 12 => 13,
+                10 | 15 => 14,
                 b => b,
             },
         }

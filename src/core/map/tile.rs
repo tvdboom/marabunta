@@ -71,6 +71,8 @@ impl Tile {
 
     pub const ANGLES: [i32; 4] = [0, 90, 180, 270];
 
+    pub const DIG_BITS: [u8; 8] = [1, 2, 7, 11, 13, 14, 4, 8];
+
     pub const MASKS: [u16; 69] = {
         let mut arr = [0; 69];
         arr[0] = 0b0000_0011_0111_0111;
