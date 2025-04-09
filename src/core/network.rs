@@ -295,6 +295,7 @@ pub fn client_receive_message(
                 }
 
                 commands.insert_resource(map);
+                println!("Loaded map:");
 
                 // Indicate the draw_map system to not load the starting queen
                 commands.insert_resource(GameLoaded);

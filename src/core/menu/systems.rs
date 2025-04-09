@@ -189,6 +189,7 @@ pub fn setup_menu(
 
 pub fn setup_in_game_menu(
     mut commands: Commands,
+    players: Res<Players>,
     assets: Local<WorldAssets>,
     window: Single<&Window>,
 ) {
@@ -197,7 +198,12 @@ pub fn setup_in_game_menu(
         .with_children(|parent| {
             spawn_menu_button(parent, MenuBtn::Continue, &assets, &window);
             #[cfg(not(target_arch = "wasm32"))]
-            spawn_menu_button(parent, MenuBtn::SaveGame, &assets, &window);
+            {
+                // Only the host can save a multiplayer game
+                if players.main_id() == 0 {
+                    spawn_menu_button(parent, MenuBtn::SaveGame, &assets, &window);
+                }
+            }
             spawn_menu_button(parent, MenuBtn::Quit, &assets, &window);
         });
 }

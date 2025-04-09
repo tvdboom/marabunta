@@ -155,7 +155,7 @@ pub fn load_game(
                 .population
                 .ants
                 .into_iter()
-                .filter(|(_, (_, a))| a.team == 0)
+                .filter(|(_, (_, a))| a.team == 0 || !a.kind.is_ant())
             {
                 spawn_ant_ev.send(SpawnAntEv {
                     ant,
