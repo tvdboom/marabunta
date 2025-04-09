@@ -280,11 +280,16 @@ impl Plugin for GamePlugin {
                     (
                         queue_ant_event,
                         spawn_egg_event,
-                        spawn_ant_event.run_if(in_state(GameState::AfterTraitSelection)),
                         despawn_ant_event,
                         damage_event,
                     )
                         .in_set(InRunningGameSet),
+                    spawn_ant_event
+                        .run_if(
+                            in_state(GameState::AfterTraitSelection)
+                                .or(in_state(GameState::Running)),
+                        )
+                        .in_set(InGameSet),
                     spawn_pin_event.in_set(InRunningOrPausedGameSet),
                 ),
             );

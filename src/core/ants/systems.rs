@@ -437,30 +437,32 @@ pub fn resolve_death(
 }
 
 pub fn resolve_attack_action(
-    mut ant_q: Query<(Entity, &Transform, &Sprite, &mut AntCmp), With<Owned>>,
+    mut ant_q: Query<(Entity, &Transform, &Sprite, Option<&Owned>, &mut AntCmp)>,
     egg_q: Query<(Entity, &Transform, &Sprite), With<Egg>>,
     images: Res<Assets<Image>>,
     atlases: Res<Assets<TextureAtlasLayout>>,
 ) {
     let enemies: HashMap<_, _> = ant_q
         .iter()
-        .filter_map(|(e, t, s, a)| {
+        .filter_map(|(e, t, s, _, a)| {
             (a.health > 0. && a.action != Action::DoNothing).then_some((e, (t.clone(), s.clone())))
         })
         .chain(egg_q.iter().map(|(e, t, s)| (e, (t.clone(), s.clone()))))
         .collect();
 
-    for (_, ant_t, ant_s, mut ant) in ant_q.iter_mut() {
-        if let Action::Attack(entity) = ant.action {
-            if let Some((enemy_t, enemy_s)) = enemies.get(&entity) {
-                if !collision((ant_t, ant_s), (enemy_t, enemy_s), &images, &atlases) {
-                    // The enemy is not adjacent anymore
-                    ant.action = Action::TargetedWalk(entity);
+    for (_, ant_t, ant_s, owned, mut ant) in ant_q.iter_mut() {
+        if owned.is_some() {
+            if let Action::Attack(entity) = ant.action {
+                if let Some((enemy_t, enemy_s)) = enemies.get(&entity) {
+                    if !collision((ant_t, ant_s), (enemy_t, enemy_s), &images, &atlases) {
+                        // The enemy is not adjacent anymore
+                        ant.action = Action::TargetedWalk(entity);
+                    }
+                } else {
+                    // The enemy is dead (or in a hole)
+                    ant.command = None;
+                    ant.action = Action::Idle;
                 }
-            } else {
-                // The enemy is dead (or in a hole)
-                ant.command = None;
-                ant.action = Action::Idle;
             }
         }
     }

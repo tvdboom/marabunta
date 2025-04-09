@@ -481,16 +481,14 @@ impl Map {
             |loc| 4 * (start.x as i32 - start.y as i32).abs() - (loc.x as i32 - loc.y as i32).abs(),
             |loc| *loc == end,
         )
-        .and_then(|(path, _)| {
-            let mut path = path.into_iter().skip(1);
-            let first = path.clone().next()?;
-
-            // Avoid walking further in the tile when not digged yet
-            if !self.is_walkable(&first) {
-                return None;
+        .and_then(|(mut path, _)| {
+            // When the second loc is walkable, it means the path has changed direction
+            // Remove the first element of the path to force the ant to move
+            if path.get(1).is_some_and(|l| self.is_walkable(l)) {
+                path.drain(0..1);
             }
 
-            path.find(|l| !self.is_walkable(l)).filter(|l| {
+            path.into_iter().find(|l| !self.is_walkable(l)).filter(|l| {
                 // Return None if the first tile to dig has a stone
                 // This can happen when the player clicks on a loc next to the border
                 // of the tunnel but next to a stone tile

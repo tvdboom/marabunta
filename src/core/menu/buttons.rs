@@ -23,7 +23,6 @@ pub enum MenuBtn {
     Multiplayer,
     HostGame,
     FindGame,
-    Play,
     Back,
     Continue,
     SaveGame,
@@ -53,22 +52,56 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::SinglePlayerMenu);
         }
         MenuBtn::NewGame => {
-            game_settings.game_mode = GameMode::SinglePlayer;
-
-            // Add the player to the resource
             let mut players = vec![Player::new(0, game_settings.color.clone())];
 
-            // Add the NPCs to the resource
+            // Add the NPCs
             (1..=game_settings.npcs)
                 .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
 
-            // Create the map before pushing the default player
-            commands.insert_resource(create_map(&players));
+            let map = if *app_state.get() == AppState::SinglePlayerMenu {
+                game_settings.game_mode = GameMode::SinglePlayer;
 
-            // Add the default value used for monsters
+                // Add the player to the resource
+                let mut players = vec![Player::new(0, game_settings.color.clone())];
+
+                // Add the NPCs to the resource
+                (1..=game_settings.npcs)
+                    .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
+
+                create_map(&players)
+            } else {
+                game_settings.game_mode = GameMode::Multiplayer;
+
+                let server = server.unwrap();
+
+                // Add clients to the resource
+                server
+                    .clients_id()
+                    .iter()
+                    .for_each(|id| players.push(Player::new(*id, game_settings.color)));
+
+                let map = create_map(&players);
+
+                // Send the start game signal to all clients with their player id
+                for client in server.clients_id().iter() {
+                    server_send_message.send(ServerSendMessage {
+                        message: ServerMessage::StartGame {
+                            id: *client,
+                            background: game_settings.background,
+                            fog_of_war: game_settings.fog_of_war,
+                            map: map.clone(),
+                        },
+                        client: Some(*client),
+                    });
+                }
+
+                map
+            };
+
+            // Add the default player (used for monsters)
             players.push(Player::default());
 
-            // Update the resource
+            commands.insert_resource(map);
             commands.insert_resource(Players(players));
 
             next_app_state.set(AppState::Game);
@@ -99,49 +132,6 @@ pub fn on_click_menu_button(
 
             next_app_state.set(AppState::Lobby);
         }
-        MenuBtn::Play => {
-            game_settings.game_mode = GameMode::Multiplayer;
-
-            // Multiplayer context
-            let server = server.unwrap();
-
-            // Add the host to the resource
-            let mut players = vec![Player::new(0, game_settings.color.clone())];
-
-            // Add the NPCs to the resource
-            (1..=game_settings.npcs)
-                .for_each(|id| players.push(Player::new(id, game_settings.color.inverse())));
-
-            // Add clients to the resource
-            server
-                .clients_id()
-                .iter()
-                .for_each(|id| players.push(Player::new(*id, game_settings.color)));
-
-            // Create the map before pushing the default player
-            let map = create_map(&players);
-
-            // Add the default value used for monsters
-            players.push(Player::default());
-
-            // Send the start game signal to all clients with their player id
-            for client in server.clients_id().iter() {
-                server_send_message.send(ServerSendMessage {
-                    message: ServerMessage::StartGame {
-                        id: *client,
-                        background: game_settings.background,
-                        fog_of_war: game_settings.fog_of_war,
-                        map: map.clone(),
-                    },
-                    client: Some(*client),
-                });
-            }
-
-            commands.insert_resource(Players(players));
-            commands.insert_resource(map);
-
-            next_app_state.set(AppState::Game);
-        }
         MenuBtn::Back => match *app_state.get() {
             AppState::SinglePlayerMenu | AppState::MultiPlayerMenu | AppState::Settings => {
                 next_app_state.set(AppState::MainMenu);
@@ -149,6 +139,7 @@ pub fn on_click_menu_button(
             AppState::Lobby => {
                 if let Some(client) = client.as_mut() {
                     client.disconnect();
+                    commands.remove_resource::<RenetClient>();
                 } else if let Some(mut server) = server {
                     server.disconnect_all();
                     commands.remove_resource::<RenetServer>();
@@ -170,6 +161,15 @@ pub fn on_click_menu_button(
         }
         MenuBtn::Quit => match *app_state.get() {
             AppState::Game => {
+                if let Some(client) = client.as_mut() {
+                    client.disconnect();
+                    commands.remove_resource::<RenetClient>();
+                } else if let Some(mut server) = server {
+                    server.disconnect_all();
+                    commands.remove_resource::<RenetServer>();
+                    commands.remove_resource::<NetcodeServerTransport>();
+                }
+
                 next_game_state.set(GameState::default());
                 next_app_state.set(AppState::MainMenu)
             }

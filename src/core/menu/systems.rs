@@ -85,7 +85,8 @@ pub fn setup_menu(
                             ));
 
                             if n_players > 1 {
-                                spawn_menu_button(parent, MenuBtn::Play, &assets, &window);
+                                spawn_menu_button(parent, MenuBtn::NewGame, &assets, &window);
+                                spawn_menu_button(parent, MenuBtn::LoadGame, &assets, &window);
                             }
                         } else {
                             parent.spawn((

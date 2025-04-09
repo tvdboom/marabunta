@@ -1,3 +1,4 @@
+use crate::core::ants::events::{SpawnAntEv, SpawnEggEv};
 use crate::core::audio::PlayAudioEv;
 use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::map::Map;
@@ -5,7 +6,7 @@ use crate::core::map::tile::Tile;
 use crate::core::menu::buttons::LobbyTextCmp;
 use crate::core::menu::settings::{Background, FogOfWar};
 use crate::core::multiplayer::UpdatePopulationEv;
-use crate::core::persistence::Population;
+use crate::core::persistence::{GameLoaded, Population};
 use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
 use crate::core::traits::AfterTraitCount;
@@ -31,6 +32,13 @@ pub struct ClientSendMessage {
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
+    LoadGame {
+        background: Background,
+        fog_of_war: FogOfWar,
+        player: Player,
+        map: Map,
+        population: Population,
+    },
     NPlayers(usize),
     StartGame {
         id: ClientId,
@@ -49,6 +57,7 @@ pub enum ServerMessage {
 impl ServerMessage {
     pub fn channel(&self) -> DefaultChannel {
         match self {
+            ServerMessage::LoadGame { .. } => DefaultChannel::ReliableOrdered,
             ServerMessage::NPlayers(_) => DefaultChannel::ReliableOrdered,
             ServerMessage::StartGame { .. } => DefaultChannel::ReliableOrdered,
             ServerMessage::State(_) => DefaultChannel::ReliableOrdered,
@@ -61,7 +70,10 @@ impl ServerMessage {
 #[derive(Serialize, Deserialize)]
 pub enum ClientMessage {
     State(GameState),
-    Status { population: Population },
+    Status {
+        player: Player,
+        population: Population,
+    },
     TileUpdate(Tile),
 }
 
@@ -175,6 +187,7 @@ pub fn server_send_message(
 
 pub fn server_receive_message(
     mut server: ResMut<RenetServer>,
+    mut players: ResMut<Players>,
     mut map: ResMut<Map>,
     mut trait_count: ResMut<AfterTraitCount>,
     mut update_population_ev: EventWriter<UpdatePopulationEv>,
@@ -213,7 +226,10 @@ pub fn server_receive_message(
 
         while let Some(message) = server.receive_message(id, DefaultChannel::Unreliable) {
             match bincode::deserialize(&message).unwrap() {
-                ClientMessage::Status { population } => {
+                ClientMessage::Status { player, population } => {
+                    if let Some(p) = players.0.iter_mut().find(|e| e.id == player.id) {
+                        *p = player;
+                    }
                     update_population_ev.send(UpdatePopulationEv { population, id });
                 }
                 _ => unreachable!(),
@@ -238,6 +254,8 @@ pub fn client_receive_message(
     mut client: ResMut<RenetClient>,
     mut game_settings: ResMut<GameSettings>,
     mut map: ResMut<Map>,
+    mut spawn_ant_ev: EventWriter<SpawnAntEv>,
+    mut spawn_egg_ev: EventWriter<SpawnEggEv>,
     game_state: Res<State<GameState>>,
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
@@ -245,6 +263,44 @@ pub fn client_receive_message(
 ) {
     while let Some(message) = client.receive_message(DefaultChannel::ReliableOrdered) {
         match bincode::deserialize(&message).unwrap() {
+            ServerMessage::LoadGame {
+                background,
+                fog_of_war,
+                player,
+                map,
+                population,
+            } => {
+                *game_settings = GameSettings {
+                    game_mode: GameMode::Multiplayer,
+                    background,
+                    fog_of_war,
+                    ..game_settings.clone()
+                };
+
+                commands.insert_resource(Players(Vec::from([player, Player::default()])));
+
+                for (_, (transform, ant)) in population.ants {
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant,
+                        transform,
+                        entity: None,
+                    });
+                }
+                for (_, (transform, egg)) in population.eggs {
+                    spawn_egg_ev.send(SpawnEggEv {
+                        ant: egg.ant,
+                        transform,
+                        entity: None,
+                    });
+                }
+
+                commands.insert_resource(map);
+
+                // Indicate the draw_map system to not load the starting queen
+                commands.insert_resource(GameLoaded);
+
+                next_app_state.set(AppState::Game);
+            }
             ServerMessage::NPlayers(i) => {
                 if let Ok(mut text) = n_players_q.get_single_mut() {
                     text.0 = format!("There are {i} players in the lobby.\nWaiting for the host to start the game...");

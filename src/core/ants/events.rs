@@ -102,7 +102,7 @@ pub fn spawn_egg_event(
 
         let egg = Egg {
             ant: ant.clone(),
-            team: player.id,
+            team: ant.team,
             health: ant.max_health / health_factor,
             max_health: ant.max_health / health_factor,
             timer: Timer::from_seconds(ant.hatch_time, TimerMode::Once),

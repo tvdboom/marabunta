@@ -8,6 +8,7 @@ use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
 use crate::core::menu::settings::FogOfWar;
+use crate::core::persistence::GameLoaded;
 use crate::core::player::{Player, Players};
 use bevy::prelude::*;
 use rand::{rng, Rng};
@@ -62,6 +63,7 @@ pub fn draw_map(
     game_settings: Res<GameSettings>,
     players: Res<Players>,
     map: Res<Map>,
+    loaded: Option<Res<GameLoaded>>,
     assets: Local<WorldAssets>,
 ) {
     let (mut camera_t, mut projection) = camera.into_inner();
@@ -105,7 +107,8 @@ pub fn draw_map(
                     ));
                 }
 
-                if player.id == players.main_id() || player.is_npc() {
+                // Skip spawning the queen when loading a game
+                if loaded.is_none() && (player.id == players.main_id() || player.is_npc()) {
                     spawn_ant_ev.send(SpawnAntEv {
                         ant: AntCmp::new(&Ant::Queen, player),
                         transform: Transform {
@@ -122,6 +125,8 @@ pub fn draw_map(
                     projection.scale = 0.5; // Increase zoom
                     camera_t.translation = pos.extend(camera_t.translation.z);
                 }
+
+                commands.remove_resource::<GameLoaded>();
             }
         }
     }

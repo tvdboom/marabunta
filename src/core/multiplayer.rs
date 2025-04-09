@@ -3,6 +3,7 @@ use crate::core::ants::events::{DespawnAntEv, SpawnAntEv, SpawnEggEv};
 use crate::core::game_settings::GameSettings;
 use crate::core::network::{ClientMessage, ClientSendMessage, ServerMessage, ServerSendMessage};
 use crate::core::persistence::Population;
+use crate::core::player::Players;
 use crate::core::states::GameState;
 use bevy::prelude::*;
 use bevy_renet::renet::{ClientId, RenetServer};
@@ -68,9 +69,11 @@ pub fn client_send_status(
     mut client_send_message: EventWriter<ClientSendMessage>,
     ant_q: Query<(Entity, &Transform, &AntCmp), With<Owned>>,
     egg_q: Query<(Entity, &Transform, &Egg), With<Owned>>,
+    players: Res<Players>,
 ) {
     client_send_message.send(ClientSendMessage {
         message: ClientMessage::Status {
+            player: players.main().clone(),
             population: Population {
                 ants: ant_q
                     .iter()
