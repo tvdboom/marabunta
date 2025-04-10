@@ -140,7 +140,6 @@ pub fn spawn_tile_event(
                     || (tile_c.leaf.is_some() && tile.leaf.is_none())
                     || (tile_c.leaf.is_none() && tile.leaf.is_some()))
             {
-                // Despawn the tile
                 commands.entity(tile_e).despawn_recursive();
 
                 // Delete the cache entries from the map that contain this tile

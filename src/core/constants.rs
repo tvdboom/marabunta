@@ -43,7 +43,7 @@ pub const TILE_LEAF_CHANCE: f32 = 0.2;
 pub const CAPPED_DELTA_SECS_SPEED: f32 = 0.05;
 
 // Ants
-pub const MONSTER_SPAWN_CHANCE: f32 = 0.002; // Chance of spawning wasps/termites every ENEMY_TIMER tick
+pub const MONSTER_SPAWN_CHANCE: f32 = 0.01; // Chance of spawning wasps/termites every ENEMY_TIMER tick
 pub const ANT_PRICE_FACTOR: f32 = 0.9; // Price reduction for trait megacolony
 pub const BROODING_TIME: f32 = 2.5; // Seconds the queen needs to place an egg
 pub const EGG_HEALTH_FACTOR: f32 = 0.25; // Fraction of health the egg has compared to the ant

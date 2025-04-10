@@ -7,7 +7,7 @@ use crate::core::player::Players;
 use crate::core::resources::Resources;
 use crate::core::states::GameState;
 use bevy::prelude::*;
-use bevy_renet::renet::{ClientId, RenetServer};
+use bevy_renet::renet::RenetServer;
 use rand::prelude::IteratorRandom;
 use rand::{rng, Rng};
 use serde::{Deserialize, Serialize};
@@ -253,7 +253,8 @@ pub fn select_trait_event(
     for ev in trait_selected_ev.read() {
         play_audio_ev.send(PlayAudioEv::new("button"));
 
-        for player in players.0.iter_mut().filter(|p| p.id != ClientId::MAX) {
+        let id = players.main_id();
+        for player in players.0.iter_mut().filter(|p| p.id == id || p.is_npc()) {
             let selected = if player.is_human() {
                 ev.selected.clone()
             } else {
@@ -335,7 +336,7 @@ pub fn select_trait_event(
                         spawn_ant_ev.send(SpawnAntEv {
                             ant: AntCmp::new(&ant, &player),
                             transform: Transform {
-                                // Spawn the queen where the current one is located
+                                // Spawn the army around the queen
                                 translation: ant_q
                                     .iter()
                                     .find(|(_, _, a)| a.kind == Ant::Queen && a.team == player.id)

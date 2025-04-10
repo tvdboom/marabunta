@@ -1,4 +1,4 @@
-use crate::core::ants::components::{AntCmp, Egg, Owned};
+use crate::core::ants::components::{Action, AntCmp, Egg, Owned};
 use crate::core::ants::events::{DespawnAntEv, SpawnAntEv, SpawnEggEv};
 use crate::core::game_settings::GameSettings;
 use crate::core::network::{ClientMessage, ClientSendMessage, ServerMessage, ServerSendMessage};
@@ -40,6 +40,7 @@ pub fn server_send_status(
     ant_q: Query<(Entity, &Transform, &AntCmp)>,
     egg_q: Query<(Entity, &Transform, &Egg)>,
     game_settings: Res<GameSettings>,
+    entity_map: Res<EntityMap>,
 ) {
     for id in server.clients_id().iter() {
         server_send_message.send(ServerSendMessage {
@@ -48,8 +49,16 @@ pub fn server_send_status(
                 population: Population {
                     ants: ant_q
                         .iter()
-                        .filter_map(|(e, t, a)| {
-                            (a.team != *id).then_some((e, (t.clone(), a.clone())))
+                        .filter(|(_, _, a)| a.team != *id)
+                        .map(|(e, t, a)| {
+                            let mut a = a.clone();
+
+                            // Map attacking entity to the entity on the server
+                            if let Action::Attack(e) = &mut a.action {
+                                *e = *entity_map.0.get_by_right(e).unwrap_or(e);
+                            }
+
+                            (e, (t.clone(), a))
                         })
                         .collect(),
                     eggs: egg_q
@@ -70,6 +79,7 @@ pub fn client_send_status(
     ant_q: Query<(Entity, &Transform, &AntCmp), With<Owned>>,
     egg_q: Query<(Entity, &Transform, &Egg), With<Owned>>,
     players: Res<Players>,
+    entity_map: Res<EntityMap>,
 ) {
     client_send_message.send(ClientSendMessage {
         message: ClientMessage::Status {
@@ -77,7 +87,16 @@ pub fn client_send_status(
             population: Population {
                 ants: ant_q
                     .iter()
-                    .map(|(e, t, a)| (e, (t.clone(), a.clone())))
+                    .map(|(e, t, a)| {
+                        let mut a = a.clone();
+
+                        // Map attacking entity to the entity on the server
+                        if let Action::Attack(e) = &mut a.action {
+                            *e = *entity_map.0.get_by_right(e).unwrap_or(e);
+                        }
+
+                        (e, (t.clone(), a))
+                    })
                     .collect(),
                 eggs: egg_q
                     .iter()

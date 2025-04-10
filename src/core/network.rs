@@ -218,7 +218,7 @@ pub fn server_receive_message(
         while let Some(message) = server.receive_message(id, DefaultChannel::ReliableUnordered) {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::TileUpdate(tile) => {
-                    map.replace_tile(&tile);
+                    map.merge_tile(&tile);
                 }
                 _ => unreachable!(),
             }
@@ -295,7 +295,6 @@ pub fn client_receive_message(
                 }
 
                 commands.insert_resource(map);
-                println!("Loaded map:");
 
                 // Indicate the draw_map system to not load the starting queen
                 commands.insert_resource(GameLoaded);
@@ -344,7 +343,7 @@ pub fn client_receive_message(
     while let Some(message) = client.receive_message(DefaultChannel::ReliableUnordered) {
         match bincode::deserialize(&message).unwrap() {
             ServerMessage::TileUpdate(tile) => {
-                map.replace_tile(&tile);
+                map.merge_tile(&tile);
             }
             _ => unreachable!(),
         }

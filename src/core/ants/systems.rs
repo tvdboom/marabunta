@@ -58,6 +58,7 @@ pub fn hatch_eggs(
 
 pub fn animate_ants(
     mut ant_q: Query<(Entity, &mut Sprite, &AntCmp, &mut AnimationCmp)>,
+    owned_q: Query<&Owned>,
     mut damage_ev: EventWriter<DamageAntEv>,
     game_settings: Res<GameSettings>,
     assets: Local<WorldAssets>,
@@ -82,9 +83,11 @@ pub fn animate_ants(
                         atlas.index + 1
                     };
 
-                    // Apply damage halfway the animation
+                    // Apply damage halfway the animation (only to own ants)
                     if let Action::Attack(entity) = ant.action {
-                        if atlas.index == animation.last_index / 2 + 1 {
+                        if atlas.index == animation.last_index / 2 + 1
+                            && owned_q.get(entity).is_ok()
+                        {
                             damage_ev.send(DamageAntEv {
                                 attacker: ant_e,
                                 defender: entity,
@@ -514,7 +517,7 @@ pub fn resolve_die_action(
 }
 
 pub fn resolve_idle_action(
-    mut ant_q: Query<(Entity, &Transform, &mut AntCmp), (With<Owned>, Without<Corpse>)>,
+    mut ant_q: Query<(Entity, &Transform, Option<&Owned>, &mut AntCmp), Without<Corpse>>,
     corpse_q: Query<(Entity, &Transform, &AntCmp), With<Corpse>>,
     egg_q: Query<(Entity, &Transform, &Egg)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
@@ -523,20 +526,20 @@ pub fn resolve_idle_action(
 ) {
     let queens = ant_q
         .iter()
-        .filter_map(|(e, t, a)| (a.kind == Ant::Queen).then_some((e, a.team, t.translation)))
+        .filter_map(|(e, t, _, a)| (a.kind == Ant::Queen).then_some((e, a.team, t.translation)))
         .collect::<Vec<_>>();
 
     let ants: HashMap<_, _> = ant_q
         .iter()
-        .filter_map(|(e, t, a)| {
+        .filter_map(|(e, t, _, a)| {
             (a.health > 0. && a.action != Action::DoNothing)
                 .then_some((e, (t.translation, a.clone())))
         })
         .collect();
 
-    for (_, ant_t, mut ant) in ant_q
+    for (_, ant_t, _, mut ant) in ant_q
         .iter_mut()
-        .filter(|(_, _, a)| a.action == Action::Idle)
+        .filter(|(_, _, o, a)| a.action == Action::Idle && o.is_some())
     {
         let player = players.get(ant.team);
 
@@ -592,7 +595,7 @@ pub fn resolve_idle_action(
                     map.random_enemy_loc(ant.team)
                         .or_else(|| map.random_loc(ant.team, false))
                         .map(Action::Walk)
-                        .unwrap()
+                        .unwrap_or(Action::Idle) // Can fail for monsters that kill the last queen
                 } else {
                     // Attack chance decreases exponentially with distance
                     let index = WeightedIndex::new(enemies.iter().map(|(_, _, t)| {

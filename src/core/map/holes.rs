@@ -1,8 +1,9 @@
-use crate::core::ants::components::{Action, Ant, AntCmp};
+use crate::core::ants::components::{Action, Ant, AntCmp, Owned};
 use crate::core::ants::events::{DespawnAntEv, SpawnAntEv};
 use crate::core::constants::MONSTER_SPAWN_CHANCE;
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
+use crate::core::player::Players;
 use bevy::math::Quat;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashMap;
@@ -12,59 +13,66 @@ use std::f32::consts::PI;
 pub fn spawn_enemies(
     mut spawn_ant_ev: EventWriter<SpawnAntEv>,
     mut game_settings: ResMut<GameSettings>,
+    players: Res<Players>,
     map: Res<Map>,
 ) {
-    map.tiles.iter().for_each(|tile| {
-        if !tile.explored.is_empty() {
-            if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
-                spawn_ant_ev.send(SpawnAntEv {
-                    ant: AntCmp::base(&Ant::Wasp),
-                    transform: Transform {
-                        translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
-                        rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                        ..default()
-                    },
-                    entity: None,
-                });
-            } else if tile.texture_index == 65 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
-                // Create random termite queue
-                let mut queue = vec![];
-                for _ in 1..=rng().random_range(2..=10) {
-                    queue.push(match rng().random::<f32>() {
-                        0.5..0.6 => Ant::BlackWingedTermite,
-                        0.6..0.8 => Ant::BrownTermite,
-                        0.8..0.9 => Ant::BrownWingedTermite,
-                        0.9..0.97 => Ant::WhiteTermite,
-                        0.97..1. => Ant::WhiteWingedTermite,
-                        _ => Ant::BlackTermite,
+    // Only the host spawns enemies from holes
+    if players.main_id() == 0 {
+        map.tiles.iter().for_each(|tile| {
+            if tile.texture_index == 64 {
+                println!("{:?}", tile.explored);
+            }
+            if !tile.explored.is_empty() {
+                if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::base(&Ant::Wasp),
+                        transform: Transform {
+                            translation: Map::get_coord_from_xy(tile.x, tile.y).extend(0.),
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                        entity: None,
+                    });
+                } else if tile.texture_index == 65 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
+                    // Create random termite queue
+                    let mut queue = vec![];
+                    for _ in 1..=rng().random_range(2..=10) {
+                        queue.push(match rng().random::<f32>() {
+                            0.5..0.6 => Ant::BlackWingedTermite,
+                            0.6..0.8 => Ant::BrownTermite,
+                            0.8..0.9 => Ant::BrownWingedTermite,
+                            0.9..0.97 => Ant::WhiteTermite,
+                            0.97..1. => Ant::WhiteWingedTermite,
+                            _ => Ant::BlackTermite,
+                        });
+                    }
+
+                    game_settings.termite_queue = HashMap::from([((tile.x, tile.y), queue)]);
+                }
+            }
+        });
+
+        // Spawn termites gradually from the termite queue
+        for ((x, y), queue) in game_settings.termite_queue.iter_mut() {
+            if rng().random::<f32>() < 0.2 {
+                if let Some(ant) = queue.pop() {
+                    spawn_ant_ev.send(SpawnAntEv {
+                        ant: AntCmp::base(&ant),
+                        transform: Transform {
+                            translation: Map::get_coord_from_xy(*x, *y).extend(0.),
+                            rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
+                            ..default()
+                        },
+                        entity: None,
                     });
                 }
-
-                game_settings.termite_queue = HashMap::from([((tile.x, tile.y), queue)]);
-            }
-        }
-    });
-
-    // Spawn termites gradually from the termite queue
-    for ((x, y), queue) in game_settings.termite_queue.iter_mut() {
-        if rng().random::<f32>() < 0.2 {
-            if let Some(ant) = queue.pop() {
-                spawn_ant_ev.send(SpawnAntEv {
-                    ant: AntCmp::base(&ant),
-                    transform: Transform {
-                        translation: Map::get_coord_from_xy(*x, *y).extend(0.),
-                        rotation: Quat::from_rotation_z(rng().random_range(0.0..2. * PI)),
-                        ..default()
-                    },
-                    entity: None,
-                });
             }
         }
     }
 }
 
 pub fn resolve_expeditions(
-    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &mut AntCmp)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &mut AntCmp), With<Owned>>,
     mut despawn_ant_ev: EventWriter<DespawnAntEv>,
 ) {
     for (ant_e, mut ant_t, mut ant_v, mut ant) in ant_q.iter_mut() {
