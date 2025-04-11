@@ -351,7 +351,7 @@ pub fn resolve_pre_action(
         .collect::<Vec<_>>();
 
     'ant: for (_, ant_t, mut ant, _) in ant_q.iter_mut().filter(|(_, _, a, o)| {
-        o.is_some() && !matches!(a.action, Action::Attack(_) | Action::Die(_))
+        o.is_some() && !matches!(a.action, Action::DoNothing | Action::Attack(_) | Action::Die(_))
     }) {
         let player = players.get(ant.team);
 
@@ -709,6 +709,12 @@ pub fn resolve_idle_action(
                 // Walk randomly but stay close to the protected ant
                 if let Some((t, _)) = ants.get(entity) {
                     let loc = map.get_loc(t);
+                    Action::Walk(
+                        map.random_loc_max_distance(ant.team, &loc, MAX_DISTANCE_PROTECT)
+                            .unwrap(),
+                    )
+                } else if let Ok((_, t, _)) = egg_q.get(*entity) {
+                    let loc = map.get_loc(&t.translation);
                     Action::Walk(
                         map.random_loc_max_distance(ant.team, &loc, MAX_DISTANCE_PROTECT)
                             .unwrap(),

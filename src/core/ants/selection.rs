@@ -1,4 +1,6 @@
-use crate::core::ants::components::{Action, Ant, AntCmp, AttackCmp, Behavior, Corpse, DefendCmp};
+use crate::core::ants::components::{
+    Action, Ant, AntCmp, AttackCmp, Behavior, Corpse, DefendCmp, Egg,
+};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_Z_SCORE;
@@ -113,16 +115,8 @@ pub fn select_loc_on_click(
             if tile.explored.contains(&players.main_id()) && map.is_walkable(&loc) {
                 for ant_e in selection.0.iter() {
                     if let Ok((_, mut ant)) = ant_q.get_mut(*ant_e) {
-                        // Restrict the queen's movement to the base
-                        if ant.kind == Ant::Queen
-                            && !player.has_trait(&Trait::WanderingQueen)
-                            && map
-                                .get_tile(loc.x, loc.y)
-                                .unwrap()
-                                .base
-                                .filter(|b| *b == player.id)
-                                .is_none()
-                        {
+                        // The queen cannot be ordered around except when wandering
+                        if ant.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
                             continue;
                         }
 
@@ -211,6 +205,58 @@ pub fn select_leaf_on_click(
     trigger.propagate(false);
 }
 
+pub fn select_egg_on_click(
+    trigger: Trigger<Pointer<Click>>,
+    mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
+    egg_q: Query<(Entity, &Egg)>,
+    players: Res<Players>,
+    mut play_audio_ev: EventWriter<PlayAudioEv>,
+    selection: Res<AntSelection>,
+    game_state: Res<State<GameState>>,
+) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+        return;
+    }
+
+    let player = players.main();
+    let (egg_e, egg) = egg_q.get(trigger.entity()).unwrap();
+
+    match trigger.event.button {
+        PointerButton::Secondary => {
+            let mut success = false;
+
+            for sel_e in selection.0.iter() {
+                if let Ok((_, _, mut sel)) = ant_q.get_mut(*sel_e) {
+                    // The queen cannot be ordered around except when wandering
+                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
+                        continue;
+                    }
+
+                    if egg.team != player.id {
+                        // If clicked on an enemy, attack it
+                        sel.command = Some(Behavior::Attack);
+                        sel.action = Action::TargetedWalk(egg_e);
+                    } else {
+                        // If clicked on an ally, protect it
+                        sel.command = Some(Behavior::ProtectAnt(egg_e));
+                        sel.action = Action::TargetedWalk(egg_e);
+                    }
+
+                    success = true;
+                }
+            }
+
+            if !success {
+                play_audio_ev.send(PlayAudioEv {
+                    name: "error",
+                    volume: 0.5,
+                });
+            }
+        }
+        _ => (),
+    }
+}
+
 pub fn select_ant_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<(Entity, &Transform, &mut AntCmp)>,
@@ -296,10 +342,12 @@ pub fn select_ant_on_click(
                             }
                             success = true;
                         } else if ant.team != player.id {
-                            // If clicked on an enemy, attack it
-                            sel.command = Some(Behavior::Attack);
-                            sel.action = Action::TargetedWalk(ant_e);
-                            success = true;
+                            // If clicked on an enemy, attack it if reachable
+                            if map.get_tile(loc.x, loc.y).unwrap().explored.contains(&player.id) {
+                                sel.command = Some(Behavior::Attack);
+                                sel.action = Action::TargetedWalk(ant_e);
+                                success = true;
+                            }
                         } else {
                             // If clicked on an ally, protect it
                             sel.command = Some(Behavior::ProtectAnt(ant_e));
@@ -418,6 +466,7 @@ pub fn remove_command_from_selection(
 pub fn update_selection_icons(
     mut commands: Commands,
     ant_q: Query<(Entity, &AntCmp)>,
+    egg_q: Query<Entity, With<Egg>>,
     pin_q: Query<(Entity, &PinCmp)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     corpse_q: Query<(Entity, &GlobalTransform), With<Corpse>>,
@@ -488,6 +537,26 @@ pub fn update_selection_icons(
 
             if let Ok(mut visibility) = attack_q.get_mut(child) {
                 *visibility = if to_attack.contains(&ant_e) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+        }
+    }
+
+    for egg_e in &egg_q {
+        for child in children_q.iter_descendants(egg_e) {
+            if let Ok(mut visibility) = defend_q.get_mut(child) {
+                *visibility = if to_defend.contains(&egg_e) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+            }
+
+            if let Ok(mut visibility) = attack_q.get_mut(child) {
+                *visibility = if to_attack.contains(&egg_e) {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden

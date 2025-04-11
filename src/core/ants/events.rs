@@ -1,5 +1,5 @@
 use crate::core::ants::components::*;
-use crate::core::ants::selection::select_ant_on_click;
+use crate::core::ants::selection::{select_ant_on_click, select_egg_on_click};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
@@ -130,6 +130,7 @@ pub fn spawn_egg_event(
                 NoRotationParentCmp,
                 MapCmp,
             ))
+            .observe(select_egg_on_click)
             .with_children(|parent| {
                 parent
                     .spawn((
@@ -139,6 +140,7 @@ pub fn spawn_egg_event(
                             ..default()
                         },
                         AntHealthWrapperCmp,
+                        PickingBehavior::IGNORE,
                         Visibility::Hidden,
                         NoRotationChildCmp,
                         MapCmp,
@@ -157,6 +159,30 @@ pub fn spawn_egg_event(
                             AntHealthCmp,
                         ));
                     });
+
+                parent.spawn((
+                    Sprite::from_image(assets.image("attack")),
+                    Transform {
+                        translation: Vec3::new(0., 0., 0.8),
+                        scale: Vec3::splat(0.4),
+                        ..default()
+                    },
+                    AttackCmp,
+                    Visibility::Inherited,
+                    PickingBehavior::IGNORE,
+                ));
+
+                parent.spawn((
+                    Sprite::from_image(assets.image("defend")),
+                    Transform {
+                        translation: Vec3::new(0., 0., 0.8),
+                        scale: Vec3::splat(0.4),
+                        ..default()
+                    },
+                    DefendCmp,
+                    Visibility::Inherited,
+                    PickingBehavior::IGNORE,
+                ));
             })
             .id();
 

@@ -5,6 +5,7 @@ use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
 use crate::core::map::utils::reveal_tiles;
 use crate::core::menu::settings::FogOfWar;
+use crate::core::network::{ClientMessage, ClientSendMessage};
 use crate::core::player::Players;
 use bevy::color::Color;
 use bevy::hierarchy::Children;
@@ -21,6 +22,7 @@ pub fn update_vision(
     game_settings: Res<GameSettings>,
     mut players: ResMut<Players>,
     mut map: ResMut<Map>,
+    mut client_send_message: EventWriter<ClientSendMessage>,
 ) {
     let id = players.main_id();
     for player in players.0.iter_mut().filter(|p| p.id == id || p.is_npc()) {
@@ -62,6 +64,14 @@ pub fn update_vision(
             .filter(|t| player.visible_tiles.contains(&(t.x, t.y)))
             .for_each(|t| {
                 t.explored.insert(player.id);
+
+                // Only the server must know the explored tiles since it manages monsters
+                client_send_message.send(ClientSendMessage {
+                    message: ClientMessage::TileExplored {
+                        tile: (t.x, t.y),
+                        client: player.id,
+                    },
+                });
             });
 
         if player.is_human() {

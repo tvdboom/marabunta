@@ -57,10 +57,10 @@ pub enum ServerMessage {
 impl ServerMessage {
     pub fn channel(&self) -> DefaultChannel {
         match self {
-            ServerMessage::LoadGame { .. } => DefaultChannel::ReliableOrdered,
-            ServerMessage::NPlayers(_) => DefaultChannel::ReliableOrdered,
-            ServerMessage::StartGame { .. } => DefaultChannel::ReliableOrdered,
-            ServerMessage::State(_) => DefaultChannel::ReliableOrdered,
+            ServerMessage::LoadGame { .. }
+            | ServerMessage::NPlayers(_)
+            | ServerMessage::StartGame { .. }
+            | ServerMessage::State(_) => DefaultChannel::ReliableOrdered,
             ServerMessage::Status { .. } => DefaultChannel::Unreliable,
             ServerMessage::TileUpdate(_) => DefaultChannel::ReliableUnordered,
         }
@@ -75,6 +75,10 @@ pub enum ClientMessage {
         population: Population,
     },
     TileUpdate(Tile),
+    TileExplored {
+        tile: (u32, u32),
+        client: ClientId,
+    },
 }
 
 impl ClientMessage {
@@ -82,14 +86,16 @@ impl ClientMessage {
         match self {
             ClientMessage::State(_) => DefaultChannel::ReliableOrdered,
             ClientMessage::Status { .. } => DefaultChannel::Unreliable,
-            ClientMessage::TileUpdate(_) => DefaultChannel::ReliableUnordered,
+            ClientMessage::TileUpdate(_) | ClientMessage::TileExplored { .. } => {
+                DefaultChannel::ReliableUnordered
+            }
         }
     }
 }
 
 pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
-    let server_addr = "127.0.0.1:5000".parse().unwrap();
-    let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let server_addr = "192.168.2.8:5000".parse().unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     let current_time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap();
@@ -108,7 +114,7 @@ pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
 }
 
 pub fn new_renet_server() -> (RenetServer, NetcodeServerTransport) {
-    let public_addr = "127.0.0.1:5000".parse().unwrap();
+    let public_addr = "0.0.0.0:5000".parse().unwrap();
     let socket = UdpSocket::bind(public_addr).expect("Socket already in use.");
     let current_time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -218,7 +224,13 @@ pub fn server_receive_message(
         while let Some(message) = server.receive_message(id, DefaultChannel::ReliableUnordered) {
             match bincode::deserialize(&message).unwrap() {
                 ClientMessage::TileUpdate(tile) => {
-                    map.merge_tile(&tile);
+                    map.replace_tile(&tile);
+                }
+                ClientMessage::TileExplored { tile, client } => {
+                    map.get_tile_mut(tile.0, tile.1)
+                        .unwrap()
+                        .explored
+                        .insert(client);
                 }
                 _ => unreachable!(),
             }
@@ -343,7 +355,7 @@ pub fn client_receive_message(
     while let Some(message) = client.receive_message(DefaultChannel::ReliableUnordered) {
         match bincode::deserialize(&message).unwrap() {
             ServerMessage::TileUpdate(tile) => {
-                map.merge_tile(&tile);
+                map.replace_tile(&tile);
             }
             _ => unreachable!(),
         }

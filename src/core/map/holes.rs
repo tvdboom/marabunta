@@ -19,9 +19,6 @@ pub fn spawn_enemies(
     // Only the host spawns enemies from holes
     if players.main_id() == 0 {
         map.tiles.iter().for_each(|tile| {
-            if tile.texture_index == 64 {
-                println!("{:?}", tile.explored);
-            }
             if !tile.explored.is_empty() {
                 if tile.texture_index == 64 && rng().random::<f32>() < MONSTER_SPAWN_CHANCE {
                     spawn_ant_ev.send(SpawnAntEv {

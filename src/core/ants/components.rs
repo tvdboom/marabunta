@@ -473,7 +473,9 @@ impl AntCmp {
                 action: Action::Idle,
                 description: "\
                     The alates, also known as flying ants, are the male individuals \
-                    in the colony. They are incredibly fast and powerful units."
+                    in the colony. Alates are incredibly fast ants when attacking. They have \
+                    high damage but low health, making them a good choice in the offence but \
+                    poor in defense."
                     .to_string(),
                 ..default()
             },
@@ -493,8 +495,9 @@ impl AntCmp {
                 behavior: Behavior::Attack,
                 action: Action::Idle,
                 description: "\
-                    Mastodon ants are a rare kind that is known for its \
-                    powerful jaws. They are slow, but very strong."
+                    Mastodons are big ants known for their powerful jaws. They have low damage \
+                    but are very healthy, making them ideal units to defend narrow tunnels and \
+                    slow down the enemy's advance"
                     .to_string(),
                 ..default()
             },

@@ -58,8 +58,9 @@ impl TraitCmp {
                 kind: Trait::Alate,
                 image: "alate".to_string(),
                 description: "\
-                    Unlocks the alate (flying) ants. Alates are incredibly fast and powerful \
-                    ants that can turn the tie of any war."
+                    Unlocks the alate (flying) ants. Alates are incredibly fast ants when \
+                    attacking. They have high damage but low health, making them a good choice \
+                    in the offence but poor in defense."
                     .to_string(),
             },
             Trait::Breeding => Self {
@@ -138,8 +139,9 @@ impl TraitCmp {
                 kind: Trait::Mastodon,
                 image: "mastodon".to_string(),
                 description: "\
-                    Unlocks the mastodon ants. Enormous ants with powerful jaws that deal tons \
-                    of damage."
+                    Unlocks the mastodon ants. Mastodons are big ants known for their powerful \
+                    jaws. They have low damage but are very healthy, making them ideal units to \
+                    defend narrow tunnels and slow down the enemy's advance."
                     .to_string(),
             },
             Trait::MegaColony => Self {

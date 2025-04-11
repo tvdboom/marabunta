@@ -252,45 +252,41 @@ impl Plugin for GamePlugin {
             .add_systems(
                 Update,
                 (
-                    check_trait_timer,
-                    queue_ants_keyboard,
-                    hatch_eggs,
-                    animate_ants,
-                    resolve_digging,
-                    resolve_harvesting,
-                    resolve_harvesting_corpse,
-                    resolve_healing,
-                    resolve_attack_action,
-                    resolve_die_action,
-                    resolve_brood_action,
-                    resolve_idle_action,
-                    resolve_targeted_walk_action,
-                    resolve_walk_action,
-                    npc_buy_ants.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
-                    spawn_enemies.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
-                    resolve_expeditions.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
-                )
-                    .in_set(InRunningGameSet),
+                    queue_ants_keyboard.in_set(InRunningOrPausedGameSet),
+                    (
+                        check_trait_timer,
+                        hatch_eggs,
+                        animate_ants,
+                        resolve_digging,
+                        resolve_harvesting,
+                        resolve_harvesting_corpse,
+                        resolve_healing,
+                        resolve_attack_action,
+                        resolve_die_action,
+                        resolve_brood_action,
+                        resolve_idle_action,
+                        resolve_targeted_walk_action,
+                        resolve_walk_action,
+                        npc_buy_ants.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
+                        spawn_enemies.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
+                        resolve_expeditions.run_if(on_timer(Duration::from_millis(ENEMY_TIMER))),
+                    )
+                        .in_set(InRunningGameSet),
+                ),
             )
             .add_systems(
                 PostUpdate,
                 (
                     (update_vision, spawn_tile_event).chain(),
                     select_trait_event,
-                    (
-                        queue_ant_event,
-                        spawn_egg_event,
-                        despawn_ant_event,
-                        damage_event,
-                    )
-                        .in_set(InRunningGameSet),
+                    (spawn_egg_event, despawn_ant_event, damage_event).in_set(InRunningGameSet),
                     spawn_ant_event
                         .run_if(
                             in_state(GameState::AfterTraitSelection)
                                 .or(in_state(GameState::Running)),
                         )
                         .in_set(InGameSet),
-                    spawn_pin_event.in_set(InRunningOrPausedGameSet),
+                    (queue_ant_event, spawn_pin_event).in_set(InRunningOrPausedGameSet),
                 ),
             );
 

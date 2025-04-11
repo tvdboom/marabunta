@@ -575,22 +575,6 @@ impl Map {
         self.tiles[(tile.x % Self::MAP_SIZE.x + tile.y * Self::MAP_SIZE.x) as usize] = tile.clone();
     }
 
-    pub fn merge_tile(&mut self, tile: &Tile) {
-        let current_tile = self
-            .tiles
-            .get_mut((tile.x % Self::MAP_SIZE.x + tile.y * Self::MAP_SIZE.x) as usize)
-            .unwrap();
-
-        *current_tile = Tile {
-            explored: current_tile
-                .explored
-                .union(&tile.explored)
-                .cloned()
-                .collect(),
-            ..tile.clone()
-        };
-    }
-
     /// Find a tile that can replace `tile` where all directions match except those in `directions`
     pub fn find_tile(&self, tile: &Tile, directions: &HashSet<Direction>) -> Tile {
         let mut possible_tiles = vec![];

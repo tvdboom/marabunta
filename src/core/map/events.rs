@@ -110,8 +110,8 @@ pub fn spawn_tile_event(
     players: Res<Players>,
     mut map: ResMut<Map>,
     mut spawn_tile_ev: EventReader<SpawnTileEv>,
-    mut send_server_message: EventWriter<ServerSendMessage>,
-    mut send_client_message: EventWriter<ClientSendMessage>,
+    mut server_send_message: EventWriter<ServerSendMessage>,
+    mut client_send_message: EventWriter<ClientSendMessage>,
     assets: Local<WorldAssets>,
 ) {
     for SpawnTileEv { tile, pos } in spawn_tile_ev.read() {
@@ -154,12 +154,12 @@ pub fn spawn_tile_event(
                     &assets,
                 );
 
-                send_server_message.send(ServerSendMessage {
+                server_send_message.send(ServerSendMessage {
                     message: ServerMessage::TileUpdate(tile.clone()),
                     client: None,
                 });
 
-                send_client_message.send(ClientSendMessage {
+                client_send_message.send(ClientSendMessage {
                     message: ClientMessage::TileUpdate(tile.clone()),
                 });
             }
