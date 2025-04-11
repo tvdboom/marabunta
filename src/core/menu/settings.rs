@@ -127,7 +127,7 @@ pub fn on_click_label_button(
     // Reset the color of the other buttons
     for (mut bgcolor, setting) in &mut btn_q {
         if !match_setting(setting, &game_settings) {
-            bgcolor.0 = NORMAL_BUTTON_COLOR.into();
+            bgcolor.0 = NORMAL_BUTTON_COLOR;
         }
     }
 }
@@ -176,9 +176,9 @@ pub fn spawn_label(
                             ..default()
                         },
                         BackgroundColor(if match_setting(item, game_settings) {
-                            PRESSED_BUTTON_COLOR.into()
+                            PRESSED_BUTTON_COLOR
                         } else {
-                            NORMAL_BUTTON_COLOR.into()
+                            NORMAL_BUTTON_COLOR
                         }),
                         item.clone(),
                         Button,

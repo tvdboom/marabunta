@@ -3,6 +3,7 @@ use crate::core::constants::*;
 use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::create_map;
 use crate::core::map::ui::utils::{add_text, recolor};
+use crate::core::menu::systems::Ip;
 use crate::core::network::{new_renet_client, new_renet_server, ServerMessage, ServerSendMessage};
 use crate::core::persistence::{LoadGameEv, SaveGameEv};
 use crate::core::player::{Player, Players};
@@ -15,7 +16,7 @@ use bevy_renet::renet::{RenetClient, RenetServer};
 #[derive(Component)]
 pub struct MenuCmp;
 
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, PartialEq)]
 pub enum MenuBtn {
     Singleplayer,
     NewGame,
@@ -31,15 +32,22 @@ pub enum MenuBtn {
 }
 
 #[derive(Component)]
+pub struct DisabledButton;
+
+#[derive(Component)]
 pub struct LobbyTextCmp;
+
+#[derive(Component)]
+pub struct IpTextCmp;
 
 pub fn on_click_menu_button(
     trigger: Trigger<Pointer<Click>>,
     mut commands: Commands,
-    btn_q: Query<&MenuBtn>,
+    btn_q: Query<(Option<&DisabledButton>, &MenuBtn)>,
     server: Option<ResMut<RenetServer>>,
     mut client: Option<ResMut<RenetClient>>,
     mut game_settings: ResMut<GameSettings>,
+    ip: Res<Ip>,
     mut load_game_ev: EventWriter<LoadGameEv>,
     mut save_game_ev: EventWriter<SaveGameEv>,
     mut server_send_message: EventWriter<ServerSendMessage>,
@@ -47,7 +55,13 @@ pub fn on_click_menu_button(
     mut next_app_state: ResMut<NextState<AppState>>,
     mut next_game_state: ResMut<NextState<GameState>>,
 ) {
-    match btn_q.get(trigger.entity()).unwrap() {
+    let (disabled, btn) = btn_q.get(trigger.entity()).unwrap();
+
+    if disabled.is_some() {
+        return;
+    }
+
+    match btn {
         MenuBtn::Singleplayer => {
             next_app_state.set(AppState::SinglePlayerMenu);
         }
@@ -126,7 +140,7 @@ pub fn on_click_menu_button(
             next_app_state.set(AppState::Lobby);
         }
         MenuBtn::FindGame => {
-            let (server, transport) = new_renet_client();
+            let (server, transport) = new_renet_client(&ip.0);
             commands.insert_resource(server);
             commands.insert_resource(transport);
 
@@ -195,7 +209,7 @@ pub fn spawn_menu_button(
                 margin: UiRect::all(Val::Percent(1.)),
                 ..default()
             },
-            BackgroundColor(NORMAL_BUTTON_COLOR.into()),
+            BackgroundColor(NORMAL_BUTTON_COLOR),
             btn.clone(),
         ))
         .observe(recolor::<Pointer<Over>>(HOVERED_BUTTON_COLOR))

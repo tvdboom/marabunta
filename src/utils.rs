@@ -1,5 +1,18 @@
 use regex::Regex;
 use std::fmt::Debug;
+use std::net::{IpAddr, UdpSocket};
+
+/// Get the local IP address
+pub fn get_local_ip() -> IpAddr {
+    let socket = UdpSocket::bind("0.0.0.0:0")
+        .ok()
+        .expect("Socket not found.");
+    socket
+        .connect("8.8.8.8:80")
+        .ok()
+        .expect("Failed to connect to socket."); // Doesn't send data
+    socket.local_addr().ok().map(|addr| addr.ip()).unwrap()
+}
 
 /// Helper function to extract only the variant name (removes tuple/struct fields)
 fn extract_variant_name(text: String) -> String {

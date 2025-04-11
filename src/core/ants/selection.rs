@@ -343,7 +343,12 @@ pub fn select_ant_on_click(
                             success = true;
                         } else if ant.team != player.id {
                             // If clicked on an enemy, attack it if reachable
-                            if map.get_tile(loc.x, loc.y).unwrap().explored.contains(&player.id) {
+                            if map
+                                .get_tile(loc.x, loc.y)
+                                .unwrap()
+                                .explored
+                                .contains(&player.id)
+                            {
                                 sel.command = Some(Behavior::Attack);
                                 sel.action = Action::TargetedWalk(ant_e);
                                 success = true;

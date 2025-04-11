@@ -10,6 +10,7 @@ use crate::core::persistence::{GameLoaded, Population};
 use crate::core::player::{Player, Players};
 use crate::core::states::{AppState, GameState};
 use crate::core::traits::AfterTraitCount;
+use crate::utils::get_local_ip;
 use bevy::prelude::*;
 use bevy_renet::netcode::*;
 use bevy_renet::renet::*;
@@ -93,8 +94,8 @@ impl ClientMessage {
     }
 }
 
-pub fn new_renet_client() -> (RenetClient, NetcodeClientTransport) {
-    let server_addr = "192.168.2.8:5000".parse().unwrap();
+pub fn new_renet_client(ip: &String) -> (RenetClient, NetcodeClientTransport) {
+    let server_addr = format!("{ip}:5000").parse().unwrap();
     let socket = UdpSocket::bind("0.0.0.0:0").unwrap();
     let current_time = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -151,12 +152,12 @@ pub fn server_update(
             server.broadcast_message(DefaultChannel::ReliableOrdered, message);
 
             if let Ok(mut text) = n_players_q.get_single_mut() {
-                if n_players > 1 {
-                    text.0 = format!("There are {n_players} players in the lobby...");
-                    next_app_state.set(AppState::ConnectedLobby);
-                } else {
-                    text.0 = "Waiting for other players to join...".to_string();
+                if n_players == 1 {
+                    text.0 = format!("Waiting for other players to join {}...", get_local_ip());
                     next_app_state.set(AppState::Lobby);
+                } else {
+                    text.0 = format!("There are {n_players} players in the lobby.\nWaiting for other players to join {}...", get_local_ip());
+                    next_app_state.set(AppState::ConnectedLobby);
                 }
             }
         } else {

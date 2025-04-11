@@ -30,7 +30,7 @@ use crate::core::map::systems::*;
 use crate::core::map::ui::systems::{animate_ui, draw_ui, setup_after_trait, update_ui, UiCmp};
 use crate::core::map::vision::update_vision;
 use crate::core::menu::buttons::MenuCmp;
-use crate::core::menu::systems::{setup_end_game, setup_in_game_menu, setup_menu};
+use crate::core::menu::systems::{setup_end_game, setup_in_game_menu, setup_menu, update_ip, Ip};
 use crate::core::multiplayer::*;
 use crate::core::network::*;
 use crate::core::pause::*;
@@ -85,6 +85,7 @@ impl Plugin for GamePlugin {
             .add_event::<ClientSendMessage>()
             .add_event::<UpdatePopulationEv>()
             // Resources
+            .init_resource::<Ip>()
             .init_resource::<GameSettings>()
             // Sets
             .configure_sets(PreUpdate, InGameSet.run_if(in_state(AppState::Game)))
@@ -147,12 +148,18 @@ impl Plugin for GamePlugin {
             .add_systems(
                 First,
                 (
-                    (server_update, server_receive_message).run_if(resource_exists::<RenetServer>),
+                    server_receive_message.run_if(resource_exists::<RenetServer>),
                     client_receive_message.run_if(resource_exists::<RenetClient>),
                 )
                     .in_set(InGameSet),
             )
             .add_systems(PreUpdate, update_population_event.in_set(InGameSet))
+            .add_systems(
+                Update,
+                server_update
+                    .run_if(resource_exists::<RenetServer>)
+                    .run_if(not(in_state(AppState::Game))),
+            )
             .add_systems(
                 Last,
                 (
@@ -175,6 +182,10 @@ impl Plugin for GamePlugin {
             app.add_systems(OnEnter(state), setup_menu)
                 .add_systems(OnExit(state), despawn::<MenuCmp>);
         }
+        app.add_systems(
+            Update,
+            update_ip.run_if(in_state(AppState::MultiPlayerMenu)),
+        );
 
         // Utilities
         app.add_systems(Update, check_keys.in_set(InGameSet))

@@ -351,7 +351,11 @@ pub fn resolve_pre_action(
         .collect::<Vec<_>>();
 
     'ant: for (_, ant_t, mut ant, _) in ant_q.iter_mut().filter(|(_, _, a, o)| {
-        o.is_some() && !matches!(a.action, Action::DoNothing | Action::Attack(_) | Action::Die(_))
+        o.is_some()
+            && !matches!(
+                a.action,
+                Action::DoNothing | Action::Attack(_) | Action::Die(_)
+            )
     }) {
         let player = players.get(ant.team);
 
