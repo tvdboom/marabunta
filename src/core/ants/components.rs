@@ -260,9 +260,6 @@ pub struct AntCmp {
 
     /// Current action performed by the ant
     pub action: Action,
-
-    /// Description of the ant
-    pub description: String,
 }
 
 impl Default for AntCmp {
@@ -285,7 +282,6 @@ impl Default for AntCmp {
             behavior: Behavior::Attack,
             command: None,
             action: Action::Idle,
-            description: "".to_string(),
         }
     }
 }
@@ -326,11 +322,6 @@ impl AntCmp {
                 hatch_time: 30.,
                 behavior: Behavior::Brood,
                 action: Action::Idle,
-                description: "\
-                    The queen is the heart of the colony. She is responsible for \
-                    laying eggs and keeping the colony alive. If the queen dies, \
-                    you lose the game!"
-                    .to_string(),
                 ..default()
             },
             Ant::Worker => Self {
@@ -364,10 +355,6 @@ impl AntCmp {
                 max_carry: Resources::new(30., 20.),
                 behavior: Behavior::HarvestRandom,
                 action: Action::Idle,
-                description: "\
-                    The worker is the most common ant in the colony. \
-                    They are responsible for gathering resources."
-                    .to_string(),
                 ..default()
             },
             Ant::Excavator => Self {
@@ -384,10 +371,6 @@ impl AntCmp {
                 behavior: Behavior::DigRandom,
                 action: Action::Idle,
                 hatch_time: 10.,
-                description: "\
-                    The excavator ants expands the colonies territory digging \
-                    new tunnels. They move fast, but are weak in combat."
-                    .to_string(),
                 ..default()
             },
             Ant::Soldier => Self {
@@ -417,10 +400,6 @@ impl AntCmp {
                 hatch_time: 15.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                description: "\
-                    The soldiers form the colony's base defense. Their main \
-                    task is to protect the workers and queen from any foe."
-                    .to_string(),
                 ..default()
             },
             Ant::Warrior => Self {
@@ -450,10 +429,6 @@ impl AntCmp {
                 hatch_time: 18.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                description: "\
-                    The warrior ants are the elite fighting units in the colony. \
-                    They are stronger and faster than the soldier ants."
-                    .to_string(),
                 ..default()
             },
             Ant::Alate => Self {
@@ -471,12 +446,6 @@ impl AntCmp {
                 hatch_time: 30.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                description: "\
-                    The alates, also known as flying ants, are the male individuals \
-                    in the colony. Alates are incredibly fast ants when attacking. They have \
-                    high damage but low health, making them a good choice in the offence but \
-                    poor in defense."
-                    .to_string(),
                 ..default()
             },
             Ant::Mastodon => Self {
@@ -494,11 +463,6 @@ impl AntCmp {
                 hatch_time: 20.,
                 behavior: Behavior::Attack,
                 action: Action::Idle,
-                description: "\
-                    Mastodons are big ants known for their powerful jaws. They have low damage \
-                    but are very healthy, making them ideal units to defend narrow tunnels and \
-                    slow down the enemy's advance"
-                    .to_string(),
                 ..default()
             },
             Ant::BlackScorpion => Self {
@@ -682,6 +646,51 @@ impl AntCmp {
                 }
             }
             Action::Walk(_) => Animation::Walk,
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self.kind {
+            Ant::Queen => {
+                "\
+                The queen is the heart of the colony. She is responsible for \
+                laying eggs and keeping the colony alive. If the queen dies, \
+                you lose the game!"
+            }
+            Ant::Worker => {
+                "\
+                The worker is the most common ant in the colony. \
+                They are responsible for gathering resources."
+            }
+            Ant::Excavator => {
+                "\
+                The excavator ants expands the colonies territory digging \
+                new tunnels. They move fast, but are weak in combat."
+            }
+            Ant::Soldier => {
+                "\
+                The soldiers form the colony's base defense. Their main \
+                task is to protect the workers and queen from any foe."
+            }
+            Ant::Warrior => {
+                "\
+                The warrior ants are the elite fighting units in the colony. \
+                They are stronger and faster than the soldier ants."
+            }
+            Ant::Alate => {
+                "\
+                The alates, also known as flying ants, are the male individuals \
+                in the colony. Alates are incredibly fast ants when attacking. They have \
+                high damage but low health, making them a good choice in the offence but \
+                poor in defense."
+            }
+            Ant::Mastodon => {
+                "\
+                Mastodons are big ants known for their powerful jaws. They have low damage \
+                but are very healthy, making them ideal units to defend narrow tunnels and \
+                slow down the enemy's advance"
+            }
+            _ => unreachable!(),
         }
     }
 

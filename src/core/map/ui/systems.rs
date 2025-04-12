@@ -38,14 +38,13 @@ pub struct InfoPanelUi;
 
 pub fn ant_hover_info_panel(
     ant: AntCmp,
-    i: usize,
     total: usize,
 ) -> impl FnMut(Trigger<Pointer<Over>>, Commands, Local<WorldAssets>, Single<&Window>) {
     move |_, mut commands: Commands, assets: Local<WorldAssets>, window: Single<&Window>| {
         commands
             .spawn((
                 Node {
-                    top: Val::Percent(25. - 5. * (total - 5) as f32 + 10.5 * i as f32),
+                    top: Val::Percent(25. - 5. * (total - 5) as f32),
                     left: Val::Percent(6.),
                     width: Val::Percent(20.),
                     flex_direction: FlexDirection::Column,
@@ -106,7 +105,7 @@ pub fn ant_hover_info_panel(
                         }
                     });
 
-                parent.spawn(add_text(&ant.description, "medium", 8., &assets, &window));
+                parent.spawn(add_text(ant.description(), "medium", 8., &assets, &window));
             });
     }
 }
@@ -242,7 +241,7 @@ pub fn draw_ui(
             MapCmp,
         ))
         .with_children(|parent| {
-            for (i, ant) in ants.iter().enumerate() {
+            for ant in ants.iter() {
                 let ant_c = AntCmp::new(&ant, &player);
                 let atlas = assets.atlas(&ant_c.atlas(&Animation::Idle));
 
@@ -270,7 +269,7 @@ pub fn draw_ui(
                         ColonyButtonCmp(ant.clone()),
                     ))
                     .observe(on_click_colony_button)
-                    .observe(ant_hover_info_panel(ant_c.clone(), i, ants.len()))
+                    .observe(ant_hover_info_panel(ant_c.clone(), ants.len()))
                     .observe(despawn_ui::<Pointer<Out>, InfoPanelUi>())
                     .with_children(|parent| {
                         parent

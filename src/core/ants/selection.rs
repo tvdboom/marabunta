@@ -4,10 +4,12 @@ use crate::core::ants::components::{
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_Z_SCORE;
+use crate::core::game_settings::GameSettings;
 use crate::core::map::events::LeafCmp;
 use crate::core::map::loc::Loc;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
+use crate::core::menu::settings::FogOfWar;
 use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;
@@ -81,6 +83,7 @@ pub fn animate_pin(mut pin_q: Query<(&mut Transform, &mut PinCmp)>, time: Res<Ti
 pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
+    game_settings: Res<GameSettings>,
     players: Res<Players>,
     mut map: ResMut<Map>,
     mut selection: ResMut<AntSelection>,
@@ -126,7 +129,8 @@ pub fn select_loc_on_click(
 
             if map.is_walkable(&loc)
                 && (tile.explored.contains(&player.id)
-                    || map.shortest_path_option(&current_loc, &loc).is_some())
+                    || (game_settings.fog_of_war != FogOfWar::Full
+                        && map.shortest_path_option(&current_loc, &loc).is_some()))
             {
                 for ant_e in selection.0.iter() {
                     if let Ok((_, mut ant)) = ant_q.get_mut(*ant_e) {
@@ -169,6 +173,7 @@ pub fn select_leaf_on_click(
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
+    game_settings: Res<GameSettings>,
     players: Res<Players>,
     mut map: ResMut<Map>,
     selection: Res<AntSelection>,
@@ -196,7 +201,8 @@ pub fn select_leaf_on_click(
             );
 
             if tile.explored.contains(&player.id)
-                || map.shortest_path_option(&current_loc, &loc).is_some()
+                || (game_settings.fog_of_war != FogOfWar::Full
+                    && map.shortest_path_option(&current_loc, &loc).is_some())
             {
                 // Workers go harvest the leaf; the rest protects the location
                 for ant_e in selection.0.iter() {
