@@ -218,6 +218,7 @@ pub fn update_ip(
     mut btn_q: Query<(Entity, &mut BackgroundColor, &MenuBtn)>,
     mut text_q: Query<&mut Text, With<IpTextCmp>>,
     mut ip: ResMut<Ip>,
+    mut not_local_ip: Local<bool>,
     mut invalid_ip: Local<bool>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
@@ -237,24 +238,44 @@ pub fn update_ip(
             KeyCode::Backspace => {
                 ip.0.pop();
             }
+            KeyCode::Escape => {
+                *ip = Ip::default();
+            }
             _ => (),
         };
     }
 
     for (button_e, mut bgcolor, btn) in &mut btn_q {
-        if *btn == MenuBtn::FindGame {
-            if ip.0.parse::<IpAddr>().is_ok() {
-                // Only enable once when the ip becomes valid
-                if *invalid_ip {
-                    bgcolor.0 = NORMAL_BUTTON_COLOR;
-                    commands.entity(button_e).remove::<DisabledButton>();
-                    *invalid_ip = false;
+        match btn {
+            MenuBtn::HostGame => {
+                if ip.0 == get_local_ip().to_string() {
+                    // Only enable once when the ip becomes the local one
+                    if *not_local_ip {
+                        bgcolor.0 = NORMAL_BUTTON_COLOR;
+                        commands.entity(button_e).remove::<DisabledButton>();
+                        *not_local_ip = false;
+                    }
+                } else {
+                    commands.entity(button_e).insert(DisabledButton);
+                    bgcolor.0 = DISABLED_BUTTON_COLOR;
+                    *not_local_ip = true;
                 }
-            } else {
-                commands.entity(button_e).insert(DisabledButton);
-                bgcolor.0 = DISABLED_BUTTON_COLOR;
-                *invalid_ip = true;
             }
+            MenuBtn::FindGame => {
+                if ip.0.parse::<IpAddr>().is_ok() {
+                    // Only enable once when the ip becomes valid
+                    if *invalid_ip {
+                        bgcolor.0 = NORMAL_BUTTON_COLOR;
+                        commands.entity(button_e).remove::<DisabledButton>();
+                        *invalid_ip = false;
+                    }
+                } else {
+                    commands.entity(button_e).insert(DisabledButton);
+                    bgcolor.0 = DISABLED_BUTTON_COLOR;
+                    *invalid_ip = true;
+                }
+            }
+            _ => (),
         }
     }
 

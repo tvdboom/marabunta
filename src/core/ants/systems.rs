@@ -433,7 +433,7 @@ pub fn resolve_death(
                 play_audio_ev.send(PlayAudioEv::new("defeat"));
 
                 // The last queen despawns fast to not wait long for the end-game state
-                if n_queens == 1 {
+                if n_queens == 0 {
                     death_time = 2.;
                 }
             }

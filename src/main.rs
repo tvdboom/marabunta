@@ -13,6 +13,7 @@ use bevy_kira_audio::prelude::*;
 use bevy_renet::netcode::{NetcodeClientPlugin, NetcodeServerPlugin};
 use bevy_renet::{RenetClientPlugin, RenetServerPlugin};
 use winit::window::Icon;
+
 pub const TITLE: &str = "Marabunta";
 
 fn main() {

@@ -166,11 +166,11 @@ pub fn select_loc_on_click(
 
 pub fn select_leaf_on_click(
     mut trigger: Trigger<Pointer<Click>>,
-    mut ant_q: Query<&mut AntCmp>,
+    mut ant_q: Query<(&Transform, &mut AntCmp)>,
     leaf_q: Query<(Entity, &GlobalTransform), With<LeafCmp>>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     players: Res<Players>,
-    map: Res<Map>,
+    mut map: ResMut<Map>,
     selection: Res<AntSelection>,
     game_state: Res<State<GameState>>,
 ) {
@@ -185,19 +185,32 @@ pub fn select_leaf_on_click(
             let mut success = false;
 
             let loc = map.get_loc(&leaf_t.translation());
+            let tile = map.get_tile(loc.x, loc.y).unwrap();
 
-            // Workers go harvest the leaf; the rest protects the location
-            for ant_e in selection.0.iter() {
-                if let Ok(mut sel) = ant_q.get_mut(*ant_e) {
-                    if sel.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
-                        if sel.kind == Ant::Worker {
-                            sel.command = Some(Behavior::Harvest(leaf_e));
-                            sel.action = Action::Walk(loc);
-                            success = true;
-                        } else {
-                            sel.command = Some(Behavior::ProtectLoc(loc));
-                            sel.action = Action::Walk(loc);
-                            success = true;
+            let current_loc = map.get_loc(
+                &ant_q
+                    .get(*selection.0.iter().next().unwrap())
+                    .unwrap()
+                    .0
+                    .translation,
+            );
+
+            if tile.explored.contains(&player.id)
+                || map.shortest_path_option(&current_loc, &loc).is_some()
+            {
+                // Workers go harvest the leaf; the rest protects the location
+                for ant_e in selection.0.iter() {
+                    if let Ok((_, mut sel)) = ant_q.get_mut(*ant_e) {
+                        if sel.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
+                            if sel.kind == Ant::Worker {
+                                sel.command = Some(Behavior::Harvest(leaf_e));
+                                sel.action = Action::Walk(loc);
+                                success = true;
+                            } else {
+                                sel.command = Some(Behavior::ProtectLoc(loc));
+                                sel.action = Action::Walk(loc);
+                                success = true;
+                            }
                         }
                     }
                 }

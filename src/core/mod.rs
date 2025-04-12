@@ -288,7 +288,7 @@ impl Plugin for GamePlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    (update_vision, spawn_tile_event).chain(),
+                    (update_vision, spawn_tile_event).chain().run_if(not(in_state(GameState::EndGame))),
                     select_trait_event,
                     (spawn_egg_event, despawn_ant_event, damage_event).in_set(InRunningGameSet),
                     spawn_ant_event
