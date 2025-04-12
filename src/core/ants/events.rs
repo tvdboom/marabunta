@@ -3,7 +3,7 @@ use crate::core::ants::selection::{select_ant_on_click, select_egg_on_click};
 use crate::core::assets::WorldAssets;
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::*;
-use crate::core::game_settings::GameSettings;
+use crate::core::game_settings::{GameMode, GameSettings};
 use crate::core::map::systems::MapCmp;
 use crate::core::menu::settings::FogOfWar;
 use crate::core::multiplayer::EntityMap;
@@ -353,6 +353,7 @@ pub fn despawn_ant_event(
     mut commands: Commands,
     mut despawn_ant_ev: EventReader<DespawnAntEv>,
     mut next_game_state: ResMut<NextState<GameState>>,
+    game_settings: Res<GameSettings>,
     players: Res<Players>,
 ) {
     for DespawnAntEv { entity } in despawn_ant_ev.read() {
@@ -371,7 +372,11 @@ pub fn despawn_ant_event(
                 // End game if your queen died or there is only one queen left
                 if player_queens.is_empty() || queens.len() == player_queens.len() {
                     next_game_state.set(GameState::EndGame);
-                    return;
+
+                    // Avoid despawning queen if in singleplayer
+                    if game_settings.game_mode == GameMode::SinglePlayer {
+                        return;
+                    }
                 }
             }
         }

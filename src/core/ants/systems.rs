@@ -410,6 +410,11 @@ pub fn resolve_death(
     mut selection: ResMut<AntSelection>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
 ) {
+    let n_queens = ant_q
+        .iter()
+        .filter(|(_, _, a)| a.kind == Ant::Queen && a.team == players.main_id() && a.health > 0.)
+        .count();
+
     for (ant_e, mut ant_t, mut ant) in &mut ant_q {
         if ant.health == 0. && !matches!(ant.action, Action::Die(_)) {
             let player = players.get_mut(ant.team);
@@ -417,22 +422,26 @@ pub fn resolve_death(
             commands.entity(ant_e).insert(Corpse);
             selection.0.remove(&ant_e);
 
-            ant.action = Action::Die(Timer::from_seconds(
-                DEATH_TIME
-                    * if player.has_trait(&Trait::Corpses) {
-                        2.
-                    } else {
-                        1.
-                    },
-                TimerMode::Once,
-            ));
-
-            // Place corpses behind all other ants
-            ant_t.translation.z = ANT_Z_SCORE;
+            let mut death_time = DEATH_TIME
+                * if player.has_trait(&Trait::Corpses) {
+                    2.
+                } else {
+                    1.
+                };
 
             if ant.kind == Ant::Queen && ant.team == players.main_id() {
                 play_audio_ev.send(PlayAudioEv::new("defeat"));
+
+                // The last queen despawns fast to not wait long for the end-game state
+                if n_queens == 1 {
+                    death_time = 2.;
+                }
             }
+
+            ant.action = Action::Die(Timer::from_seconds(death_time, TimerMode::Once));
+
+            // Place corpses behind all other ants
+            ant_t.translation.z = ANT_Z_SCORE;
         }
     }
 

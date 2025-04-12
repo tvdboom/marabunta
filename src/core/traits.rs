@@ -75,8 +75,8 @@ impl TraitCmp {
                 kind: Trait::Corpses,
                 image: "corpses".to_string(),
                 description: "\
-                    Corpses lie twice as long on the ground, allowing more nutrient collection \
-                    and the healing of your ants."
+                    Corpses of your ants lie twice as long on the ground, allowing more nutrient \
+                    collection and the healing of your ants."
                     .to_string(),
             },
             Trait::DoubleQueen => Self {
@@ -164,8 +164,7 @@ impl TraitCmp {
                 kind: Trait::Necromancer,
                 image: "necromancer".to_string(),
                 description: "\
-                    All the current corpses of your ants come back to live with full health. \
-                    This includes the queen if you were about to lose the game!"
+                    All the current corpses of your ants come back to live with full health."
                     .to_string(),
             },
             Trait::ScorpionKiller => Self {

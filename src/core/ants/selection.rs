@@ -82,7 +82,7 @@ pub fn select_loc_on_click(
     trigger: Trigger<Pointer<Click>>,
     mut ant_q: Query<(&Transform, &mut AntCmp)>,
     players: Res<Players>,
-    map: Res<Map>,
+    mut map: ResMut<Map>,
     mut selection: ResMut<AntSelection>,
     mut play_audio_ev: EventWriter<PlayAudioEv>,
     game_state: Res<State<GameState>>,
@@ -112,17 +112,30 @@ pub fn select_loc_on_click(
 
             let loc = map.get_loc(&cursor.extend(0.));
             let tile = map.get_tile(loc.x, loc.y).unwrap();
-            if tile.explored.contains(&players.main_id()) && map.is_walkable(&loc) {
+
+            // Accept location when the tile is walkable and explored or when the
+            // player can walk to it (not always the same as explored for fow=half)
+            // Check if the player can walk to it with the first ant in the selection only
+            let current_loc = map.get_loc(
+                &ant_q
+                    .get(*selection.0.iter().next().unwrap())
+                    .unwrap()
+                    .0
+                    .translation,
+            );
+
+            if map.is_walkable(&loc)
+                && (tile.explored.contains(&player.id)
+                    || map.shortest_path_option(&current_loc, &loc).is_some())
+            {
                 for ant_e in selection.0.iter() {
                     if let Ok((_, mut ant)) = ant_q.get_mut(*ant_e) {
                         // The queen cannot be ordered around except when wandering
-                        if ant.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
-                            continue;
+                        if ant.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
+                            ant.command = Some(Behavior::ProtectLoc(loc));
+                            ant.action = Action::Walk(loc);
+                            success = true;
                         }
-
-                        ant.command = Some(Behavior::ProtectLoc(loc));
-                        ant.action = Action::Walk(loc);
-                        success = true;
                     }
                 }
             } else {
@@ -176,18 +189,16 @@ pub fn select_leaf_on_click(
             // Workers go harvest the leaf; the rest protects the location
             for ant_e in selection.0.iter() {
                 if let Ok(mut sel) = ant_q.get_mut(*ant_e) {
-                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
-                        continue;
-                    }
-
-                    if sel.kind == Ant::Worker {
-                        sel.command = Some(Behavior::Harvest(leaf_e));
-                        sel.action = Action::Walk(loc);
-                        success = true;
-                    } else {
-                        sel.command = Some(Behavior::ProtectLoc(loc));
-                        sel.action = Action::Walk(loc);
-                        success = true;
+                    if sel.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
+                        if sel.kind == Ant::Worker {
+                            sel.command = Some(Behavior::Harvest(leaf_e));
+                            sel.action = Action::Walk(loc);
+                            success = true;
+                        } else {
+                            sel.command = Some(Behavior::ProtectLoc(loc));
+                            sel.action = Action::Walk(loc);
+                            success = true;
+                        }
                     }
                 }
             }
@@ -228,21 +239,19 @@ pub fn select_egg_on_click(
             for sel_e in selection.0.iter() {
                 if let Ok((_, _, mut sel)) = ant_q.get_mut(*sel_e) {
                     // The queen cannot be ordered around except when wandering
-                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
-                        continue;
-                    }
+                    if sel.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
+                        if egg.team != player.id {
+                            // If clicked on an enemy, attack it
+                            sel.command = Some(Behavior::Attack);
+                            sel.action = Action::TargetedWalk(egg_e);
+                        } else {
+                            // If clicked on an ally, protect it
+                            sel.command = Some(Behavior::ProtectAnt(egg_e));
+                            sel.action = Action::TargetedWalk(egg_e);
+                        }
 
-                    if egg.team != player.id {
-                        // If clicked on an enemy, attack it
-                        sel.command = Some(Behavior::Attack);
-                        sel.action = Action::TargetedWalk(egg_e);
-                    } else {
-                        // If clicked on an ally, protect it
-                        sel.command = Some(Behavior::ProtectAnt(egg_e));
-                        sel.action = Action::TargetedWalk(egg_e);
+                        success = true;
                     }
-
-                    success = true;
                 }
             }
 
@@ -325,39 +334,38 @@ pub fn select_ant_on_click(
             for sel_e in selection.0.iter() {
                 if let Ok((_, _, mut sel)) = ant_q.get_mut(*sel_e) {
                     // The queen cannot be ordered around except when wandering
-                    if sel.kind == Ant::Queen && !player.has_trait(&Trait::WanderingQueen) {
-                        continue;
-                    }
+                    if sel.kind != Ant::Queen || player.has_trait(&Trait::WanderingQueen) {
+                        // Skip commands onto himself
+                        if ant_e != *sel_e {
+                            if ant.health == 0. {
+                                // If clicked on a corpse, go harvest it or protect the location
+                                if sel.kind == Ant::Worker {
+                                    sel.command = Some(Behavior::HarvestCorpse(ant_e));
+                                    sel.action = Action::TargetedWalk(ant_e);
+                                } else {
+                                    sel.command = Some(Behavior::ProtectLoc(loc));
+                                    sel.action = Action::Walk(loc);
+                                }
 
-                    // Skip commands onto himself
-                    if ant_e != *sel_e {
-                        if ant.health == 0. {
-                            // If clicked on a corpse, go harvest it or protect the location
-                            if sel.kind == Ant::Worker {
-                                sel.command = Some(Behavior::HarvestCorpse(ant_e));
-                                sel.action = Action::TargetedWalk(ant_e);
+                                success = true;
+                            } else if ant.team != player.id {
+                                // If clicked on an enemy, attack it if reachable
+                                if map
+                                    .get_tile(loc.x, loc.y)
+                                    .unwrap()
+                                    .explored
+                                    .contains(&player.id)
+                                {
+                                    sel.command = Some(Behavior::Attack);
+                                    sel.action = Action::TargetedWalk(ant_e);
+                                    success = true;
+                                }
                             } else {
-                                sel.command = Some(Behavior::ProtectLoc(loc));
-                                sel.action = Action::Walk(loc);
-                            }
-                            success = true;
-                        } else if ant.team != player.id {
-                            // If clicked on an enemy, attack it if reachable
-                            if map
-                                .get_tile(loc.x, loc.y)
-                                .unwrap()
-                                .explored
-                                .contains(&player.id)
-                            {
-                                sel.command = Some(Behavior::Attack);
+                                // If clicked on an ally, protect it
+                                sel.command = Some(Behavior::ProtectAnt(ant_e));
                                 sel.action = Action::TargetedWalk(ant_e);
                                 success = true;
                             }
-                        } else {
-                            // If clicked on an ally, protect it
-                            sel.command = Some(Behavior::ProtectAnt(ant_e));
-                            sel.action = Action::TargetedWalk(ant_e);
-                            success = true;
                         }
                     }
                 }

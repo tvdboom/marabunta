@@ -23,7 +23,7 @@ pub struct Ip(pub String);
 
 impl Default for Ip {
     fn default() -> Self {
-        Self("192.168.2.8".to_string())
+        Self(get_local_ip().to_string())
     }
 }
 

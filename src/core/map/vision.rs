@@ -1,4 +1,4 @@
-use crate::core::ants::components::{AntCmp, Egg, Owned};
+use crate::core::ants::components::{AntCmp, Egg};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::events::{LeafCmp, SpawnTileEv};
 use crate::core::map::map::Map;
@@ -13,8 +13,8 @@ use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
 
 pub fn update_vision(
-    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp), With<Owned>>,
-    mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), (With<Owned>, Without<AntCmp>)>,
+    mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
+    mut egg_q: Query<(Entity, &Transform, &mut Visibility, &Egg), Without<AntCmp>>,
     mut tile_q: Query<(Entity, &mut Sprite, &Tile)>,
     mut leaf_q: Query<&mut Sprite, (With<LeafCmp>, Without<Tile>)>,
     children_q: Query<&Children>,
