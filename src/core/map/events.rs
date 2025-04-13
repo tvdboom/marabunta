@@ -51,7 +51,11 @@ fn _spawn_tile(
                 ..default()
             },
             Transform {
-                translation: pos.extend(TILE_Z_SCORE),
+                translation: pos.extend(if tile.is_soil() {
+                    TILE_Z_SCORE + 0.2 // On top of the base
+                } else {
+                    TILE_Z_SCORE
+                }),
                 rotation: Quat::from_rotation_z((-tile.rotation as f32).to_radians()),
                 ..default()
             },
@@ -143,7 +147,7 @@ pub fn spawn_tile_event(
                 commands.entity(tile_e).despawn_recursive();
 
                 // Delete the cache entries from the map that contain this tile
-                map.cache.invalidate(tile);
+                map.cache.invalidate(&(tile_c.x, tile_c.y));
 
                 _spawn_tile(
                     &mut commands,
@@ -154,14 +158,14 @@ pub fn spawn_tile_event(
                     &assets,
                 );
 
-                server_send_message.send(ServerSendMessage {
-                    message: ServerMessage::TileUpdate(tile.clone()),
-                    client: None,
-                });
-
-                client_send_message.send(ClientSendMessage {
-                    message: ClientMessage::TileUpdate(tile.clone()),
-                });
+                // server_send_message.send(ServerSendMessage {
+                //     message: ServerMessage::TileUpdate(tile.clone()),
+                //     client: None,
+                // });
+                //
+                // client_send_message.send(ClientSendMessage {
+                //     message: ClientMessage::TileUpdate(tile.clone()),
+                // });
             }
         } else if let Some(pos) = pos {
             _spawn_tile(&mut commands, &tile, *pos, alpha, &background, &assets);

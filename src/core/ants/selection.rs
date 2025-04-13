@@ -93,7 +93,9 @@ pub fn select_loc_on_click(
     camera: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
 ) {
-    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused)
+        || selection.0.is_empty()
+    {
         return;
     }
 
@@ -179,7 +181,9 @@ pub fn select_leaf_on_click(
     selection: Res<AntSelection>,
     game_state: Res<State<GameState>>,
 ) {
-    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused)
+        || selection.0.is_empty()
+    {
         return;
     }
 
@@ -244,7 +248,9 @@ pub fn select_egg_on_click(
     selection: Res<AntSelection>,
     game_state: Res<State<GameState>>,
 ) {
-    if !matches!(*game_state.get(), GameState::Running | GameState::Paused) {
+    if !matches!(*game_state.get(), GameState::Running | GameState::Paused)
+        || selection.0.is_empty()
+    {
         return;
     }
 

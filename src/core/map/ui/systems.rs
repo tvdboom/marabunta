@@ -1,5 +1,6 @@
 use crate::core::ants::components::{Animation, AnimationCmp, Ant, AntCmp};
 use crate::core::ants::events::QueueAntEv;
+use crate::core::ants::selection::AntSelection;
 use crate::core::assets::WorldAssets;
 use crate::core::constants::{BUTTON_TEXT_SIZE, MAX_QUEUE_LENGTH, TITLE_TEXT_SIZE};
 use crate::core::map::systems::MapCmp;
@@ -12,6 +13,7 @@ use bevy::prelude::*;
 use rand::prelude::IteratorRandom;
 use rand::rng;
 use strum::IntoEnumIterator;
+
 #[derive(Component)]
 pub struct UiCmp;
 
@@ -429,6 +431,7 @@ pub fn update_ui(
         Without<QueueLarvaCmp>,
     >,
     players: Res<Players>,
+    selection: Res<AntSelection>,
     assets: Local<WorldAssets>,
 ) {
     let player = players.main();
@@ -439,13 +442,26 @@ pub fn update_ui(
 
     // Update the colony labels
     for (mut text, colony) in colony_q.iter_mut() {
-        text.0 = format!(
-            "{}",
+        text.0 = if selection.0.is_empty() {
             ant_q
                 .iter()
                 .filter(|a| a.kind == colony.0 && a.team == players.main_id() && a.health > 0.)
                 .count()
-        );
+                .to_string()
+        } else {
+            selection
+                .0
+                .iter()
+                .filter(|a| {
+                    if let Ok(a) = ant_q.get(**a) {
+                        a.kind == colony.0 && a.team == players.main_id() && a.health > 0.
+                    } else {
+                        false
+                    }
+                })
+                .count()
+                .to_string()
+        }
     }
 
     // Hide the larva if the queue is empty

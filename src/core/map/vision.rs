@@ -40,23 +40,20 @@ pub fn update_vision(
             });
 
         // Add stone tiles with 2 or more revealed neighbors to the list
-        tile_q
-            .iter()
-            .filter(|(_, _, t)| t.has_stone)
-            .for_each(|(_, _, t)| {
-                let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                    .iter()
-                    .filter(|(dx, dy)| {
-                        let nx = t.x as i32 + dx;
-                        let ny = t.y as i32 + dy;
-                        nx >= 0 && ny >= 0 && player.visible_tiles.contains(&(nx as u32, ny as u32))
-                    })
-                    .count();
+        map.tiles.iter().filter(|t| t.has_stone).for_each(|t| {
+            let visible_neighbors = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+                .iter()
+                .filter(|(dx, dy)| {
+                    let nx = t.x as i32 + dx;
+                    let ny = t.y as i32 + dy;
+                    nx >= 0 && ny >= 0 && player.visible_tiles.contains(&(nx as u32, ny as u32))
+                })
+                .count();
 
-                if visible_neighbors >= 2 {
-                    player.visible_tiles.insert((t.x, t.y));
-                }
-            });
+            if visible_neighbors >= 2 {
+                player.visible_tiles.insert((t.x, t.y));
+            }
+        });
 
         // Add the exploration marker
         map.tiles

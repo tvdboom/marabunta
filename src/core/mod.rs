@@ -291,13 +291,13 @@ impl Plugin for GamePlugin {
                     (update_vision, spawn_tile_event)
                         .chain()
                         .run_if(not(in_state(GameState::EndGame))),
-                    select_trait_event,
-                    (spawn_egg_event, despawn_ant_event, damage_event).in_set(InRunningGameSet),
-                    spawn_ant_event
-                        .run_if(
-                            in_state(GameState::AfterTraitSelection)
-                                .or(in_state(GameState::Running)),
-                        )
+                    (
+                        select_trait_event,
+                        spawn_egg_event,
+                        spawn_ant_event,
+                        despawn_ant_event,
+                        damage_event,
+                    )
                         .in_set(InGameSet),
                     (queue_ant_event, spawn_pin_event).in_set(InRunningOrPausedGameSet),
                 ),

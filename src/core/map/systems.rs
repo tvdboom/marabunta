@@ -7,7 +7,6 @@ use crate::core::game_settings::GameSettings;
 use crate::core::map::events::SpawnTileEv;
 use crate::core::map::map::Map;
 use crate::core::map::tile::Tile;
-use crate::core::menu::settings::FogOfWar;
 use crate::core::persistence::GameLoaded;
 use crate::core::player::{Player, Players};
 use bevy::prelude::*;
@@ -87,25 +86,20 @@ pub fn draw_map(
             if real_tile.texture_index == 9 {
                 let player = players.get(*real_tile.explored.iter().next().unwrap());
 
-                if player.id == players.main_id() || game_settings.fog_of_war != FogOfWar::Full {
-                    commands.spawn((
-                        Sprite {
-                            image: assets.image("base"),
-                            custom_size: Some(Vec2::splat(Tile::SIZE + 20.)),
-                            ..default()
-                        },
-                        Transform {
-                            translation: Vec3::new(
-                                pos.x + Tile::SIZE * 0.5,
-                                pos.y - Tile::SIZE * 0.5,
-                                TILE_Z_SCORE + 0.1,
-                            ),
-                            ..default()
-                        },
-                        PickingBehavior::IGNORE,
-                        MapCmp,
-                    ));
-                }
+                commands.spawn((
+                    Sprite {
+                        image: assets.image("base"),
+                        custom_size: Some(Vec2::splat(Tile::SIZE + 20.)),
+                        ..default()
+                    },
+                    Transform::from_translation(Vec3::new(
+                        pos.x + Tile::SIZE * 0.5,
+                        pos.y - Tile::SIZE * 0.5,
+                        TILE_Z_SCORE + 0.1,
+                    )),
+                    PickingBehavior::IGNORE,
+                    MapCmp,
+                ));
 
                 // Skip spawning the queen when loading a game
                 if loaded.is_none() && (player.id == players.main_id() || player.is_npc()) {

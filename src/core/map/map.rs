@@ -51,10 +51,10 @@ impl PathCache {
         self.paths.insert(key, path);
     }
 
-    pub fn invalidate(&mut self, tile: &Tile) {
-        if let Some(keys) = self.nodes.get(&(tile.x, tile.y)) {
-            for key in keys.iter() {
-                self.paths.remove(key);
+    pub fn invalidate(&mut self, key: &(u32, u32)) {
+        if let Some(keys) = self.nodes.get(key) {
+            for k in keys.iter() {
+                self.paths.remove(k);
             }
         }
     }
@@ -209,6 +209,7 @@ impl Map {
                     let tile = self
                         .get_tile(x - Self::OFFSET.x, y - Self::OFFSET.y)
                         .unwrap();
+
                     if *fow != FogOfWar::Full || tile.explored.contains(&id) {
                         tile.clone()
                     } else {
