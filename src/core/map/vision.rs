@@ -11,6 +11,7 @@ use bevy::color::Color;
 use bevy::hierarchy::Children;
 use bevy::prelude::*;
 use bevy::utils::hashbrown::HashSet;
+use crate::core::constants::NO_VISION_COLOR;
 
 pub fn update_vision(
     mut ant_q: Query<(Entity, &mut Transform, &mut Visibility, &AntCmp)>,
@@ -74,6 +75,7 @@ pub fn update_vision(
         if player.is_human() {
             if game_settings.fog_of_war != FogOfWar::Full {
                 // Spawn all tiles to keep the map up to date
+                // (only changed tiles are actually spawned and send over the network)
                 map.tiles.iter().for_each(|tile| {
                     spawn_tile_ev.send(SpawnTileEv {
                         tile: tile.clone(),
@@ -99,7 +101,7 @@ pub fn update_vision(
                     let color = if player.visible_tiles.contains(&(tile.x, tile.y)) {
                         Color::WHITE
                     } else {
-                        Color::srgba(1., 1., 1., 0.5)
+                        NO_VISION_COLOR
                     };
 
                     sprite.color = color;

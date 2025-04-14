@@ -1,7 +1,7 @@
 use crate::core::ants::components::TeamCmp;
 use crate::core::ants::selection::{select_leaf_on_click, select_loc_on_click};
 use crate::core::assets::WorldAssets;
-use crate::core::constants::{LEAF_TEAM, NON_MAP_ID, TILE_Z_SCORE};
+use crate::core::constants::{LEAF_TEAM, NON_MAP_ID, NO_VISION_COLOR, TILE_Z_SCORE};
 use crate::core::game_settings::GameSettings;
 use crate::core::map::map::Map;
 use crate::core::map::systems::MapCmp;
@@ -32,7 +32,7 @@ fn _spawn_tile(
     commands: &mut Commands,
     tile: &Tile,
     pos: Vec2,
-    alpha: f32,
+    color: Color,
     background: &Background,
     assets: &Local<WorldAssets>,
 ) {
@@ -43,7 +43,7 @@ fn _spawn_tile(
             Sprite {
                 image: texture.image,
                 custom_size: Some(Vec2::splat(Tile::SIZE)),
-                color: Color::srgba(1., 1., 1., alpha),
+                color,
                 texture_atlas: Some(TextureAtlas {
                     layout: texture.layout,
                     index: tile.texture_index,
@@ -125,13 +125,13 @@ pub fn spawn_tile_event(
             Background::Soil
         };
 
-        let alpha = if *app_state.get() != AppState::Game
+        let color = if *app_state.get() != AppState::Game
             || (game_settings.fog_of_war != FogOfWar::None
                 && !players.main().visible_tiles.contains(&(tile.x, tile.y)))
         {
-            0.5
+            NO_VISION_COLOR
         } else {
-            1.
+            Color::WHITE
         };
 
         // Check if there already exists a tile at the same position
@@ -153,22 +153,29 @@ pub fn spawn_tile_event(
                     &mut commands,
                     &tile,
                     Map::get_coord_from_xy(tile_c.x, tile_c.y),
-                    alpha,
+                    color,
                     &background,
                     &assets,
                 );
 
-                // server_send_message.send(ServerSendMessage {
-                //     message: ServerMessage::TileUpdate(tile.clone()),
-                //     client: None,
-                // });
-                //
-                // client_send_message.send(ClientSendMessage {
-                //     message: ClientMessage::TileUpdate(tile.clone()),
-                // });
+                // Only send tiles that are visible by the player or a npc
+                for player in players.0.iter().filter(|p| p.id == players.main_id() || p.is_npc()) {
+                    if player.visible_tiles.contains(&(tile_c.x, tile_c.y)) {
+                        server_send_message.send(ServerSendMessage {
+                            message: ServerMessage::TileUpdate(tile.clone()),
+                            client: None,
+                        });
+
+                        client_send_message.send(ClientSendMessage {
+                            message: ClientMessage::TileUpdate(tile.clone()),
+                        });
+
+                        break;
+                    }
+                }
             }
         } else if let Some(pos) = pos {
-            _spawn_tile(&mut commands, &tile, *pos, alpha, &background, &assets);
+            _spawn_tile(&mut commands, &tile, *pos, color, &background, &assets);
         }
     }
 }

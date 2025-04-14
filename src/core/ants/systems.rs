@@ -169,7 +169,7 @@ pub fn resolve_digging(
                 // Possibly spawn a scorpion on the newly dug tile (only for players)
                 if ants.iter().all(|(_, a)| a.team == players.main_id()) {
                     if let Some(enemy) = match rng().random::<f32>() {
-                        0.95..0.99 => Some(Ant::BlackScorpion),
+                        0.96..0.99 => Some(Ant::BlackScorpion),
                         0.99..1. => Some(Ant::YellowScorpion),
                         _ => None,
                     } {
