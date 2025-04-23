@@ -15,6 +15,12 @@ pub fn get_local_ip() -> IpAddr {
     socket.local_addr().ok().map(|addr| addr.ip()).unwrap()
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn get_local_ip() -> IpAddr {
+    // WebAssembly in browsers cannot access local network interfaces
+    "127.0.0.1".parse().unwrap()
+}
+
 /// Helper function to extract only the variant name (removes tuple/struct fields)
 fn extract_variant_name(text: String) -> String {
     text.split_once('(')
