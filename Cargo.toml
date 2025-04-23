@@ -45,7 +45,7 @@ bincode = "1.3.3"
 # Used by `rand` and requires feture flag for `wasm` target
 getrandom = { version = "0.3.2", features = ["wasm_js"] }
 image = "0.25.6"
-rand = "0.9.0"
+rand = "0.9.1"
 regex = "1.11.1"
 rfd = "0.15.3"
 serde = "1.0.219"

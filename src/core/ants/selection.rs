@@ -14,10 +14,13 @@ use crate::core::player::Players;
 use crate::core::states::GameState;
 use crate::core::traits::Trait;
 use bevy::prelude::*;
-use bevy::utils::hashbrown::HashSet;
+use bevy::utils::hashbrown::{HashMap, HashSet};
 
 #[derive(Resource, Default)]
 pub struct AntSelection(pub HashSet<Entity>);
+
+#[derive(Resource, Default)]
+pub struct GroupSelection(pub HashMap<u8, HashSet<Entity>>);
 
 #[derive(Event)]
 pub struct SelectAntEv {
@@ -466,6 +469,7 @@ pub fn select_ants_from_rect(
 pub fn select_ants_to_res(
     mut select_ant_ev: EventReader<SelectAntEv>,
     mut selection: ResMut<AntSelection>,
+    mut groups: ResMut<GroupSelection>,
     mouse: Res<ButtonInput<MouseButton>>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
@@ -473,6 +477,30 @@ pub fn select_ants_to_res(
         && !keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
     {
         selection.0.clear();
+    }
+
+    for key in keyboard.get_just_released() {
+        let digit = match key {
+            KeyCode::Digit0 => Some(0),
+            KeyCode::Digit1 => Some(1),
+            KeyCode::Digit2 => Some(2),
+            KeyCode::Digit3 => Some(3),
+            KeyCode::Digit4 => Some(4),
+            KeyCode::Digit5 => Some(5),
+            KeyCode::Digit6 => Some(6),
+            KeyCode::Digit7 => Some(7),
+            KeyCode::Digit8 => Some(8),
+            KeyCode::Digit9 => Some(9),
+            _ => None,
+        };
+
+        if let Some(index) = digit {
+            if keyboard.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+                groups.0.insert(index, selection.0.clone());
+            } else {
+                selection.0 = groups.0.get(&index).unwrap_or(&HashSet::new()).clone();
+            }
+        }
     }
 
     for SelectAntEv { entity, clean } in select_ant_ev.read() {

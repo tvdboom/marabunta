@@ -1,6 +1,6 @@
 use crate::core::ants::components::{Ant, AntCmp};
 use crate::core::ants::events::QueueAntEv;
-use crate::core::ants::selection::AntSelection;
+use crate::core::ants::selection::{AntSelection, GroupSelection};
 use crate::core::audio::PlayAudioEv;
 use crate::core::constants::MAX_TRAITS;
 use crate::core::game_settings::GameSettings;
@@ -22,6 +22,7 @@ pub fn initialize_game(mut commands: Commands, mut game_settings: ResMut<GameSet
     commands.insert_resource(Players::default());
     commands.insert_resource(Map::default());
     commands.insert_resource(AntSelection::default());
+    commands.insert_resource(GroupSelection::default());
     commands.insert_resource(EntityMap::default());
     commands.insert_resource(AfterTraitCount::default());
 

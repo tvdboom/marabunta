@@ -222,7 +222,7 @@ pub fn update_ip(
     mut invalid_ip: Local<bool>,
     keyboard: Res<ButtonInput<KeyCode>>,
 ) {
-    for key in keyboard.get_just_pressed() {
+    for key in keyboard.get_just_released() {
         match key {
             KeyCode::Digit0 => ip.0.push('0'),
             KeyCode::Digit1 => ip.0.push('1'),
