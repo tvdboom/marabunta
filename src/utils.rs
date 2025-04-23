@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use std::net::{IpAddr, UdpSocket};
 
 /// Get the local IP address
+#[cfg(not(target_arch = "wasm32"))]
 pub fn get_local_ip() -> IpAddr {
     let socket = UdpSocket::bind("0.0.0.0:0")
         .ok()
